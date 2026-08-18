@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Tabs } from 'expo-router';
-import { ColorValue, Platform, StyleSheet, Text, View } from 'react-native';
+import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
+import { ColorValue, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { colors, spacing, typography } from '@/theme';
 
@@ -25,6 +27,31 @@ function TabIcon({ color, focused, kind }: TabIconProps) {
   );
 }
 
+const webOutlineReset = Platform.select({
+  web: { outlineStyle: 'none' } as unknown as ViewStyle,
+});
+
+function TabBarButton({ children, ref: _ref, style, ...props }: BottomTabBarButtonProps) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Pressable
+      {...props}
+      onBlur={(event) => {
+        setFocused(false);
+        props.onBlur?.(event);
+      }}
+      onFocus={(event) => {
+        const target = event.target as unknown as { matches?: (selector: string) => boolean };
+        setFocused(Platform.OS !== 'web' || target.matches?.(':focus-visible') !== false);
+        props.onFocus?.(event);
+      }}
+      style={[style, webOutlineReset, focused && styles.tabButtonFocused]}>
+      {children}
+    </Pressable>
+  );
+}
+
 export default function TabsLayout() {
   return (
     <Tabs
@@ -35,6 +62,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: styles.tabLabel,
         tabBarStyle: [styles.tabBar, Platform.OS === 'web' && styles.tabBarWeb],
         tabBarItemStyle: styles.tabItem,
+        tabBarButton: (props) => <TabBarButton {...props} />,
       }}>
       <Tabs.Screen
         name="explore"
@@ -74,6 +102,10 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     paddingTop: spacing.xs,
+  },
+  tabButtonFocused: {
+    borderRadius: 8,
+    boxShadow: `inset 0 0 0 1px ${colors.accentPrimary}`,
   },
   tabLabel: {
     fontSize: typography.sizes.caption,
