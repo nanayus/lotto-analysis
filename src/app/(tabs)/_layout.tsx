@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Tabs } from 'expo-router';
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { ColorValue, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, typography } from '@/theme';
+
+const TAB_BAR_CONTENT_HEIGHT = 60;
 
 type TabIconProps = {
   color: ColorValue;
@@ -53,6 +56,8 @@ function TabBarButton({ children, ref: _ref, style, ...props }: BottomTabBarButt
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -60,7 +65,11 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarStyle: [styles.tabBar, Platform.OS === 'web' && styles.tabBarWeb],
+        tabBarStyle: [
+          styles.tabBar,
+          { height: TAB_BAR_CONTENT_HEIGHT + insets.bottom },
+          Platform.OS === 'web' && styles.tabBarWeb,
+        ],
         tabBarItemStyle: styles.tabItem,
         tabBarButton: (props) => <TabBarButton {...props} />,
       }}>
@@ -110,6 +119,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: typography.sizes.caption,
     fontWeight: typography.weights.semibold,
+    lineHeight: 16,
   },
   compass: {
     width: 22,

@@ -57,10 +57,14 @@ function NumberPills({ numbers, compact = false }: { compact?: boolean; numbers:
   );
 }
 
-function SectionCard({ children, title }: { children: React.ReactNode; title: string }) {
+function SectionCard({ children, compact = false, title }: {
+  children: React.ReactNode;
+  compact?: boolean;
+  title: string;
+}) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
+    <View style={[styles.card, compact && styles.cardCompact]}>
+      <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>{title}</Text>
       {children}
     </View>
   );
@@ -93,6 +97,10 @@ export function CombinationResult({
 }: CombinationResultProps) {
   const maxDistribution = Math.max(...Object.values(analysis.matchDistribution), 1);
   const recent = analysis.recentMeaningfulMatch;
+  const bestPrizeRank = PRIZE_RANKS.find((rank) => analysis.prizeCounts[rank] > 0);
+  const bestPrizeMatchCount = bestPrizeRank
+    ? analysis.qualifyingHistory.find((draw) => draw.prizeRank === bestPrizeRank)?.mainMatchCount
+    : null;
   const consecutiveLabel = analysis.shape.consecutiveGroups.length
     ? analysis.shape.consecutiveGroups
       .map((group) => `${formatNumber(group[0])}–${formatNumber(group.at(-1)!)}`)
@@ -133,21 +141,20 @@ export function CombinationResult({
         </Text>
       </View>
 
-      <SectionCard title="한눈에 보기">
+      <SectionCard compact title="한눈에 보기">
         <View style={styles.summaryGrid}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{analysis.highestMainMatch}개</Text>
-            <Text style={styles.summaryLabel}>최고 일치</Text>
+            <Text style={styles.summaryLabel}>최고 등수</Text>
+            <Text style={styles.summaryHero}>{bestPrizeRank ? `${bestPrizeRank}등` : '-'}</Text>
+            {bestPrizeRank && bestPrizeMatchCount ? (
+              <Text style={styles.summarySupport}>{bestPrizeMatchCount}개 일치</Text>
+            ) : null}
           </View>
-          <View style={[styles.summaryItem, styles.summaryDivider]}>
-            <Text style={styles.summaryValue}>{analysis.sameSixCount}회</Text>
-            <Text style={styles.summaryLabel}>동일 조합 출현</Text>
-          </View>
-          <View style={[styles.summaryItem, styles.summaryWide]}>
-            <Text style={styles.summaryValue}>
-              {recent ? `${recent.mainMatchCount}개 · ${recent.round}회` : '기록 없음'}
-            </Text>
-            <Text style={styles.summaryLabel}>최근 3개 이상 일치</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>최근 등수</Text>
+            <Text style={styles.summaryHero}>{recent?.prizeRank ? `${recent.prizeRank}등` : '-'}</Text>
+            {recent?.prizeRank ? <Text style={styles.summarySupport}>{recent.round}회</Text> : null}
           </View>
         </View>
       </SectionCard>
@@ -378,35 +385,41 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.semibold,
     marginBottom: spacing.lg,
   },
+  cardCompact: {
+    paddingVertical: spacing.md,
+  },
+  cardTitleCompact: {
+    marginBottom: spacing.md,
+  },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   summaryItem: {
-    width: '50%',
-    paddingRight: spacing.md,
+    flex: 1,
+    paddingHorizontal: spacing.sm,
   },
   summaryDivider: {
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: colors.divider,
-    paddingLeft: spacing.lg,
+    alignSelf: 'center',
+    width: StyleSheet.hairlineWidth,
+    height: '68%',
+    backgroundColor: colors.divider,
   },
-  summaryWide: {
-    width: '100%',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  summaryValue: {
+  summaryHero: {
     color: colors.highlight,
-    fontSize: typography.sizes.section,
+    fontSize: 24,
     fontWeight: typography.weights.semibold,
+    marginTop: spacing.xs,
+  },
+  summarySupport: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.medium,
+    marginTop: spacing.xs,
   },
   summaryLabel: {
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
-    marginTop: spacing.xs,
   },
   prizeRow: {
     flexDirection: 'row',
