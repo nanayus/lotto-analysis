@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Tabs } from 'expo-router';
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
-import { ColorValue, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
+import { ColorValue, Platform, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, typography } from '@/theme';
@@ -34,11 +35,11 @@ const webOutlineReset = Platform.select({
   web: { outlineStyle: 'none' } as unknown as ViewStyle,
 });
 
-function TabBarButton({ children, ref: _ref, style, ...props }: BottomTabBarButtonProps) {
+function TabBarButton({ children, style, ...props }: BottomTabBarButtonProps) {
   const [focused, setFocused] = useState(false);
 
   return (
-    <Pressable
+    <PlatformPressable
       {...props}
       onBlur={(event) => {
         setFocused(false);
@@ -51,7 +52,7 @@ function TabBarButton({ children, ref: _ref, style, ...props }: BottomTabBarButt
       }}
       style={[style, webOutlineReset, focused && styles.tabButtonFocused]}>
       {children}
-    </Pressable>
+    </PlatformPressable>
   );
 }
 
