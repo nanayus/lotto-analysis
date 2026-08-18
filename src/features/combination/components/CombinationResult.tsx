@@ -60,11 +60,13 @@ function NumberPills({ numbers, compact = false }: { compact?: boolean; numbers:
 function SectionCard({ children, compact = false, title }: {
   children: React.ReactNode;
   compact?: boolean;
-  title: string;
+  title?: string;
 }) {
   return (
     <View style={[styles.card, compact && styles.cardCompact]}>
-      <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>{title}</Text>
+      {title ? (
+        <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>{title}</Text>
+      ) : null}
       {children}
     </View>
   );
@@ -141,7 +143,7 @@ export function CombinationResult({
         </Text>
       </View>
 
-      <SectionCard compact title="한눈에 보기">
+      <SectionCard compact>
         <View style={styles.summaryGrid}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>최고 등수</Text>
@@ -386,10 +388,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   cardCompact: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   cardTitleCompact: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   summaryGrid: {
     flexDirection: 'row',
@@ -397,6 +399,7 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flex: 1,
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
   },
   summaryDivider: {
@@ -407,13 +410,13 @@ const styles = StyleSheet.create({
   },
   summaryHero: {
     color: colors.highlight,
-    fontSize: 24,
+    fontSize: typography.sizes.section,
     fontWeight: typography.weights.semibold,
     marginTop: spacing.xs,
   },
   summarySupport: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.small,
+    fontSize: typography.sizes.caption,
     fontWeight: typography.weights.medium,
     marginTop: spacing.xs,
   },
