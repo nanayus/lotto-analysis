@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AnimatedValue } from '@/components/AnimatedValue';
 import type { TrioDatum } from '@/data/numberAnalytics.types';
@@ -9,9 +9,10 @@ import { SectionHeading } from './SectionHeading';
 type TrioSectionProps = {
   selectedNumber: number;
   trios: readonly TrioDatum[];
+  onSelectNumber: (number: number) => void;
 };
 
-export function TrioSection({ selectedNumber, trios }: TrioSectionProps) {
+export function TrioSection({ onSelectNumber, selectedNumber, trios }: TrioSectionProps) {
   return (
     <View style={styles.section}>
       <SectionHeading title="자주 함께 나온 3개 조합" subtitle="TOP 3" />
@@ -22,11 +23,11 @@ export function TrioSection({ selectedNumber, trios }: TrioSectionProps) {
           <View key={trio.numbers.join('-')} style={styles.row}>
             <View style={styles.numberGroup}>
               {displayNumbers.map((number) => (
-                <View key={number} style={styles.numberCapsule}>
+                <Pressable accessibilityRole="button" key={number} onPress={() => onSelectNumber(number)} style={({pressed}) => [styles.numberCapsule, pressed && styles.pressed]}>
                   <AnimatedValue align="center" height={16} style={styles.number} width="100%">
                     {String(number).padStart(2, '0')}
                   </AnimatedValue>
-                </View>
+                </Pressable>
               ))}
             </View>
             <AnimatedValue align="right" height={16} style={styles.count} width={42}>
@@ -78,6 +79,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.semibold,
     fontVariant: ['tabular-nums'],
   },
+  pressed: { opacity: 0.62 },
   count: {
     color: colors.accentPrimary,
     fontSize: typography.sizes.caption,

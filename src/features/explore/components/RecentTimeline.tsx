@@ -14,6 +14,8 @@ type RecentTimelineProps = {
   hitCount: number;
   periodLabel: string;
   values: readonly DrawHit[];
+  appearanceRounds?: readonly number[];
+  onOpenHistory?: () => void;
 };
 
 type TimelineCellProps = {
@@ -81,7 +83,7 @@ function TimelineCell({
   );
 }
 
-export function RecentTimeline({ hitCount, periodLabel, values }: RecentTimelineProps) {
+export function RecentTimeline({ appearanceRounds = [], hitCount, onOpenHistory, periodLabel, values }: RecentTimelineProps) {
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [hoveredRound, setHoveredRound] = useState<number | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +113,9 @@ export function RecentTimeline({ hitCount, periodLabel, values }: RecentTimeline
   return (
     <View style={styles.section}>
       <SectionHeading title="최근 흐름" subtitle={`${periodLabel} · ${hitCount}회`} />
+      <View style={styles.latestRow}><View style={styles.latestCopy}><Text style={styles.latestLabel}>최근 출현</Text>
+        <Text numberOfLines={1} style={styles.latestRounds}>{appearanceRounds.slice(0, 5).map((round) => `${round}회`).join(' · ') || '출현 기록 없음'}</Text></View>
+        {onOpenHistory ? <Pressable accessibilityRole="button" onPress={onOpenHistory} style={styles.openButton}><Text style={styles.openText}>전체 보기 ›</Text></Pressable> : null}</View>
       <View accessibilityLabel={`${periodLabel} 출현 흐름`} style={styles.timeline}>
         {displayValues.map((item, index) => (
           <TimelineCell
@@ -138,6 +143,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 1,
   },
+  latestRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:spacing.sm,marginBottom:spacing.md},
+  latestCopy:{flex:1},latestLabel:{color:colors.textSecondary,fontSize:typography.sizes.caption,marginBottom:3},latestRounds:{color:colors.textPrimary,fontSize:typography.sizes.caption,fontVariant:['tabular-nums']},openButton:{minHeight:40,justifyContent:'center'},openText:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
   cellTarget: {
     width: 12,
     height: 12,

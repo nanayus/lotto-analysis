@@ -16,6 +16,7 @@ function Harness({ onAnalyze }: { onAnalyze: () => void }) {
   return (
     <NumberSelector
       onAnalyze={onAnalyze}
+      onRandomFill={() => undefined}
       onToggleNumber={toggle}
       selectedNumbers={numbers}
     />

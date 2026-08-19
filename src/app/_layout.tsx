@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { BrandSplash } from '@/components/BrandSplash';
+import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
 import { colors } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
@@ -29,11 +30,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <CombinationDraftProvider>
       <ThemeProvider value={navigationTheme}>
         <StatusBar style="light" />
         <Stack screenOptions={{ animation: 'fade', headerShown: false }} />
         <BrandSplash />
       </ThemeProvider>
+      </CombinationDraftProvider>
     </GestureHandlerRootView>
   );
 }

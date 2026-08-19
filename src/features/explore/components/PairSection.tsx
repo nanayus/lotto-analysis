@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Pressable,
   View,
 } from 'react-native';
 
@@ -17,9 +18,10 @@ import { SectionHeading } from './SectionHeading';
 
 type PairSectionProps = {
   pairs: readonly PairDatum[];
+  onSelectNumber: (number: number) => void;
 };
 
-export function PairSection({ pairs }: PairSectionProps) {
+export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
   const [viewportWidth, setViewportWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
@@ -49,7 +51,7 @@ export function PairSection({ pairs }: PairSectionProps) {
           showsHorizontalScrollIndicator={false}
           testID="pair-horizontal-scroll">
           {pairs.slice(0, 10).map((pair) => (
-            <View key={pair.number} style={styles.item}>
+            <Pressable accessibilityRole="button" key={pair.number} onPress={() => onSelectNumber(pair.number)} style={({pressed}) => [styles.item, pressed && styles.pressed]}>
               <View style={styles.numberCapsule}>
                 <AnimatedValue align="center" height={18} style={styles.number} width="100%">
                   {String(pair.number).padStart(2, '0')}
@@ -58,7 +60,7 @@ export function PairSection({ pairs }: PairSectionProps) {
               <AnimatedValue align="center" height={18} style={styles.count} width="100%">
                 {`${pair.count}회`}
               </AnimatedValue>
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
         {showLeft ? <Text pointerEvents="none" style={[styles.edgeCue, styles.leftCue]}>‹</Text> : null}
@@ -84,6 +86,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  pressed: { opacity: 0.65 },
   numberCapsule: {
     width: 36,
     height: 36,

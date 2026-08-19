@@ -58,9 +58,9 @@ describe('buildAnalyticsSnapshot', () => {
       includeBonus: false,
       period: { kind: 'custom', startRound: 1234, endRound: 9999 },
     });
-    expect(snapshot.activeDrawCount).toBe(3);
+    expect(snapshot.activeDrawCount).toBe(4);
     expect(snapshot.numbers['1'].recent52.map((entry) => entry.round)).toEqual([
-      1234, 1235, 1236,
+      1234, 1235, 1236, 1237,
     ]);
   });
 

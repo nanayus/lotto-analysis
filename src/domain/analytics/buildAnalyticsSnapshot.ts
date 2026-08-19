@@ -20,6 +20,14 @@ const sortedHistoryCache = new WeakMap<
   readonly LottoHistoryDraw[],
   readonly LottoHistoryDraw[]
 >();
+const historyIds = new WeakMap<readonly LottoHistoryDraw[], number>();
+let nextHistoryId = 1;
+
+function historyId(history: readonly LottoHistoryDraw[]) {
+  let id = historyIds.get(history);
+  if (!id) { id = nextHistoryId++; historyIds.set(history, id); }
+  return id;
+}
 
 type NumberAccumulator = {
   count: number;
@@ -78,7 +86,7 @@ export function analyticsFilterKey(filters: AnalysisFilters, history: readonly L
     normalized.period.kind === 'custom'
       ? `custom:${normalized.startRound}:${normalized.endRound}`
       : `preset:${normalized.period.label}`;
-  return `source:${Math.min(...rounds)}:${Math.max(...rounds)}:${history.length}:${periodKey}:bonus:${normalized.includeBonus ? 1 : 0}`;
+  return `source:${historyId(history)}:${Math.min(...rounds)}:${Math.max(...rounds)}:${history.length}:${periodKey}:bonus:${normalized.includeBonus ? 1 : 0}`;
 }
 
 function selectActiveDraws(

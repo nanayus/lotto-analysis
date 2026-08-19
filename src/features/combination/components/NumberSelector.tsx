@@ -4,6 +4,7 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 type NumberSelectorProps = {
   onAnalyze: () => void;
+  onRandomFill: () => void;
   onToggleNumber: (number: number) => void;
   selectedNumbers: number[];
 };
@@ -14,7 +15,7 @@ function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
-export function NumberSelector({ onAnalyze, onToggleNumber, selectedNumbers }: NumberSelectorProps) {
+export function NumberSelector({ onAnalyze, onRandomFill, onToggleNumber, selectedNumbers }: NumberSelectorProps) {
   const ready = selectedNumbers.length === 6;
 
   return (
@@ -34,7 +35,13 @@ export function NumberSelector({ onAnalyze, onToggleNumber, selectedNumbers }: N
         </View>
       </View>
 
-      <Text style={styles.instruction}>분석할 번호 6개를 선택하세요.</Text>
+      <View style={styles.instructionRow}>
+        <Text style={styles.instruction}>분석할 번호 6개를 선택하세요.</Text>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: ready }} disabled={ready}
+          onPress={onRandomFill} style={({ pressed }) => [styles.randomButton, ready && styles.randomDisabled, pressed && styles.numberButtonPressed]}>
+          <Text style={styles.randomText}>랜덤 채우기</Text>
+        </Pressable>
+      </View>
 
       <View accessibilityRole="list" style={styles.numberGrid} testID="combination-number-grid">
         {NUMBERS.map((number) => {
@@ -144,7 +151,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
     marginTop: spacing.xxl,
-    marginBottom: spacing.lg,
+  },
+  instructionRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: spacing.xxl, marginBottom: spacing.lg,
+  },
+  randomButton: {
+    minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
+  },
+  randomDisabled: { opacity: 0.38 },
+  randomText: {
+    color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold,
   },
   numberGrid: {
     flexDirection: 'row',

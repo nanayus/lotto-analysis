@@ -7,7 +7,9 @@ import {
   Text,
   useWindowDimensions,
   View,
+  Pressable,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   Extrapolation,
@@ -21,6 +23,9 @@ import numberAnalyticsJson from '@/data/generated/number-analytics.json';
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { NumberAnalyticsDataset } from '@/data/numberAnalytics.types';
 import { buildAnalyticsSnapshot } from '@/domain/analytics/buildAnalyticsSnapshot';
+import { getNumberAppearanceRounds } from '@/domain/analytics/numberHistory';
+import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
+import { AllNumberComparison } from './components/AllNumberComparison';
 import type {
   AnalysisFilters,
   AnalyticsSnapshot,
@@ -60,6 +65,8 @@ const defaultAnalysisFilters: AnalysisFilters = {
 };
 
 export function ExploreScreen() {
+  const router = useRouter();
+  const draft = useCombinationDraft();
   const { width: windowWidth } = useWindowDimensions();
   const [selectedNumber, setSelectedNumber] = useState(() => randomLottoNumber());
   const [interactionFocus, setInteractionFocus] = useState<InteractionFocus>('IDLE');
@@ -70,6 +77,12 @@ export function ExploreScreen() {
   const analysisStateRef = useRef(analysisState);
   const analyticsSnapshot = analysisState.snapshot;
   const analytics = analyticsSnapshot.numbers[String(selectedNumber)];
+  const recent52Snapshot = buildAnalyticsSnapshot(lottoHistory, {
+    includeBonus: analysisState.includeBonus,
+    period: { kind: 'preset', label: '최근 52회' },
+  });
+  const [detailMode, setDetailMode] = useState<'explore' | 'comparison' | 'history'>('explore');
+  const appearanceRounds = getNumberAppearanceRounds(lottoHistory, selectedNumber, analysisState);
   const commitAnalysisFilters = useCallback((filters: AnalysisFilters) => {
     const nextState: AnalysisState = {
       ...filters,
@@ -154,6 +167,10 @@ export function ExploreScreen() {
     scheduleIdle();
   };
 
+  if (detailMode === 'comparison') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><View style={styles.detailContainer}><AllNumberComparison snapshot={analyticsSnapshot} recent52Snapshot={recent52Snapshot} onBack={() => setDetailMode('explore')} onSelect={(number) => { setSelectedNumber(number); setDetailMode('explore'); }} /></View></SafeAreaView>;
+  if (detailMode === 'history') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><ScrollView contentContainerStyle={styles.historyContent}><Pressable onPress={() => setDetailMode('explore')} style={styles.backButton}><Text style={styles.actionText}>‹ 탐색</Text></Pressable><Text style={styles.historyTitle}>{selectedNumber}번 출현 기록</Text>{appearanceRounds.map((round) => <View key={round} style={styles.historyRow}><Text style={styles.historyRound}>{round}회</Text></View>)}{!appearanceRounds.length && <Text style={styles.unavailable}>선택 범위에 출현 기록이 없습니다.</Text>}</ScrollView></SafeAreaView>;
+  const selectedInDraft = draft.selectedNumbers.includes(selectedNumber);
+  const draftFull = draft.selectedNumbers.length >= 6 && !selectedInDraft;
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.columns} testID={`explore-focus-${interactionFocus.toLowerCase()}`}>
@@ -197,23 +214,31 @@ export function ExploreScreen() {
                   onPeriodChange={changeAnalysisPeriod}
                   period={analysisState.period}
                 />
+                <View style={styles.exploreActions}>
+                  <Pressable accessibilityRole="button" accessibilityState={{disabled:draftFull}} disabled={draftFull} onPress={() => draft.toggleNumber(selectedNumber)} style={[styles.secondaryAction,draftFull&&styles.disabledAction]}><Text style={styles.actionText}>{selectedInDraft ? '✓ 조합에 담김' : '+ 조합에 담기'}</Text></Pressable>
+                  <Pressable accessibilityRole="button" onPress={() => setDetailMode('comparison')} style={styles.secondaryAction}><Text style={styles.actionText}>45개 번호 비교 ›</Text></Pressable>
+                </View>
                 <NumberProfile analytics={analytics} />
                 <RecentTimeline
+                  appearanceRounds={appearanceRounds}
                   hitCount={analytics.recent52Count}
                   periodLabel={analyticsSnapshot.timelineLabel}
                   values={analytics.recent52}
+                  onOpenHistory={() => setDetailMode('history')}
                 />
                 <FrequencyMetrics analytics={analytics} />
-                <PairSection pairs={analytics.topPairs} />
+                <PairSection pairs={analytics.topPairs} onSelectNumber={setSelectedNumber} />
                 <TrioSection
                   selectedNumber={analytics.number}
                   trios={analytics.topTrios.slice(0, 3)}
+                  onSelectNumber={setSelectedNumber}
                 />
               </>
             ) : (
               <Text style={styles.unavailable}>분석 데이터를 불러올 수 없습니다.</Text>
             )}
           </ScrollView>
+          {draft.selectedNumbers.length ? <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/combination')} style={styles.draftBar}><Text style={styles.draftText}>조합 {draft.selectedNumbers.length} / 6</Text><Text style={styles.draftLink}>{draft.selectedNumbers.length === 6 ? '분석하러 가기 ›' : '보기 ›'}</Text></Pressable> : null}
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -254,4 +279,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: spacing.xxxl,
   },
+  detailContainer:{flex:1,width:'100%',maxWidth:500},historyContent:{width:'100%',maxWidth:500,alignSelf:'center',padding:spacing.lg,paddingBottom:spacing.xxxl},backButton:{minHeight:44,justifyContent:'center',alignSelf:'flex-start'},historyTitle:{color:colors.textPrimary,fontSize:typography.sizes.section,fontWeight:typography.weights.semibold,marginVertical:spacing.lg},historyRow:{minHeight:48,justifyContent:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.divider},historyRound:{color:colors.textPrimary,fontSize:typography.sizes.small,fontVariant:['tabular-nums']},
+  exploreActions:{flexDirection:'row',justifyContent:'space-between',gap:spacing.sm,marginTop:spacing.md},secondaryAction:{minHeight:40,justifyContent:'center',paddingHorizontal:spacing.sm,borderRadius:8,borderWidth:1,borderColor:colors.divider,backgroundColor:colors.surface},disabledAction:{opacity:.38},actionText:{color:colors.accentPrimary,fontSize:typography.sizes.caption,fontWeight:typography.weights.medium},draftBar:{position:'absolute',left:spacing.lg,right:spacing.lg,bottom:spacing.md,minHeight:48,paddingHorizontal:spacing.lg,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderRadius:12,borderWidth:1,borderColor:colors.divider,backgroundColor:'#111522'},draftText:{color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},draftLink:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
 });

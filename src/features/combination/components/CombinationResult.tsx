@@ -16,6 +16,7 @@ type CombinationResultProps = {
   onOpenSubCombinations: (size: CombinationSize) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
   onStartOver: () => void;
+  onCompare: () => void;
   period: AnalysisPeriod;
 };
 
@@ -95,6 +96,7 @@ export function CombinationResult({
   onOpenSubCombinations,
   onPeriodChange,
   onStartOver,
+  onCompare,
   period,
 }: CombinationResultProps) {
   const maxDistribution = Math.max(...Object.values(analysis.matchDistribution), 1);
@@ -119,12 +121,12 @@ export function CombinationResult({
           <Text style={styles.eyebrow}>HISTORICAL COMPARISON</Text>
           <Text style={styles.title}>분석 결과</Text>
         </View>
-        <Pressable
+        <View style={styles.topActions}><Pressable accessibilityRole="button" onPress={onCompare} style={({ pressed }) => [styles.compareButton, pressed && styles.pressed]}><Text style={styles.compareText}>다른 조합과 비교</Text></Pressable><Pressable
           accessibilityRole="button"
           onPress={onStartOver}
           style={({ pressed }) => [styles.startOverButton, pressed && styles.pressed]}>
           <Text style={styles.startOverText}>새로하기</Text>
-        </Pressable>
+        </Pressable></View>
       </View>
 
       <View style={styles.selectedHeader}>
@@ -328,6 +330,7 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: colors.surface,
   },
+  topActions:{flexDirection:'row',gap:spacing.xs},compareButton:{minHeight:44,justifyContent:'center',paddingHorizontal:spacing.sm},compareText:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
   startOverText: {
     color: colors.textPrimary,
     fontSize: typography.sizes.small,
