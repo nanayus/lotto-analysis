@@ -15,6 +15,7 @@ export type { AnalysisPeriod } from '@/domain/analytics/types';
 
 type AnalysisControlsProps = {
   bonusIncluded: boolean;
+  compact?: boolean;
   firstRound: number;
   latestRound: number;
   onBonusChange: (included: boolean) => void;
@@ -32,6 +33,7 @@ function periodLabel(period: AnalysisPeriod) {
 
 export function AnalysisControls({
   bonusIncluded,
+  compact = false,
   firstRound,
   latestRound,
   onBonusChange,
@@ -71,13 +73,14 @@ export function AnalysisControls({
   };
 
   return (
-    <View style={styles.controls}>
+    <View style={[styles.controls, compact && styles.controlsCompact]}>
       <Pressable
         accessibilityLabel={`분석 기간 ${periodLabel(period)}`}
         accessibilityRole="button"
         onPress={() => setSelectorVisible(true)}
         style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
         testID="analysis-period-chip">
+        <Text style={styles.chipLabel}>기간</Text>
         <Text numberOfLines={1} style={styles.chipText}>{periodLabel(period)}</Text>
         <Text style={styles.chevron}>⌄</Text>
       </Pressable>
@@ -86,9 +89,17 @@ export function AnalysisControls({
         accessibilityRole="switch"
         accessibilityState={{ checked: bonusIncluded }}
         onPress={() => onBonusChange(!bonusIncluded)}
-        style={({ pressed }) => [styles.chip, styles.bonusChip, pressed && styles.chipPressed]}
+        style={({ pressed }) => [
+          styles.chip,
+          styles.bonusChip,
+          bonusIncluded && styles.bonusChipIncluded,
+          pressed && styles.chipPressed,
+        ]}
         testID="analysis-bonus-chip">
-        <Text style={[styles.chipText, !bonusIncluded && styles.bonusExcluded]}>보너스</Text>
+        <Text style={styles.chipLabel}>보너스</Text>
+        <Text style={[styles.stateText, bonusIncluded && styles.stateTextIncluded]}>
+          {bonusIncluded ? '포함' : '제외'}
+        </Text>
       </Pressable>
 
       <Modal
@@ -167,8 +178,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingTop: spacing.lg,
   },
+  controlsCompact: {
+    paddingTop: 0,
+  },
   chip: {
-    height: 30,
+    minHeight: 36,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -179,8 +193,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   bonusChip: {
-    minWidth: 64,
+    minWidth: 88,
     justifyContent: 'center',
+  },
+  bonusChipIncluded: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: '#1B2140',
   },
   chipPressed: {
     opacity: 0.72,
@@ -190,10 +208,17 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.caption,
     fontWeight: typography.weights.medium,
   },
-  bonusExcluded: {
+  chipLabel: {
     color: colors.textSecondary,
-    textDecorationLine: 'line-through',
-    opacity: 0.72,
+    fontSize: typography.sizes.caption,
+  },
+  stateText: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.medium,
+  },
+  stateTextIncluded: {
+    color: colors.highlight,
   },
   chevron: {
     color: colors.textSecondary,

@@ -21,7 +21,7 @@ export function AllNumberComparison({ onBack, onSelect, recent52Snapshot, snapsh
     <View style={styles.header}><Pressable onPress={onBack} style={styles.back}><Text style={styles.backText}>‹ 탐색</Text></Pressable>
       <Text style={styles.title}>45개 번호 비교</Text></View>
     <View style={styles.chips}>{([['appearance','출현'],['gap','미출현'],['recent52','최근 52회']] as const).map(([key,label]) =>
-      <Pressable key={key} onPress={() => setSort(key)} style={[styles.chip, sort === key && styles.chipActive]}>
+      <Pressable accessibilityRole="button" accessibilityState={{ selected: sort === key }} key={key} onPress={() => setSort(key)} style={[styles.chip, sort === key && styles.chipActive]}>
         <Text style={[styles.chipText, sort === key && styles.chipTextActive]}>{label}</Text></Pressable>)}</View>
     <View style={styles.tableHead}><Text style={styles.rank}>순위</Text><Text style={styles.number}>번호</Text><Text style={styles.metric}>{metric}</Text></View>
     {rows.map((item, index) => <Pressable accessibilityRole="button" key={item.number} onPress={() => onSelect(item.number)} style={styles.row}>

@@ -31,19 +31,6 @@ function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
-function analysisCondition(
-  period: AnalysisPeriod,
-  activeDrawCount: number,
-  bonusIncluded: boolean,
-) {
-  const periodLabel = period.kind === 'custom'
-    ? `${period.startRound}회 ~ ${period.endRound}회`
-    : period.label === '전체'
-      ? `총 ${activeDrawCount}회`
-      : period.label;
-  return `${periodLabel} · 보너스 ${bonusIncluded ? '포함' : '제외'}`;
-}
-
 function NumberPills({ numbers, compact = false }: { compact?: boolean; numbers: number[] }) {
   return (
     <View style={styles.numberPills}>
@@ -121,55 +108,66 @@ export function CombinationResult({
           <Text style={styles.eyebrow}>HISTORICAL COMPARISON</Text>
           <Text style={styles.title}>분석 결과</Text>
         </View>
-        <View style={styles.topActions}><Pressable accessibilityRole="button" onPress={onCompare} style={({ pressed }) => [styles.compareButton, pressed && styles.pressed]}><Text style={styles.compareText}>다른 조합과 비교</Text></Pressable><Pressable
+        <Pressable
+          accessibilityLabel="새 조합 분석"
           accessibilityRole="button"
           onPress={onStartOver}
           style={({ pressed }) => [styles.startOverButton, pressed && styles.pressed]}>
+          <Text style={styles.startOverIcon}>＋</Text>
           <Text style={styles.startOverText}>새로하기</Text>
-        </Pressable></View>
+        </Pressable>
       </View>
 
-      <View style={styles.selectedHeader}>
-        <Text style={styles.sectionCaption}>내 번호</Text>
-        <NumberPills numbers={analysis.numbers} />
+      <View style={styles.conditionRow}>
+        <Text style={styles.conditionLabel}>분석 조건</Text>
         <AnalysisControls
           bonusIncluded={bonusIncluded}
+          compact
           firstRound={firstRound}
           latestRound={latestRound}
           onBonusChange={onBonusChange}
           onPeriodChange={onPeriodChange}
           period={period}
         />
-        <Text style={styles.filterDescription}>
-          {analysisCondition(period, analysis.activeDrawCount, bonusIncluded)}
-        </Text>
       </View>
 
-      <SectionCard compact>
+      <View style={styles.selectedHeader}>
+        <Text style={styles.sectionCaption}>내 번호</Text>
+        <NumberPills numbers={analysis.numbers} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={onCompare}
+          style={({ pressed }) => [styles.compareButton, pressed && styles.pressed]}>
+          <Text style={styles.compareText}>다른 조합과 비교하기</Text>
+          <Text style={styles.compareChevron}>›</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.summaryCard}>
         <View style={styles.summaryGrid}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>최고 등수</Text>
-            <Text style={styles.summaryHero}>{bestPrizeRank ? `${bestPrizeRank}등` : '-'}</Text>
+            <Text style={styles.summaryLabel}>과거 최고 일치</Text>
+            <Text style={styles.summaryHero}>{bestPrizeRank ? `${bestPrizeRank}등 상당` : '-'}</Text>
             {bestPrizeRank && bestPrizeMatchCount ? (
               <Text style={styles.summarySupport}>{bestPrizeMatchCount}개 일치</Text>
             ) : null}
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>최근 등수</Text>
-            <Text style={styles.summaryHero}>{recent?.prizeRank ? `${recent.prizeRank}등` : '-'}</Text>
+            <Text style={styles.summaryLabel}>가장 최근 일치</Text>
+            <Text style={styles.summaryHero}>{recent?.prizeRank ? `${recent.prizeRank}등 상당` : '-'}</Text>
             {recent?.prizeRank ? <Text style={styles.summarySupport}>{recent.round}회</Text> : null}
           </View>
         </View>
-      </SectionCard>
+      </View>
 
-      <SectionCard title="과거 등수 기록">
+      <SectionCard title="과거 일치 등급 기록">
         <View style={styles.prizeRow}>
           {PRIZE_RANKS.map((rank, index) => {
             const disabled = analysis.prizeCounts[rank] === 0;
             return (
               <Pressable
-                accessibilityLabel={`${rank}등 기록 ${analysis.prizeCounts[rank]}회`}
+                accessibilityLabel={`${rank}등 상당 기록 ${analysis.prizeCounts[rank]}회`}
                 accessibilityRole="button"
                 accessibilityState={{ disabled }}
                 disabled={disabled}
@@ -188,7 +186,7 @@ export function CombinationResult({
             );
           })}
         </View>
-        <Text style={styles.cardNote}>과거 당첨번호와 비교한 결과입니다.</Text>
+        <Text style={styles.cardNote}>과거 당첨번호와 비교한 등급 상당 기록입니다.</Text>
         <DetailButton label="전체 기록 보기" onPress={onOpenHistory} />
       </SectionCard>
 
@@ -307,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.lg,
   },
   eyebrow: {
     color: colors.textSecondary,
@@ -321,8 +319,9 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.semibold,
   },
   startOverButton: {
-    minWidth: 72,
-    minHeight: 44,
+    minWidth: 88,
+    height: 38,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
@@ -330,19 +329,52 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: colors.surface,
   },
-  topActions:{flexDirection:'row',gap:spacing.xs},compareButton:{minHeight:44,justifyContent:'center',paddingHorizontal:spacing.sm},compareText:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
+  startOverIcon: {
+    color: colors.highlight,
+    fontSize: typography.sizes.body,
+    marginRight: spacing.xs,
+  },
   startOverText: {
-    color: colors.textPrimary,
+    color: colors.highlight,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+  },
+  conditionRow: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  conditionLabel: {
+    color: colors.textSecondary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
   },
   selectedHeader: {
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  compareButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  compareText: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.medium,
+  },
+  compareChevron: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.body,
+    marginLeft: spacing.xs,
   },
   sectionCaption: {
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   numberPills: {
     flexDirection: 'row',
@@ -371,12 +403,6 @@ const styles = StyleSheet.create({
   numberPillTextCompact: {
     fontSize: typography.sizes.caption,
   },
-  filterDescription: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    textAlign: 'right',
-    marginTop: spacing.sm,
-  },
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -396,6 +422,14 @@ const styles = StyleSheet.create({
   cardTitleCompact: {
     marginBottom: spacing.sm,
   },
+  summaryCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: '#35408A',
+    backgroundColor: '#11172D',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -409,13 +443,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: StyleSheet.hairlineWidth,
     height: '68%',
-    backgroundColor: colors.divider,
+    backgroundColor: '#35408A',
   },
   summaryHero: {
     color: colors.highlight,
-    fontSize: typography.sizes.section,
-    fontWeight: typography.weights.semibold,
-    marginTop: spacing.xs,
+    fontSize: typography.sizes.title,
+    fontWeight: typography.weights.bold,
+    marginTop: spacing.sm,
   },
   summarySupport: {
     color: colors.textSecondary,

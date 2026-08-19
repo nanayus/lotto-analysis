@@ -214,10 +214,6 @@ export function ExploreScreen() {
                   onPeriodChange={changeAnalysisPeriod}
                   period={analysisState.period}
                 />
-                <View style={styles.exploreActions}>
-                  <Pressable accessibilityRole="button" accessibilityState={{disabled:draftFull}} disabled={draftFull} onPress={() => draft.toggleNumber(selectedNumber)} style={[styles.secondaryAction,draftFull&&styles.disabledAction]}><Text style={styles.actionText}>{selectedInDraft ? '✓ 조합에 담김' : '+ 조합에 담기'}</Text></Pressable>
-                  <Pressable accessibilityRole="button" onPress={() => setDetailMode('comparison')} style={styles.secondaryAction}><Text style={styles.actionText}>45개 번호 비교 ›</Text></Pressable>
-                </View>
                 <NumberProfile analytics={analytics} />
                 <RecentTimeline
                   appearanceRounds={appearanceRounds}
@@ -227,6 +223,22 @@ export function ExploreScreen() {
                   onOpenHistory={() => setDetailMode('history')}
                 />
                 <FrequencyMetrics analytics={analytics} />
+                <View style={styles.exploreActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: draftFull, selected: selectedInDraft }}
+                    disabled={draftFull}
+                    onPress={() => draft.toggleNumber(selectedNumber)}
+                    style={[styles.addAction, draftFull && styles.disabledAction]}>
+                    <Text style={styles.addActionText}>
+                      {selectedInDraft ? '✓ 조합에 담김' : '+ 이 번호를 조합에 담기'}
+                    </Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" onPress={() => setDetailMode('comparison')} style={styles.compareAction}>
+                    <Text style={styles.compareActionText}>45개 번호 비교</Text>
+                    <Text style={styles.compareActionChevron}>›</Text>
+                  </Pressable>
+                </View>
                 <PairSection pairs={analytics.topPairs} onSelectNumber={setSelectedNumber} />
                 <TrioSection
                   selectedNumber={analytics.number}
@@ -280,5 +292,5 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxxl,
   },
   detailContainer:{flex:1,width:'100%',maxWidth:500},historyContent:{width:'100%',maxWidth:500,alignSelf:'center',padding:spacing.lg,paddingBottom:spacing.xxxl},backButton:{minHeight:44,justifyContent:'center',alignSelf:'flex-start'},historyTitle:{color:colors.textPrimary,fontSize:typography.sizes.section,fontWeight:typography.weights.semibold,marginVertical:spacing.lg},historyRow:{minHeight:48,justifyContent:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.divider},historyRound:{color:colors.textPrimary,fontSize:typography.sizes.small,fontVariant:['tabular-nums']},
-  exploreActions:{flexDirection:'row',justifyContent:'space-between',gap:spacing.sm,marginTop:spacing.md},secondaryAction:{minHeight:40,justifyContent:'center',paddingHorizontal:spacing.sm,borderRadius:8,borderWidth:1,borderColor:colors.divider,backgroundColor:colors.surface},disabledAction:{opacity:.38},actionText:{color:colors.accentPrimary,fontSize:typography.sizes.caption,fontWeight:typography.weights.medium},draftBar:{position:'absolute',left:spacing.lg,right:spacing.lg,bottom:spacing.md,minHeight:48,paddingHorizontal:spacing.lg,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderRadius:12,borderWidth:1,borderColor:colors.divider,backgroundColor:'#111522'},draftText:{color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},draftLink:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
+  exploreActions:{marginTop:spacing.sm,marginBottom:spacing.xl},addAction:{minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:8,borderWidth:1,borderColor:'#35408A',backgroundColor:'#11172D'},addActionText:{color:colors.highlight,fontSize:typography.sizes.caption,fontWeight:typography.weights.semibold},compareAction:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'center'},compareActionText:{color:colors.textSecondary,fontSize:typography.sizes.caption,fontWeight:typography.weights.medium},compareActionChevron:{color:colors.textSecondary,fontSize:typography.sizes.body,marginLeft:spacing.xs},disabledAction:{opacity:.38},actionText:{color:colors.accentPrimary,fontSize:typography.sizes.caption,fontWeight:typography.weights.medium},draftBar:{position:'absolute',left:spacing.lg,right:spacing.lg,bottom:spacing.md,minHeight:48,paddingHorizontal:spacing.lg,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderRadius:12,borderWidth:1,borderColor:colors.divider,backgroundColor:'#111522'},draftText:{color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},draftLink:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
 });

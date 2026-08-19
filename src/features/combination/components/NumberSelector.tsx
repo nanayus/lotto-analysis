@@ -37,10 +37,14 @@ export function NumberSelector({ onAnalyze, onRandomFill, onToggleNumber, select
 
       <View style={styles.instructionRow}>
         <Text style={styles.instruction}>분석할 번호 6개를 선택하세요.</Text>
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: ready }} disabled={ready}
-          onPress={onRandomFill} style={({ pressed }) => [styles.randomButton, ready && styles.randomDisabled, pressed && styles.numberButtonPressed]}>
-          <Text style={styles.randomText}>랜덤 채우기</Text>
-        </Pressable>
+        {!ready ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRandomFill}
+            style={({ pressed }) => [styles.randomButton, pressed && styles.numberButtonPressed]}>
+            <Text style={styles.randomText}>랜덤 채우기</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View accessibilityRole="list" style={styles.numberGrid} testID="combination-number-grid">
@@ -76,21 +80,23 @@ export function NumberSelector({ onAnalyze, onRandomFill, onToggleNumber, select
         ))}
       </View>
 
-      <View style={styles.selectionSection}>
-        <Text style={styles.sectionLabel}>선택한 번호</Text>
-        <View style={styles.selectionRow}>
-          {Array.from({ length: 6 }, (_, index) => {
-            const number = selectedNumbers[index];
-            return (
-              <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
-                <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
-                  {number ? formatNumber(number) : ''}
-                </Text>
-              </View>
-            );
-          })}
+      {!ready ? (
+        <View style={styles.selectionSection}>
+          <Text style={styles.sectionLabel}>선택한 번호</Text>
+          <View style={styles.selectionRow}>
+            {Array.from({ length: 6 }, (_, index) => {
+              const number = selectedNumbers[index];
+              return (
+                <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
+                  <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
+                    {number ? formatNumber(number) : ''}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -160,7 +166,6 @@ const styles = StyleSheet.create({
     minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.md,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
   },
-  randomDisabled: { opacity: 0.38 },
   randomText: {
     color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold,
   },

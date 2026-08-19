@@ -63,8 +63,8 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
             </Pressable>
           ))}
         </ScrollView>
-        {showLeft ? <Text pointerEvents="none" style={[styles.edgeCue, styles.leftCue]}>‹</Text> : null}
-        {showRight ? <Text pointerEvents="none" style={[styles.edgeCue, styles.rightCue]}>›</Text> : null}
+        {showLeft ? <View pointerEvents="none" style={[styles.edgeCue, styles.leftCue]}><Text style={styles.edgeCueText}>‹</Text></View> : null}
+        {showRight ? <View pointerEvents="none" style={[styles.edgeCue, styles.rightCue]}><Text style={styles.edgeCueText}>›</Text></View> : null}
       </View>
     </View>
   );
@@ -110,13 +110,23 @@ const styles = StyleSheet.create({
   },
   edgeCue: {
     position: 'absolute',
-    top: 8,
-    color: colors.textSecondary,
-    fontSize: 20,
-    opacity: 0.72,
+    top: 4,
+    width: 28,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  edgeCueText: {
+    color: colors.highlight,
+    fontSize: 22,
+    lineHeight: 24,
   },
   leftCue: {
-    left: -6,
+    left: -8,
   },
   rightCue: {
     right: 0,

@@ -62,7 +62,7 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
   const title = mode.kind === 'history'
     ? '전체 기록 보기'
     : mode.kind === 'prizeRank'
-      ? `${mode.rank}등 기록`
+      ? `${mode.rank}등 상당 기록`
       : `${mode.size}개 조합 전체 보기`;
   const historySummary = mode.kind === 'prizeRank'
     ? mode.rank === 2

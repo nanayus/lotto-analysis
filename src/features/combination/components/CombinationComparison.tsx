@@ -13,8 +13,8 @@ export function CombinationComparison({ a, b, bonusIncluded, firstRound, latestR
   onBonusChange:(value:boolean)=>void; onPeriodChange:(period:AnalysisPeriod)=>void; period:AnalysisPeriod;
 }) {
   const rows = [
-    ['최고 등수', bestRank(a) ? `${bestRank(a)}등` : '없음', bestRank(b) ? `${bestRank(b)}등` : '없음'],
-    ['최근 등수', recentRank(a) ? `${recentRank(a)}등` : '없음', recentRank(b) ? `${recentRank(b)}등` : '없음'],
+    ['과거 최고 일치', bestRank(a) ? `${bestRank(a)}등 상당` : '없음', bestRank(b) ? `${bestRank(b)}등 상당` : '없음'],
+    ['가장 최근 일치', recentRank(a) ? `${recentRank(a)}등 상당` : '없음', recentRank(b) ? `${recentRank(b)}등 상당` : '없음'],
     ['평균 출현', `${a.groupFrequency.selectedAverage.toFixed(1)}회`, `${b.groupFrequency.selectedAverage.toFixed(1)}회`],
     ['홀수 : 짝수', `${a.shape.oddCount} : ${a.shape.evenCount}`, `${b.shape.oddCount} : ${b.shape.evenCount}`],
     ['번호 합계', String(a.shape.sum), String(b.shape.sum)], ['연속 번호', consecutive(a), consecutive(b)],
