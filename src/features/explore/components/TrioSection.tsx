@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedValue } from '@/components/AnimatedValue';
 import type { TrioDatum } from '@/data/numberAnalytics.types';
-import { colors, radius, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
 import { SectionHeading } from './SectionHeading';
 
@@ -14,23 +14,41 @@ type TrioSectionProps = {
 
 export function TrioSection({ onSelectNumber, selectedNumber, trios }: TrioSectionProps) {
   return (
-    <View style={styles.section}>
+    <View style={styles.section} testID="trio-analysis-section">
       <SectionHeading title="자주 함께 나온 3개 조합" subtitle="TOP 3" />
       <View style={styles.list}>
-        {trios.map((trio) => {
+        {trios.map((trio, rowIndex) => {
           const displayNumbers = [selectedNumber, ...trio.numbers].sort((a, b) => a - b);
           return (
-          <View key={trio.numbers.join('-')} style={styles.row}>
+          <View
+            key={trio.numbers.join('-')}
+            style={[styles.row, rowIndex > 0 && styles.rowDivider]}
+            testID={`trio-row-${rowIndex + 1}`}>
             <View style={styles.numberGroup}>
-              {displayNumbers.map((number) => (
-                <Pressable accessibilityRole="button" key={number} onPress={() => onSelectNumber(number)} style={({pressed}) => [styles.numberCapsule, pressed && styles.pressed]}>
-                  <AnimatedValue align="center" height={16} style={styles.number} width="100%">
-                    {String(number).padStart(2, '0')}
-                  </AnimatedValue>
-                </Pressable>
-              ))}
+              {displayNumbers.map((number, numberIndex) => {
+                const selected = number === selectedNumber;
+                return (
+                  <View key={number} style={styles.numberItem}>
+                    {numberIndex > 0 ? <Text style={styles.separator}>·</Text> : null}
+                    <Pressable
+                      accessibilityLabel={`${number}번 탐색`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => onSelectNumber(number)}
+                      style={({ pressed }) => [styles.numberAction, pressed && styles.pressed]}>
+                      <AnimatedValue
+                        align="center"
+                        height={20}
+                        style={[styles.number, selected && styles.numberSelected]}
+                        width={24}>
+                        {String(number).padStart(2, '0')}
+                      </AnimatedValue>
+                    </Pressable>
+                  </View>
+                );
+              })}
             </View>
-            <AnimatedValue align="right" height={16} style={styles.count} width={42}>
+            <AnimatedValue align="right" height={20} style={styles.count} width={42}>
               {`${trio.count}회`}
             </AnimatedValue>
           </View>
@@ -43,46 +61,60 @@ export function TrioSection({ onSelectNumber, selectedNumber, trios }: TrioSecti
 
 const styles = StyleSheet.create({
   section: {
-    paddingBottom: spacing.xxxl,
+    marginTop: spacing.xxxl,
+    marginBottom: spacing.xxxl,
+    paddingTop: spacing.xxl,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
   list: {
-    gap: spacing.sm,
+    marginTop: -spacing.xs,
   },
   row: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    paddingRight: spacing.xxl,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: '#171B27',
   },
   numberGroup: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    alignItems: 'center',
   },
-  numberCapsule: {
-    minWidth: 32,
-    height: 28,
-    paddingHorizontal: spacing.xs,
-    borderRadius: radius.round,
+  numberItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  numberAction: {
+    minWidth: 28,
+    minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.divider,
   },
   number: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.caption,
+    fontSize: typography.sizes.small,
     fontWeight: typography.weights.semibold,
     fontVariant: ['tabular-nums'],
+  },
+  numberSelected: {
+    color: colors.accentPrimary,
+    fontWeight: typography.weights.bold,
+  },
+  separator: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
   },
   pressed: { opacity: 0.62 },
   count: {
     color: colors.accentPrimary,
-    fontSize: typography.sizes.caption,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.medium,
     fontVariant: ['tabular-nums'],
   },
 });

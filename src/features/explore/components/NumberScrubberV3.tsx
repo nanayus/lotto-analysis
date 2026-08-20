@@ -86,6 +86,7 @@ export function NumberScrubberV3({
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const initializedRef = useRef(false);
   const webSnapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCommittedNumber = useRef(selectedNumber);
 
   // ScrollView owns the physics. This offset is the single continuous visual source.
@@ -99,6 +100,7 @@ export function NumberScrubberV3({
   const interactionReported = useSharedValue(false);
   const activeEmphasis = useSharedValue(0);
   const isProgrammaticScroll = useSharedValue(false);
+  const programmaticTargetOffset = useSharedValue(-1);
   const frameTimestamp = useTimestamp();
   const reducedMotion = useReducedMotion();
   const continuousValue = useDerivedValue(() => continuousNumberForOffset(scrollOffset.value));
@@ -216,8 +218,44 @@ export function NumberScrubberV3({
       if (webSnapTimerRef.current) {
         clearTimeout(webSnapTimerRef.current);
       }
+      if (programmaticScrollTimerRef.current) {
+        clearTimeout(programmaticScrollTimerRef.current);
+      }
     },
     [],
+  );
+
+  const animateToOffset = useCallback(
+    (offset: number) => {
+      if (programmaticScrollTimerRef.current) {
+        clearTimeout(programmaticScrollTimerRef.current);
+      }
+
+      programmaticTargetOffset.value = offset;
+      isProgrammaticScroll.value = true;
+      scrollRef.current?.scrollTo({ animated: true, y: offset });
+
+      // Native and web normally release the guard when onScroll reaches the target.
+      // This fallback settles exactly at the requested number if smooth scrolling is interrupted.
+      programmaticScrollTimerRef.current = setTimeout(() => {
+        if (programmaticTargetOffset.value !== offset) {
+          return;
+        }
+        scrollOffset.value = offset;
+        previousOffset.value = offset;
+        scrollVelocity.value = 0;
+        scrollRef.current?.scrollTo({ animated: false, y: offset });
+        programmaticTargetOffset.value = -1;
+        isProgrammaticScroll.value = false;
+      }, PROGRAMMATIC_SCROLL_GUARD_MS);
+    }, [
+      isProgrammaticScroll,
+      previousOffset,
+      programmaticTargetOffset,
+      scrollOffset,
+      scrollRef,
+      scrollVelocity,
+    ],
   );
 
   useEffect(() => {
@@ -245,17 +283,18 @@ export function NumberScrubberV3({
     const nextNumber = clampNumber(value);
     lastCommittedNumber.current = nextNumber;
     const offset = scrubberOffsetForNumber(nextNumber);
-    isProgrammaticScroll.value = true;
-    scrollRef.current?.scrollTo({ animated: true, y: offset });
-    setTimeout(() => {
-      isProgrammaticScroll.value = false;
-    }, PROGRAMMATIC_SCROLL_GUARD_MS);
-  }, [isProgrammaticScroll, scrollRef, value]);
+    animateToOffset(offset);
+  }, [animateToOffset, value]);
 
   useAnimatedReaction(
     () => snapNumber(continuousValue.value),
     (nextNumber, previousNumber) => {
-      if (!isReady.value || previousNumber === null || nextNumber === previousNumber) {
+      if (
+        !isReady.value ||
+        isProgrammaticScroll.value ||
+        previousNumber === null ||
+        nextNumber === previousNumber
+      ) {
         return;
       }
 
@@ -298,6 +337,16 @@ export function NumberScrubberV3({
       previousTimestamp.value = frameTimestamp.value;
 
       if (
+        isProgrammaticScroll.value &&
+        programmaticTargetOffset.value >= 0 &&
+        Math.abs(rawOffset - programmaticTargetOffset.value) < 0.5
+      ) {
+        programmaticTargetOffset.value = -1;
+        isProgrammaticScroll.value = false;
+        scrollVelocity.value = withSpring(0, RAIL_RECOVERY_CONFIG);
+      }
+
+      if (
         !isProgrammaticScroll.value &&
         !interactionReported.value &&
         Math.abs(movement) > 0.01
@@ -336,14 +385,30 @@ export function NumberScrubberV3({
     (nextValue: number, animated = true) => {
       const nextNumber = snapNumber(nextValue);
       const offset = scrubberOffsetForNumber(nextNumber);
-      isProgrammaticScroll.value = true;
-      scrollRef.current?.scrollTo({ animated, y: offset });
-      commitNumber(nextNumber, false);
-      setTimeout(() => {
+      if (animated) {
+        animateToOffset(offset);
+      } else {
+        programmaticTargetOffset.value = offset;
+        isProgrammaticScroll.value = true;
+        scrollOffset.value = offset;
+        previousOffset.value = offset;
+        scrollVelocity.value = 0;
+        scrollRef.current?.scrollTo({ animated: false, y: offset });
+        programmaticTargetOffset.value = -1;
         isProgrammaticScroll.value = false;
-      }, animated ? PROGRAMMATIC_SCROLL_GUARD_MS : 0);
+      }
+      commitNumber(nextNumber, false);
     },
-    [commitNumber, isProgrammaticScroll, scrollRef],
+    [
+      animateToOffset,
+      commitNumber,
+      isProgrammaticScroll,
+      previousOffset,
+      programmaticTargetOffset,
+      scrollOffset,
+      scrollRef,
+      scrollVelocity,
+    ],
   );
 
   const onAccessibilityAction = useCallback(

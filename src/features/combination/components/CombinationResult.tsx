@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import type { AnalysisPeriod } from '@/domain/analytics/types';
@@ -13,7 +14,6 @@ type CombinationResultProps = {
   onBonusChange: (included: boolean) => void;
   onOpenHistory: () => void;
   onOpenPrizeRank: (rank: PrizeRank) => void;
-  onOpenSubCombinations: (size: CombinationSize) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
   onStartOver: () => void;
   onCompare: () => void;
@@ -21,54 +21,141 @@ type CombinationResultProps = {
 };
 
 const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
-const MATCH_COUNTS = [6, 5, 4, 3, 2, 1, 0] as const;
 const PRIZE_RANKS = [1, 2, 3, 4, 5] as const;
 const webPointerStyle = Platform.select({
   web: { cursor: 'pointer' } as unknown as ViewStyle,
+});
+const webTabStyle = Platform.select({
+  web: {
+    cursor: 'pointer',
+    outlineStyle: 'none',
+  } as unknown as ViewStyle,
 });
 
 function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
-function NumberPills({ numbers, compact = false }: { compact?: boolean; numbers: number[] }) {
+function NumberPills({ numbers }: { numbers: number[] }) {
   return (
     <View style={styles.numberPills}>
       {numbers.map((number) => (
-        <View key={number} style={[styles.numberPill, compact && styles.numberPillCompact]}>
-          <Text style={[styles.numberPillText, compact && styles.numberPillTextCompact]}>
-            {formatNumber(number)}
-          </Text>
+        <View key={number} style={styles.numberPill}>
+          <Text style={styles.numberPillText}>{formatNumber(number)}</Text>
         </View>
       ))}
     </View>
   );
 }
 
-function SectionCard({ children, compact = false, title }: {
+function SectionCard({ children, title }: {
   children: React.ReactNode;
-  compact?: boolean;
   title?: string;
 }) {
   return (
-    <View style={[styles.card, compact && styles.cardCompact]}>
-      {title ? (
-        <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>{title}</Text>
-      ) : null}
+    <View style={styles.card}>
+      {title ? <Text style={styles.cardTitle}>{title}</Text> : null}
       {children}
     </View>
   );
 }
 
-function DetailButton({ label, onPress }: { label: string; onPress: () => void }) {
+function FrequentCombinations({ analysis }: { analysis: CombinationAnalysis }) {
+  const [activeSize, setActiveSize] = useState<(typeof VISIBLE_COMBINATION_SIZES)[number]>(2);
+  const [focusedSize, setFocusedSize] = useState<CombinationSize | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const combinations = analysis.subCombinations[activeSize];
+  const collapsedCombinations = combinations
+    .filter((item) => item.appearanceCount > 0)
+    .slice(0, 3);
+  const visibleCombinations = expanded ? combinations : collapsedCombinations;
+  const remainingCount = combinations.length - collapsedCombinations.length;
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.detailButton, pressed && styles.pressed]}>
-      <Text style={styles.detailButtonText}>{label}</Text>
-      <Text style={styles.detailChevron}>›</Text>
-    </Pressable>
+    <SectionCard title="자주 나온 조합">
+      <View accessibilityRole="tablist" style={styles.comboTabs}>
+        {VISIBLE_COMBINATION_SIZES.map((size) => {
+          const selected = size === activeSize;
+          return (
+            <Pressable
+              accessibilityLabel={`${size}개 조합`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              key={size}
+              onBlur={() => setFocusedSize(null)}
+              onFocus={(event) => {
+                const target = event.target as unknown as { matches?: (selector: string) => boolean };
+                const focusVisible = Platform.OS !== 'web'
+                  || target.matches?.(':focus-visible') !== false;
+                setFocusedSize(focusVisible ? size : null);
+              }}
+              onPress={() => {
+                setActiveSize(size);
+                setExpanded(false);
+              }}
+              style={({ pressed }) => [
+                styles.comboTab,
+                selected && styles.comboTabSelected,
+                webTabStyle,
+                focusedSize === size && styles.comboTabFocused,
+                pressed && styles.pressed,
+              ]}
+              testID={`combination-size-tab-${size}`}>
+              <Text style={[styles.comboTabText, selected && styles.comboTabTextSelected]}>
+                {size}개
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.comboList}>
+        {visibleCombinations.length ? visibleCombinations.map((item, index) => (
+          <View
+            accessibilityLabel={`${item.numbers.join(', ')} 조합, ${item.appearanceCount}회, ${item.latestRound ? `최근 ${item.latestRound}회` : '최근 기록 없음'}`}
+            accessible
+            key={item.numbers.join('-')}
+            style={[
+              styles.comboRow,
+              index < visibleCombinations.length - 1 && styles.comboRowDivider,
+            ]}
+            testID={`frequent-combination-row-${activeSize}-${item.numbers.join('-')}`}>
+            <Text numberOfLines={1} style={styles.comboNumbers}>
+              {item.numbers.map(formatNumber).join(' · ')}
+            </Text>
+            <View style={styles.comboMetaGroup}>
+              <Text numberOfLines={1} style={[
+                styles.comboCount,
+                item.appearanceCount === 0 && styles.comboCountZero,
+              ]}>
+                {item.appearanceCount}회
+              </Text>
+              <Text numberOfLines={1} style={styles.comboRound}>
+                {item.latestRound ? `최근 ${item.latestRound}회` : '-'}
+              </Text>
+            </View>
+          </View>
+        )) : (
+          <Text style={styles.emptyText}>선택 범위에서 동시 출현 기록이 없습니다.</Text>
+        )}
+        {expanded || remainingCount > 0 ? (
+          <Pressable
+            accessibilityLabel={expanded ? '조합 목록 접기' : `${remainingCount}개 조합 더보기`}
+            accessibilityRole="button"
+            hitSlop={6}
+            onPress={() => setExpanded((current) => !current)}
+            style={({ pressed }) => [
+              styles.comboExpandAction,
+              webPointerStyle,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={styles.comboExpandText}>
+              {expanded ? '접기' : `+ ${remainingCount}개 더보기`}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </SectionCard>
   );
 }
 
@@ -80,23 +167,24 @@ export function CombinationResult({
   onBonusChange,
   onOpenHistory,
   onOpenPrizeRank,
-  onOpenSubCombinations,
   onPeriodChange,
   onStartOver,
   onCompare,
   period,
 }: CombinationResultProps) {
-  const maxDistribution = Math.max(...Object.values(analysis.matchDistribution), 1);
+  const individualNumbers = [...analysis.individualNumbers].sort(
+    (left, right) => right.appearanceCount - left.appearanceCount || left.number - right.number,
+  );
+  const maxIndividualAppearance = Math.max(
+    ...individualNumbers.map((item) => item.appearanceCount),
+    1,
+  );
   const recent = analysis.recentMeaningfulMatch;
-  const bestPrizeRank = PRIZE_RANKS.find((rank) => analysis.prizeCounts[rank] > 0);
-  const bestPrizeMatchCount = bestPrizeRank
-    ? analysis.qualifyingHistory.find((draw) => draw.prizeRank === bestPrizeRank)?.mainMatchCount
-    : null;
   const consecutiveLabel = analysis.shape.consecutiveGroups.length
     ? analysis.shape.consecutiveGroups
-      .map((group) => `${formatNumber(group[0])}–${formatNumber(group.at(-1)!)}`)
+      .map((group) => `${formatNumber(group[0])}‑${formatNumber(group.at(-1)!)}`)
       .join(' · ')
-    : '없음';
+    : '-';
 
   return (
     <ScrollView
@@ -104,22 +192,51 @@ export function CombinationResult({
       showsVerticalScrollIndicator={false}
       testID="combination-result-scroll">
       <View style={styles.topBar}>
-        <View>
-          <Text style={styles.eyebrow}>HISTORICAL COMPARISON</Text>
-          <Text style={styles.title}>분석 결과</Text>
-        </View>
+        <Text style={styles.title}>조합 분석</Text>
         <Pressable
           accessibilityLabel="새 조합 분석"
           accessibilityRole="button"
           onPress={onStartOver}
-          style={({ pressed }) => [styles.startOverButton, pressed && styles.pressed]}>
-          <Text style={styles.startOverIcon}>＋</Text>
-          <Text style={styles.startOverText}>새로하기</Text>
+          style={({ pressed }) => [
+            styles.startOverButton,
+            webPointerStyle,
+            pressed && styles.pressed,
+          ]}>
+          <Text style={styles.startOverText}>↻ 새로하기</Text>
         </Pressable>
       </View>
 
-      <View style={styles.conditionRow}>
-        <Text style={styles.conditionLabel}>분석 조건</Text>
+      <View style={styles.selectedProfile}>
+        <NumberPills numbers={analysis.numbers} />
+        <Text style={styles.profileMeta}>
+          <Text style={styles.profileMetaMuted}>최근 </Text>
+          <Text style={styles.profileMetaStrong}>
+            {recent?.prizeRank ? `${recent.prizeRank}등` : '-'}
+          </Text>
+          {recent?.prizeRank ? (
+            <Text style={styles.profileMetaRound}> ({recent.round}회)</Text>
+          ) : null}
+          <Text style={styles.profileMetaSeparator}>  |  </Text>
+          <Text style={styles.profileMetaMuted}>
+            홀짝 {analysis.shape.oddCount}:{analysis.shape.evenCount}
+            {' · '}합계 {analysis.shape.sum}
+            {' · 연\u2060속\u00A0'}{consecutiveLabel}
+          </Text>
+        </Text>
+        <Pressable
+          accessibilityLabel="비교할 조합 추가"
+          accessibilityRole="button"
+          onPress={onCompare}
+          style={({ pressed }) => [
+            styles.compareButton,
+            webPointerStyle,
+            pressed && styles.pressed,
+          ]}>
+          <Text style={styles.compareText}>+ 비교할 조합 추가</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.filterRow}>
         <AnalysisControls
           bonusIncluded={bonusIncluded}
           compact
@@ -128,46 +245,33 @@ export function CombinationResult({
           onBonusChange={onBonusChange}
           onPeriodChange={onPeriodChange}
           period={period}
+          variant="plain"
         />
       </View>
 
-      <View style={styles.selectedHeader}>
-        <Text style={styles.sectionCaption}>내 번호</Text>
-        <NumberPills numbers={analysis.numbers} />
-        <Pressable
-          accessibilityRole="button"
-          onPress={onCompare}
-          style={({ pressed }) => [styles.compareButton, pressed && styles.pressed]}>
-          <Text style={styles.compareText}>다른 조합과 비교하기</Text>
-          <Text style={styles.compareChevron}>›</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>과거 최고 일치</Text>
-            <Text style={styles.summaryHero}>{bestPrizeRank ? `${bestPrizeRank}등 상당` : '-'}</Text>
-            {bestPrizeRank && bestPrizeMatchCount ? (
-              <Text style={styles.summarySupport}>{bestPrizeMatchCount}개 일치</Text>
-            ) : null}
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>가장 최근 일치</Text>
-            <Text style={styles.summaryHero}>{recent?.prizeRank ? `${recent.prizeRank}등 상당` : '-'}</Text>
-            {recent?.prizeRank ? <Text style={styles.summarySupport}>{recent.round}회</Text> : null}
-          </View>
+      <View style={styles.prizeSection}>
+        <View style={styles.prizeHeadingRow}>
+          <Text style={styles.prizeSectionTitle}>과거 당첨 기록</Text>
+          <Pressable
+            accessibilityLabel="전체 기록"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={onOpenHistory}
+            style={({ pressed }) => [
+              styles.historyAction,
+              webPointerStyle,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={styles.historyActionText}>전체 기록</Text>
+            <Text style={styles.historyActionChevron}>›</Text>
+          </Pressable>
         </View>
-      </View>
-
-      <SectionCard title="과거 일치 등급 기록">
         <View style={styles.prizeRow}>
           {PRIZE_RANKS.map((rank, index) => {
             const disabled = analysis.prizeCounts[rank] === 0;
             return (
               <Pressable
-                accessibilityLabel={`${rank}등 상당 기록 ${analysis.prizeCounts[rank]}회`}
+                accessibilityLabel={`${rank}등 기록 ${analysis.prizeCounts[rank]}회`}
                 accessibilityRole="button"
                 accessibilityState={{ disabled }}
                 disabled={disabled}
@@ -186,110 +290,35 @@ export function CombinationResult({
             );
           })}
         </View>
-        <Text style={styles.cardNote}>과거 당첨번호와 비교한 등급 상당 기록입니다.</Text>
-        <DetailButton label="전체 기록 보기" onPress={onOpenHistory} />
-      </SectionCard>
+      </View>
 
       <SectionCard title="번호별 분석">
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderText, styles.tableNumber]}>번호</Text>
-          <Text style={[styles.tableHeaderText, styles.tableMetric]}>출현 횟수</Text>
-          <Text style={[styles.tableHeaderText, styles.tableMetric]}>순위 (1–45)</Text>
-        </View>
-        {analysis.individualNumbers.map((item) => (
-          <View key={item.number} style={styles.tableRow}>
-            <Text style={[styles.tableText, styles.tableNumber]}>{formatNumber(item.number)}</Text>
-            <Text style={[styles.tableText, styles.tableMetric]}>{item.appearanceCount}회</Text>
-            <Text style={[styles.tableText, styles.tableMetric]}>{item.appearanceRank}위</Text>
-          </View>
-        ))}
-      </SectionCard>
-
-      <SectionCard title="선택 번호 출현 빈도">
-        <View style={styles.trendRow}>
-          <View style={styles.trendItem}>
-            <Text style={styles.trendValue}>{analysis.groupFrequency.selectedAverage.toFixed(1)}회</Text>
-            <Text style={styles.trendLabel}>선택 6개 평균</Text>
-          </View>
-          <View style={styles.trendDivider} />
-          <View style={styles.trendItem}>
-            <Text style={styles.trendValue}>{analysis.groupFrequency.overallAverage.toFixed(1)}회</Text>
-            <Text style={styles.trendLabel}>전체 번호 평균</Text>
-          </View>
-        </View>
-        <Text style={styles.comparisonText}>
-          전체 평균 대비 {analysis.groupFrequency.differencePct >= 0 ? '+' : ''}
-          {analysis.groupFrequency.differencePct.toFixed(1)}%
-        </Text>
-        <Text style={styles.cardNote}>선택한 분석 범위의 과거 출현 횟수 비교입니다.</Text>
-      </SectionCard>
-
-      <SectionCard title="전체 회차 일치 분포">
-        <Text style={styles.cardDescription}>
-          선택 번호가 과거 각 회차에서 몇 개씩 일치했는지 보여줍니다.
-        </Text>
-        <View style={styles.distributionList}>
-          {MATCH_COUNTS.map((count) => {
-            const value = analysis.matchDistribution[count];
-            const percentage = analysis.activeDrawCount ? (value / analysis.activeDrawCount) * 100 : 0;
-            return (
-              <View key={count} style={styles.distributionRow}>
-                <Text style={styles.distributionLabel}>{count}개</Text>
-                <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      { width: `${(value / maxDistribution) * 100}%` },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.distributionValue}>{value}회</Text>
-                <Text style={styles.distributionPct}>{percentage.toFixed(1)}%</Text>
+        <View style={styles.numberBarList}>
+          {individualNumbers.map((item) => (
+            <View
+              accessibilityLabel={`${item.number}번, ${item.appearanceCount}회, 전체 ${item.appearanceRank}위`}
+              accessible
+              key={item.number}
+              style={styles.numberBarRow}
+              testID={`individual-number-row-${item.number}`}>
+              <Text style={styles.numberBarNumber}>{formatNumber(item.number)}</Text>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    { width: `${(item.appearanceCount / maxIndividualAppearance) * 100}%` },
+                  ]}
+                  testID={`individual-number-bar-${item.number}`}
+                />
               </View>
-            );
-          })}
+              <Text style={styles.numberBarCount}>{item.appearanceCount}회</Text>
+              <Text style={styles.numberBarRank}>{item.appearanceRank}위</Text>
+            </View>
+          ))}
         </View>
       </SectionCard>
 
-      <Text style={styles.groupHeading}>함께 나온 조합</Text>
-      {VISIBLE_COMBINATION_SIZES.map((size) => {
-        const top = analysis.subCombinations[size].filter((item) => item.appearanceCount > 0).slice(0, 3);
-        return (
-          <SectionCard key={size} title={`${size}개 조합 · TOP 3`}>
-            {top.length ? top.map((item) => (
-              <View key={item.numbers.join('-')} style={styles.comboRow}>
-                <Text style={styles.comboNumbers}>{item.numbers.map(formatNumber).join(' · ')}</Text>
-                <View style={styles.comboMeta}>
-                  <Text style={styles.comboCount}>{item.appearanceCount}회</Text>
-                  <Text style={styles.comboRound}>
-                    {item.latestRound ? `최근 ${item.latestRound}회` : ''}
-                  </Text>
-                </View>
-              </View>
-            )) : (
-              <Text style={styles.emptyText}>선택 범위에서 동시 출현 기록이 없습니다.</Text>
-            )}
-            <DetailButton label={`전체 ${analysis.subCombinations[size].length}개 보기`} onPress={() => onOpenSubCombinations(size)} />
-          </SectionCard>
-        );
-      })}
-
-      <SectionCard title="번호 구성">
-        <View style={styles.shapeRow}>
-          <View style={styles.shapeItem}>
-            <Text style={styles.shapeLabel}>홀수 : 짝수</Text>
-            <Text style={styles.shapeValue}>{analysis.shape.oddCount} : {analysis.shape.evenCount}</Text>
-          </View>
-          <View style={styles.shapeItem}>
-            <Text style={styles.shapeLabel}>번호 합계</Text>
-            <Text style={styles.shapeValue}>{analysis.shape.sum}</Text>
-          </View>
-        </View>
-        <View style={styles.consecutiveRow}>
-          <Text style={styles.shapeLabel}>연속 번호</Text>
-          <Text style={styles.consecutiveValue}>{consecutiveLabel}</Text>
-        </View>
-      </SectionCard>
+      <FrequentCombinations analysis={analysis} />
     </ScrollView>
   );
 }
@@ -307,83 +336,48 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
-  eyebrow: {
-    color: colors.textSecondary,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    marginBottom: spacing.xs,
-  },
   title: {
     color: colors.textPrimary,
     fontSize: typography.sizes.section,
     fontWeight: typography.weights.semibold,
   },
   startOverButton: {
-    minWidth: 88,
-    height: 38,
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
-  },
-  startOverIcon: {
-    color: colors.highlight,
-    fontSize: typography.sizes.body,
-    marginRight: spacing.xs,
+    paddingLeft: spacing.md,
   },
   startOverText: {
-    color: colors.highlight,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  conditionRow: {
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  conditionLabel: {
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
   },
-  selectedHeader: {
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+  selectedProfile: {
+    alignItems: 'center',
   },
   compareButton: {
-    minHeight: 40,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   compareText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.medium,
-  },
-  compareChevron: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.body,
-    marginLeft: spacing.xs,
-  },
-  sectionCaption: {
-    color: colors.textSecondary,
+    color: colors.accentPrimary,
     fontSize: typography.sizes.small,
-    marginBottom: spacing.sm,
+    fontWeight: typography.weights.medium,
   },
   numberPills: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.sm,
+    width: '100%',
   },
   numberPill: {
-    width: 44,
-    height: 38,
+    width: '13%',
+    maxWidth: 48,
+    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.round,
@@ -391,17 +385,35 @@ const styles = StyleSheet.create({
     borderColor: colors.accentPrimary,
     backgroundColor: '#252E6D',
   },
-  numberPillCompact: {
-    width: 34,
-    height: 30,
-  },
   numberPillText: {
     color: colors.highlight,
-    fontSize: typography.sizes.small,
+    fontSize: 18,
     fontWeight: typography.weights.semibold,
   },
-  numberPillTextCompact: {
-    fontSize: typography.sizes.caption,
+  profileMeta: {
+    alignSelf: 'stretch',
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  profileMetaStrong: {
+    color: colors.highlight,
+    fontWeight: typography.weights.semibold,
+  },
+  profileMetaRound: {
+    color: colors.textSecondary,
+  },
+  profileMetaSeparator: {
+    color: colors.neutral,
+  },
+  profileMetaMuted: {
+    color: colors.textSecondary,
+  },
+  filterRow: {
+    alignItems: 'flex-end',
+    marginBottom: -spacing.xs,
   },
   card: {
     borderRadius: radius.lg,
@@ -412,54 +424,43 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.small,
+    fontSize: 14,
     fontWeight: typography.weights.semibold,
     marginBottom: spacing.lg,
   },
-  cardCompact: {
-    paddingVertical: spacing.sm,
-  },
-  cardTitleCompact: {
-    marginBottom: spacing.sm,
-  },
-  summaryCard: {
-    borderRadius: radius.lg,
+  prizeSection: {
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#35408A',
-    backgroundColor: '#11172D',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
   },
-  summaryGrid: {
+  prizeHeadingRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  summaryItem: {
-    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
-  summaryDivider: {
-    alignSelf: 'center',
-    width: StyleSheet.hairlineWidth,
-    height: '68%',
-    backgroundColor: '#35408A',
+  prizeSectionTitle: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: typography.weights.semibold,
   },
-  summaryHero: {
-    color: colors.highlight,
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    marginTop: spacing.sm,
+  historyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: spacing.md,
+    paddingVertical: spacing.xs,
   },
-  summarySupport: {
+  historyActionText: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
+    fontSize: 12,
     fontWeight: typography.weights.medium,
-    marginTop: spacing.xs,
   },
-  summaryLabel: {
+  historyActionChevron: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.small,
+    fontSize: 14,
+    marginLeft: 2,
   },
   prizeRow: {
     flexDirection: 'row',
@@ -476,65 +477,22 @@ const styles = StyleSheet.create({
   },
   prizeLabel: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.small,
+    fontSize: 14,
   },
   prizeValue: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.small,
+    fontSize: 14,
     fontWeight: typography.weights.semibold,
     marginTop: spacing.xs,
   },
   prizeItemDisabled: {
-    opacity: 0.42,
+    opacity: 0.6,
   },
   prizeItemPressed: {
     opacity: 0.62,
   },
-  cardNote: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    lineHeight: 19,
-    marginTop: spacing.md,
-  },
-  cardDescription: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    lineHeight: 19,
-    marginBottom: spacing.lg,
-  },
-  detailButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.sm,
-    backgroundColor: '#171C2A',
-    marginTop: spacing.lg,
-  },
-  detailButtonText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
-  },
-  detailChevron: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.body,
-    marginLeft: spacing.xs,
-  },
   pressed: {
     opacity: 0.7,
-  },
-  distributionList: {
-    gap: spacing.md,
-  },
-  distributionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  distributionLabel: {
-    width: 28,
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
   },
   barTrack: {
     flex: 1,
@@ -548,147 +506,116 @@ const styles = StyleSheet.create({
     borderRadius: radius.round,
     backgroundColor: colors.accentPrimary,
   },
-  distributionValue: {
+  numberBarList: {
+    gap: spacing.md,
+  },
+  numberBarRow: {
+    minHeight: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  numberBarNumber: {
+    width: 30,
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: typography.weights.semibold,
+    marginRight: spacing.sm,
+  },
+  numberBarCount: {
     width: 52,
     color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    textAlign: 'right',
-  },
-  distributionPct: {
-    width: 48,
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    textAlign: 'right',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingBottom: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-  },
-  tableHeaderText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-  },
-  tableRow: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-  },
-  tableText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-  },
-  tableNumber: {
-    width: '25%',
-  },
-  tableMetric: {
-    width: '37.5%',
-    textAlign: 'right',
-  },
-  shapeRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  shapeItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: '#0D101A',
-  },
-  shapeLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-  },
-  shapeValue: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.section,
+    fontSize: 14,
     fontWeight: typography.weights.semibold,
-    marginTop: spacing.sm,
+    textAlign: 'right',
+    marginLeft: spacing.sm,
   },
-  consecutiveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.sm,
-  },
-  consecutiveValue: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
+  numberBarRank: {
+    width: 36,
+    color: colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'right',
   },
   comboRow: {
-    minHeight: 42,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+  comboRowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
   comboNumbers: {
     flex: 1,
     color: colors.textPrimary,
-    fontSize: typography.sizes.small,
+    fontSize: 14,
+    paddingRight: spacing.md,
   },
-  comboMeta: {
-    alignItems: 'flex-end',
-    marginLeft: spacing.sm,
+  comboMetaGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   comboCount: {
+    minWidth: 34,
     color: colors.highlight,
-    fontSize: typography.sizes.small,
+    fontSize: 14,
     fontWeight: typography.weights.medium,
+    textAlign: 'right',
   },
   comboRound: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    marginTop: 2,
+    fontSize: 14,
+    textAlign: 'right',
+  },
+  comboCountZero: {
+    color: colors.textSecondary,
+  },
+  comboExpandAction: {
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  comboExpandText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: typography.weights.medium,
   },
   emptyText: {
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
     lineHeight: 20,
+    paddingVertical: spacing.md,
   },
-  groupHeading: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xs,
-  },
-  trendRow: {
+  comboTabs: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
   },
-  trendItem: {
+  comboTab: {
     flex: 1,
+    minHeight: 40,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
-  trendDivider: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: colors.divider,
+  comboTabSelected: {
+    borderBottomColor: colors.accentPrimary,
   },
-  trendValue: {
+  comboTabFocused: {
+    backgroundColor: '#171C2A',
+  },
+  comboTabText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: typography.weights.medium,
+  },
+  comboTabTextSelected: {
     color: colors.highlight,
-    fontSize: typography.sizes.section,
     fontWeight: typography.weights.semibold,
   },
-  trendLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    marginTop: spacing.xs,
-  },
-  comparisonText: {
-    color: colors.highlight,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
-    textAlign: 'center',
-    marginTop: spacing.lg,
+  comboList: {
+    paddingTop: spacing.xs,
   },
 });

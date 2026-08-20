@@ -16,6 +16,9 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 import { SectionHeading } from './SectionHeading';
 
+const EDGE_OVERLAY_WIDTH = 40;
+const EDGE_CONTENT_GAP = spacing.lg;
+
 type PairSectionProps = {
   pairs: readonly PairDatum[];
   onSelectNumber: (number: number) => void;
@@ -38,9 +41,9 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
   };
 
   return (
-    <View style={styles.section}>
+    <View style={styles.section} testID="pair-analysis-section">
       <SectionHeading title="자주 함께 나온 번호" subtitle="TOP 10" />
-      <View onLayout={onLayout} style={styles.viewport}>
+      <View onLayout={onLayout} style={styles.viewport} testID="pair-viewport">
         <ScrollView
           contentContainerStyle={styles.strip}
           horizontal
@@ -51,7 +54,12 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
           showsHorizontalScrollIndicator={false}
           testID="pair-horizontal-scroll">
           {pairs.slice(0, 10).map((pair) => (
-            <Pressable accessibilityRole="button" key={pair.number} onPress={() => onSelectNumber(pair.number)} style={({pressed}) => [styles.item, pressed && styles.pressed]}>
+            <Pressable
+              accessibilityLabel={`${pair.number}번 탐색`}
+              accessibilityRole="button"
+              key={pair.number}
+              onPress={() => onSelectNumber(pair.number)}
+              style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
               <View style={styles.numberCapsule}>
                 <AnimatedValue align="center" height={18} style={styles.number} width="100%">
                   {String(pair.number).padStart(2, '0')}
@@ -63,8 +71,24 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
             </Pressable>
           ))}
         </ScrollView>
-        {showLeft ? <View pointerEvents="none" style={[styles.edgeCue, styles.leftCue]}><Text style={styles.edgeCueText}>‹</Text></View> : null}
-        {showRight ? <View pointerEvents="none" style={[styles.edgeCue, styles.rightCue]}><Text style={styles.edgeCueText}>›</Text></View> : null}
+        {showLeft ? (
+          <View
+            pointerEvents="none"
+            style={[styles.edgeCue, styles.leftCue]}
+            testID="pair-left-edge">
+            <View style={[styles.edgeShade, styles.leftShade]} />
+            <Text style={[styles.edgeCueText, styles.leftCueText]}>‹</Text>
+          </View>
+        ) : null}
+        {showRight ? (
+          <View
+            pointerEvents="none"
+            style={[styles.edgeCue, styles.rightCue]}
+            testID="pair-right-edge">
+            <View style={[styles.edgeShade, styles.rightShade]} />
+            <Text style={[styles.edgeCueText, styles.rightCueText]}>›</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -72,14 +96,17 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
 
 const styles = StyleSheet.create({
   section: {
-    paddingBottom: spacing.xxl,
+    marginTop: spacing.xxxl,
+    paddingTop: spacing.xxl,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
   viewport: {
     position: 'relative',
   },
   strip: {
     gap: spacing.sm,
-    paddingRight: spacing.xxl,
+    paddingRight: EDGE_OVERLAY_WIDTH + EDGE_CONTENT_GAP,
   },
   item: {
     width: 48,
@@ -110,25 +137,43 @@ const styles = StyleSheet.create({
   },
   edgeCue: {
     position: 'absolute',
-    top: 4,
-    width: 28,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.round,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    top: 0,
+    bottom: 0,
+    width: EDGE_OVERLAY_WIDTH,
+    overflow: 'hidden',
+    backgroundColor: '#080A1270',
+  },
+  edgeShade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 24,
+    backgroundColor: '#080A12E6',
   },
   edgeCueText: {
-    color: colors.highlight,
-    fontSize: 22,
-    lineHeight: 24,
+    position: 'absolute',
+    top: 14,
+    color: colors.textSecondary,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: typography.weights.medium,
   },
   leftCue: {
-    left: -8,
+    left: -2,
   },
   rightCue: {
     right: 0,
+  },
+  leftShade: {
+    left: 0,
+  },
+  rightShade: {
+    right: 0,
+  },
+  leftCueText: {
+    left: spacing.xs,
+  },
+  rightCueText: {
+    right: spacing.xs,
   },
 });

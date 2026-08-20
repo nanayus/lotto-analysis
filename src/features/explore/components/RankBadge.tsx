@@ -1,28 +1,27 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing, typography } from '@/theme';
-import type { NumberStatus } from '@/data/numberAnalytics.types';
 
-
-type StatusBadgeProps = {
-  status: NumberStatus;
+type RankBadgeProps = {
+  rank: number;
 };
 
-const statusColors: Record<NumberStatus, string> = {
-  HOT: colors.hot,
-  NEUTRAL: colors.neutral,
-  COLD: colors.cold,
-};
+function rankColor(rank: number) {
+  if (rank <= 6) return colors.hot;
+  if (rank >= 40) return colors.cold;
+  return colors.neutral;
+}
 
-export function StatusBadge({ status }: StatusBadgeProps) {
-  const color = statusColors[status];
+export function RankBadge({ rank }: RankBadgeProps) {
+  const color = rankColor(rank);
 
   return (
     <View
-      accessibilityLabel={`상태 ${status}`}
-      style={[styles.badge, { backgroundColor: `${color}1F`, borderColor: `${color}5C` }]}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.label, { color }]}>{status}</Text>
+      accessibilityLabel={`전체 출현 순위 ${rank}위`}
+      style={[styles.badge, { backgroundColor: `${color}1F`, borderColor: `${color}5C` }]}
+      testID="rank-badge">
+      <View style={[styles.dot, { backgroundColor: color }]} testID="rank-badge-dot" />
+      <Text style={[styles.label, { color }]}>{rank}위</Text>
     </View>
   );
 }

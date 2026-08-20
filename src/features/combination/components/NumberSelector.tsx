@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type NumberSelectorProps = {
+  excludedNumbers: number[];
   onAnalyze: () => void;
   onRandomFill: () => void;
   onToggleNumber: (number: number) => void;
@@ -15,7 +16,13 @@ function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
-export function NumberSelector({ onAnalyze, onRandomFill, onToggleNumber, selectedNumbers }: NumberSelectorProps) {
+export function NumberSelector({
+  excludedNumbers,
+  onAnalyze,
+  onRandomFill,
+  onToggleNumber,
+  selectedNumbers,
+}: NumberSelectorProps) {
   const ready = selectedNumbers.length === 6;
 
   return (
@@ -50,10 +57,11 @@ export function NumberSelector({ onAnalyze, onRandomFill, onToggleNumber, select
       <View accessibilityRole="list" style={styles.numberGrid} testID="combination-number-grid">
         {NUMBERS.map((number) => {
           const selected = selectedNumbers.includes(number);
-          const unavailable = selectedNumbers.length === 6 && !selected;
+          const excluded = excludedNumbers.includes(number) && !selected;
+          const unavailable = selectedNumbers.length === 6 && !selected && !excluded;
           return (
             <Pressable
-              accessibilityLabel={`${number}번${selected ? ', 선택됨' : ''}`}
+              accessibilityLabel={`${number}번${selected ? ', 선택됨' : excluded ? ', 제외됨' : ''}`}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: selected, disabled: unavailable }}
               disabled={unavailable}
@@ -62,11 +70,18 @@ export function NumberSelector({ onAnalyze, onRandomFill, onToggleNumber, select
               style={({ pressed }) => [
                 styles.numberButton,
                 selected && styles.numberButtonSelected,
+                excluded && styles.numberButtonExcluded,
                 unavailable && styles.numberButtonUnavailable,
                 pressed && styles.numberButtonPressed,
               ]}
               testID={`combination-number-${number}`}>
-              <Text style={[styles.numberText, selected && styles.numberTextSelected]}>{number}</Text>
+              <Text style={[
+                styles.numberText,
+                selected && styles.numberTextSelected,
+                excluded && styles.numberTextExcluded,
+              ]}>
+                {number}
+              </Text>
             </Pressable>
           );
         })}
@@ -197,6 +212,10 @@ const styles = StyleSheet.create({
     borderColor: colors.accentPrimary,
     backgroundColor: colors.accentPrimary,
   },
+  numberButtonExcluded: {
+    borderColor: `${colors.hot}8F`,
+    backgroundColor: `${colors.hot}12`,
+  },
   numberButtonUnavailable: {
     opacity: 0.38,
   },
@@ -212,6 +231,10 @@ const styles = StyleSheet.create({
   numberTextSelected: {
     color: colors.background,
     fontWeight: typography.weights.bold,
+  },
+  numberTextExcluded: {
+    color: colors.hot,
+    opacity: 1,
   },
   selectionSection: {
     borderTopWidth: StyleSheet.hairlineWidth,

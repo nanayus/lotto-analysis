@@ -1,39 +1,272 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
-import type { AnalyticsSnapshot } from '@/domain/analytics/types';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+
+import type { AnalysisPeriod, AnalyticsSnapshot } from '@/domain/analytics/types';
 import { colors, radius, spacing, typography } from '@/theme';
 
-export type ComparisonSort = 'appearance' | 'gap' | 'recent52';
+import { AnalysisControls } from './AnalysisControls';
 
-export function AllNumberComparison({ onBack, onSelect, recent52Snapshot, snapshot }: {
-  onBack: () => void; onSelect: (number: number) => void; recent52Snapshot: AnalyticsSnapshot; snapshot: AnalyticsSnapshot;
-}) {
-  const [sort, setSort] = useState<ComparisonSort>('appearance');
-  const source = sort === 'recent52' ? recent52Snapshot : snapshot;
-  const rows = Object.values(source.numbers).sort((a, b) => {
-    const value = sort === 'gap' ? b.currentGap - a.currentGap
-      : sort === 'recent52' ? b.recent52Count - a.recent52Count
-      : b.appearanceCount - a.appearanceCount;
-    return value || a.number - b.number;
-  });
-  const metric = sort === 'gap' ? '현재 미출현' : '출현';
-  return <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <View style={styles.header}><Pressable onPress={onBack} style={styles.back}><Text style={styles.backText}>‹ 탐색</Text></Pressable>
-      <Text style={styles.title}>45개 번호 비교</Text></View>
-    <View style={styles.chips}>{([['appearance','출현'],['gap','미출현'],['recent52','최근 52회']] as const).map(([key,label]) =>
-      <Pressable accessibilityRole="button" accessibilityState={{ selected: sort === key }} key={key} onPress={() => setSort(key)} style={[styles.chip, sort === key && styles.chipActive]}>
-        <Text style={[styles.chipText, sort === key && styles.chipTextActive]}>{label}</Text></Pressable>)}</View>
-    <View style={styles.tableHead}><Text style={styles.rank}>순위</Text><Text style={styles.number}>번호</Text><Text style={styles.metric}>{metric}</Text></View>
-    {rows.map((item, index) => <Pressable accessibilityRole="button" key={item.number} onPress={() => onSelect(item.number)} style={styles.row}>
-      <Text style={styles.rank}>{String(index + 1).padStart(2,'0')}</Text><Text style={styles.number}>{String(item.number).padStart(2,'0')}</Text>
-      <Text style={styles.metric}>{sort === 'gap' ? `${item.currentGap}회째` : `${sort === 'recent52' ? item.recent52Count : item.appearanceCount}회`}</Text>
-    </Pressable>)}
-  </ScrollView>;
+const WIDE_GRID_BREAKPOINT = 480;
+const MOBILE_COLUMN_COUNT = 5;
+const WIDE_COLUMN_COUNT = 10;
+
+type ComparisonMetric = 'appearanceCount' | 'currentGap';
+
+const comparisonMetrics: readonly { key: ComparisonMetric; label: string }[] = [
+  { key: 'appearanceCount', label: '출현 횟수' },
+  { key: 'currentGap', label: '현재 미출현 횟수' },
+];
+
+type AllNumberComparisonProps = {
+  bonusIncluded: boolean;
+  firstRound: number;
+  latestRound: number;
+  onBack: () => void;
+  onBonusChange: (included: boolean) => void;
+  onPeriodChange: (period: AnalysisPeriod) => void;
+  onSelect: (number: number) => void;
+  period: AnalysisPeriod;
+  selectedNumber: number;
+  snapshot: AnalyticsSnapshot;
+};
+
+export function AllNumberComparison({
+  bonusIncluded,
+  firstRound,
+  latestRound,
+  onBack,
+  onBonusChange,
+  onPeriodChange,
+  onSelect,
+  period,
+  selectedNumber,
+  snapshot,
+}: AllNumberComparisonProps) {
+  const { width } = useWindowDimensions();
+  const [metric, setMetric] = useState<ComparisonMetric>('appearanceCount');
+  const columnCount = width >= WIDE_GRID_BREAKPOINT
+    ? WIDE_COLUMN_COUNT
+    : MOBILE_COLUMN_COUNT;
+  const numbers = Object.values(snapshot.numbers).sort((a, b) => a.number - b.number);
+  const rows = Array.from(
+    { length: Math.ceil(numbers.length / columnCount) },
+    (_, index) => numbers.slice(index * columnCount, (index + 1) * columnCount),
+  );
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Pressable
+          accessibilityLabel="탐색으로 돌아가기"
+          accessibilityRole="button"
+          onPress={onBack}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <Text style={styles.backIcon}>‹</Text>
+        </Pressable>
+        <Text style={styles.title}>전체 번호</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.filterRow}>
+          <AnalysisControls
+            bonusIncluded={bonusIncluded}
+            compact
+            firstRound={firstRound}
+            latestRound={latestRound}
+            onBonusChange={onBonusChange}
+            onPeriodChange={onPeriodChange}
+            period={period}
+            variant="plain"
+          />
+        </View>
+
+        <View style={styles.metricFilters}>
+          {comparisonMetrics.map((option) => {
+            const selected = metric === option.key;
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                key={option.key}
+                onPress={() => setMetric(option.key)}
+                style={({ pressed }) => [
+                  styles.metricFilter,
+                  selected && styles.metricFilterSelected,
+                  pressed && styles.pressed,
+                ]}
+                testID={`all-number-metric-${option.key}`}>
+                <Text style={[styles.metricFilterText, selected && styles.metricFilterTextSelected]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.grid} testID={`all-number-grid-${columnCount}-columns`}>
+          {rows.map((row, rowIndex) => (
+            <View
+              key={row[0].number}
+              style={[styles.gridRow, rowIndex > 0 && styles.rowDivider]}
+              testID={`all-number-row-${rowIndex + 1}`}>
+              {row.map((item) => {
+                const selected = item.number === selectedNumber;
+                const metricLabel = metric === 'appearanceCount'
+                  ? '출현 횟수'
+                  : '현재 미출현 횟수';
+                const metricValue = item[metric];
+                return (
+                  <Pressable
+                    accessibilityLabel={`${item.number}번, ${metricLabel} ${metricValue}회`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    key={item.number}
+                    onPress={() => onSelect(item.number)}
+                    style={({ pressed }) => [
+                      styles.item,
+                      { width: `${100 / columnCount}%` },
+                      pressed && styles.pressed,
+                    ]}
+                    testID={`all-number-item-${item.number}`}>
+                    <View
+                      style={[styles.ball, selected && styles.ballSelected]}
+                      testID={`all-number-ball-${item.number}`}>
+                      <Text style={[styles.number, selected && styles.numberSelected]}>
+                        {String(item.number).padStart(2, '0')}
+                      </Text>
+                    </View>
+                    <Text style={[styles.count, selected && styles.countSelected]}>
+                      {metricValue}회
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  content:{padding:spacing.lg,paddingBottom:spacing.xxxl}, header:{flexDirection:'row',alignItems:'center',gap:spacing.lg,marginBottom:spacing.xl},
-  back:{minHeight:44,justifyContent:'center'},backText:{color:colors.accentPrimary,fontSize:typography.sizes.small},title:{color:colors.textPrimary,fontSize:typography.sizes.section,fontWeight:typography.weights.semibold},
-  chips:{flexDirection:'row',gap:spacing.sm,marginBottom:spacing.xl},chip:{paddingHorizontal:spacing.md,minHeight:38,justifyContent:'center',borderRadius:radius.round,borderWidth:1,borderColor:colors.divider},chipActive:{backgroundColor:colors.accentPrimary,borderColor:colors.accentPrimary},chipText:{color:colors.textSecondary,fontSize:typography.sizes.caption},chipTextActive:{color:colors.background,fontWeight:typography.weights.semibold},
-  tableHead:{flexDirection:'row',paddingVertical:spacing.sm,borderBottomWidth:1,borderBottomColor:colors.divider},row:{flexDirection:'row',alignItems:'center',minHeight:48,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.divider},rank:{width:'24%',color:colors.textSecondary,fontSize:typography.sizes.caption},number:{width:'28%',color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},metric:{flex:1,textAlign:'right',color:colors.textSecondary,fontSize:typography.sizes.small},
+  screen: {
+    flex: 1,
+  },
+  header: {
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+    paddingHorizontal: spacing.sm,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backIcon: {
+    color: colors.textPrimary,
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: typography.weights.regular,
+  },
+  title: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxxl,
+  },
+  filterRow: {
+    alignItems: 'flex-end',
+    paddingVertical: spacing.md,
+  },
+  metricFilters: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+  },
+  metricFilter: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  metricFilterSelected: {
+    borderBottomColor: colors.accentPrimary,
+  },
+  metricFilterText: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.medium,
+  },
+  metricFilterTextSelected: {
+    color: colors.textPrimary,
+    fontWeight: typography.weights.semibold,
+  },
+  grid: {
+    width: '100%',
+  },
+  gridRow: {
+    flexDirection: 'row',
+    paddingVertical: spacing.md,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  item: {
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  ball: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  ballSelected: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: '#171E48',
+  },
+  number: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  numberSelected: {
+    color: colors.highlight,
+  },
+  count: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+    fontVariant: ['tabular-nums'],
+  },
+  countSelected: {
+    color: colors.accentPrimary,
+  },
+  pressed: {
+    opacity: 0.65,
+  },
 });

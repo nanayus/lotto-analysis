@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -7,7 +7,6 @@ import {
   Text,
   useWindowDimensions,
   View,
-  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +22,7 @@ import numberAnalyticsJson from '@/data/generated/number-analytics.json';
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { NumberAnalyticsDataset } from '@/data/numberAnalytics.types';
 import { buildAnalyticsSnapshot } from '@/domain/analytics/buildAnalyticsSnapshot';
-import { getNumberAppearanceRounds } from '@/domain/analytics/numberHistory';
+import { getNumberAppearanceHistory } from '@/domain/analytics/numberHistory';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { AllNumberComparison } from './components/AllNumberComparison';
 import type {
@@ -38,7 +37,9 @@ import {
   type AnalysisPeriod,
 } from './components/AnalysisControls';
 import { FrequencyMetrics } from './components/FrequencyMetrics';
+import { CombinationFloatingControl } from './components/CombinationFloatingControl';
 import { NumberProfile } from './components/NumberProfile';
+import { NumberHistoryDetail } from './components/NumberHistoryDetail';
 import { NumberScrubberV3 } from './components/NumberScrubberV3';
 import { NumberSlider } from './components/NumberSlider';
 import { PairSection } from './components/PairSection';
@@ -81,8 +82,15 @@ export function ExploreScreen() {
     includeBonus: analysisState.includeBonus,
     period: { kind: 'preset', label: '최근 52회' },
   });
+  const recent52Analytics = recent52Snapshot.numbers[String(selectedNumber)];
   const [detailMode, setDetailMode] = useState<'explore' | 'comparison' | 'history'>('explore');
-  const appearanceRounds = getNumberAppearanceRounds(lottoHistory, selectedNumber, analysisState);
+  const recentAppearanceHistory = useMemo(
+    () => getNumberAppearanceHistory(lottoHistory, selectedNumber, {
+      includeBonus: analysisState.includeBonus,
+      period: { kind: 'preset', label: '최근 52회' },
+    }),
+    [analysisState.includeBonus, selectedNumber],
+  );
   const commitAnalysisFilters = useCallback((filters: AnalysisFilters) => {
     const nextState: AnalysisState = {
       ...filters,
@@ -167,15 +175,36 @@ export function ExploreScreen() {
     scheduleIdle();
   };
 
-  if (detailMode === 'comparison') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><View style={styles.detailContainer}><AllNumberComparison snapshot={analyticsSnapshot} recent52Snapshot={recent52Snapshot} onBack={() => setDetailMode('explore')} onSelect={(number) => { setSelectedNumber(number); setDetailMode('explore'); }} /></View></SafeAreaView>;
-  if (detailMode === 'history') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><ScrollView contentContainerStyle={styles.historyContent}><Pressable onPress={() => setDetailMode('explore')} style={styles.backButton}><Text style={styles.actionText}>‹ 탐색</Text></Pressable><Text style={styles.historyTitle}>{selectedNumber}번 출현 기록</Text>{appearanceRounds.map((round) => <View key={round} style={styles.historyRow}><Text style={styles.historyRound}>{round}회</Text></View>)}{!appearanceRounds.length && <Text style={styles.unavailable}>선택 범위에 출현 기록이 없습니다.</Text>}</ScrollView></SafeAreaView>;
+  if (detailMode === 'comparison') {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <View style={styles.detailContainer}>
+          <AllNumberComparison
+            bonusIncluded={analysisState.includeBonus}
+            firstRound={numberAnalytics.metadata.firstDrawNumber}
+            latestRound={numberAnalytics.metadata.latestDrawNumber}
+            onBack={() => setDetailMode('explore')}
+            onBonusChange={changeBonusIncluded}
+            onPeriodChange={changeAnalysisPeriod}
+            onSelect={(number) => {
+              setSelectedNumber(number);
+              setDetailMode('explore');
+            }}
+            period={analysisState.period}
+            selectedNumber={selectedNumber}
+            snapshot={analyticsSnapshot}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+  if (detailMode === 'history') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><View style={styles.detailContainer}><NumberHistoryDetail entries={recentAppearanceHistory} number={selectedNumber} onBack={() => setDetailMode('explore')} /></View></SafeAreaView>;
   const selectedInDraft = draft.selectedNumbers.includes(selectedNumber);
-  const draftFull = draft.selectedNumbers.length >= 6 && !selectedInDraft;
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.columns} testID={`explore-focus-${interactionFocus.toLowerCase()}`}>
         <View
-          style={[styles.sliderPane, { width: windowWidth <= 360 ? '32%' : '30%' }]}
+          style={[styles.sliderPane, { width: windowWidth <= 360 ? '30%' : '29%' }]}
           testID="scrubber-pane">
           {USE_NUMBER_SCRUBBER_V3 ? (
             <NumberScrubberV3
@@ -206,38 +235,29 @@ export function ExploreScreen() {
             testID="analytics-scroll-view">
             {analytics ? (
               <>
-                <AnalysisControls
-                  bonusIncluded={analysisState.includeBonus}
-                  firstRound={numberAnalytics.metadata.firstDrawNumber}
-                  latestRound={numberAnalytics.metadata.latestDrawNumber}
-                  onBonusChange={changeBonusIncluded}
-                  onPeriodChange={changeAnalysisPeriod}
-                  period={analysisState.period}
+                <NumberProfile
+                  analytics={analytics}
+                  onOpenComparison={() => setDetailMode('comparison')}
                 />
-                <NumberProfile analytics={analytics} />
-                <RecentTimeline
-                  appearanceRounds={appearanceRounds}
-                  hitCount={analytics.recent52Count}
-                  periodLabel={analyticsSnapshot.timelineLabel}
-                  values={analytics.recent52}
-                  onOpenHistory={() => setDetailMode('history')}
-                />
-                <FrequencyMetrics analytics={analytics} />
-                <View style={styles.exploreActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: draftFull, selected: selectedInDraft }}
-                    disabled={draftFull}
-                    onPress={() => draft.toggleNumber(selectedNumber)}
-                    style={[styles.addAction, draftFull && styles.disabledAction]}>
-                    <Text style={styles.addActionText}>
-                      {selectedInDraft ? '✓ 조합에 담김' : '+ 이 번호를 조합에 담기'}
-                    </Text>
-                  </Pressable>
-                  <Pressable accessibilityRole="button" onPress={() => setDetailMode('comparison')} style={styles.compareAction}>
-                    <Text style={styles.compareActionText}>45개 번호 비교</Text>
-                    <Text style={styles.compareActionChevron}>›</Text>
-                  </Pressable>
+                <View style={styles.filterRow}>
+                  <AnalysisControls
+                    bonusIncluded={analysisState.includeBonus}
+                    compact
+                    firstRound={numberAnalytics.metadata.firstDrawNumber}
+                    latestRound={numberAnalytics.metadata.latestDrawNumber}
+                    onBonusChange={changeBonusIncluded}
+                    onPeriodChange={changeAnalysisPeriod}
+                    period={analysisState.period}
+                    variant="plain"
+                  />
+                </View>
+                <View style={styles.recentSection} testID="recent-analysis-section">
+                  <RecentTimeline
+                    hitCount={recent52Analytics.recent52Count}
+                    values={recent52Analytics.recent52}
+                    onOpenHistory={() => setDetailMode('history')}
+                  />
+                  <FrequencyMetrics analytics={analytics} />
                 </View>
                 <PairSection pairs={analytics.topPairs} onSelectNumber={setSelectedNumber} />
                 <TrioSection
@@ -250,7 +270,15 @@ export function ExploreScreen() {
               <Text style={styles.unavailable}>분석 데이터를 불러올 수 없습니다.</Text>
             )}
           </ScrollView>
-          {draft.selectedNumbers.length ? <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/combination')} style={styles.draftBar}><Text style={styles.draftText}>조합 {draft.selectedNumbers.length} / 6</Text><Text style={styles.draftLink}>{draft.selectedNumbers.length === 6 ? '분석하러 가기 ›' : '보기 ›'}</Text></Pressable> : null}
+          <View pointerEvents="box-none" style={styles.floatingControl}>
+            <CombinationFloatingControl
+              currentNumber={selectedNumber}
+              currentSelected={selectedInDraft}
+              onAnalyze={() => router.push(`/(tabs)/combination?analyze=${Date.now()}`)}
+              onToggle={() => draft.toggleNumber(selectedNumber)}
+              selectedCount={draft.selectedNumbers.length}
+            />
+          </View>
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -277,13 +305,21 @@ const styles = StyleSheet.create({
   },
   analyticsPane: {
     flex: 1,
+    marginLeft: -spacing.xl,
   },
   analyticsScroll: {
     flex: 1,
   },
   analyticsContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxxl,
+    paddingLeft: 0,
+    paddingRight: spacing.lg,
+    paddingBottom: spacing.huge + spacing.xxxl,
+  },
+  recentSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.xxl,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
   unavailable: {
     color: colors.textSecondary,
@@ -291,6 +327,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: spacing.xxxl,
   },
-  detailContainer:{flex:1,width:'100%',maxWidth:500},historyContent:{width:'100%',maxWidth:500,alignSelf:'center',padding:spacing.lg,paddingBottom:spacing.xxxl},backButton:{minHeight:44,justifyContent:'center',alignSelf:'flex-start'},historyTitle:{color:colors.textPrimary,fontSize:typography.sizes.section,fontWeight:typography.weights.semibold,marginVertical:spacing.lg},historyRow:{minHeight:48,justifyContent:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.divider},historyRound:{color:colors.textPrimary,fontSize:typography.sizes.small,fontVariant:['tabular-nums']},
-  exploreActions:{marginTop:spacing.sm,marginBottom:spacing.xl},addAction:{minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:8,borderWidth:1,borderColor:'#35408A',backgroundColor:'#11172D'},addActionText:{color:colors.highlight,fontSize:typography.sizes.caption,fontWeight:typography.weights.semibold},compareAction:{minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'center'},compareActionText:{color:colors.textSecondary,fontSize:typography.sizes.caption,fontWeight:typography.weights.medium},compareActionChevron:{color:colors.textSecondary,fontSize:typography.sizes.body,marginLeft:spacing.xs},disabledAction:{opacity:.38},actionText:{color:colors.accentPrimary,fontSize:typography.sizes.caption,fontWeight:typography.weights.medium},draftBar:{position:'absolute',left:spacing.lg,right:spacing.lg,bottom:spacing.md,minHeight:48,paddingHorizontal:spacing.lg,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderRadius:12,borderWidth:1,borderColor:colors.divider,backgroundColor:'#111522'},draftText:{color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},draftLink:{color:colors.accentPrimary,fontSize:typography.sizes.caption},
+  detailContainer:{flex:1,width:'100%',maxWidth:500},
+  filterRow:{alignItems:'flex-end',marginTop:spacing.sm},floatingControl:{position:'absolute',right:spacing.md,bottom:spacing.md,alignItems:'flex-end'},
 });

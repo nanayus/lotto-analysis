@@ -1,61 +1,62 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
-import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
+import type { NumberAppearanceHistoryItem } from '@/domain/analytics/numberHistory';
 import { colors, spacing, typography } from '@/theme';
 
-type DetailMode =
-  | { kind: 'history' }
-  | { kind: 'prizeRank'; rank: PrizeRank };
-
-type CombinationDetailProps = {
-  analysis: CombinationAnalysis;
-  mode: DetailMode;
+type NumberHistoryDetailProps = {
+  entries: readonly NumberAppearanceHistoryItem[];
+  number: number;
   onBack: () => void;
 };
 
-export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailProps) {
-  const history = mode.kind === 'prizeRank'
-    ? analysis.qualifyingHistory.filter((draw) => draw.prizeRank === mode.rank)
-    : analysis.qualifyingHistory;
-  const title = mode.kind === 'history' ? '전체 기록' : `${mode.rank}등 기록`;
+export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDetailProps) {
+  const { width } = useWindowDimensions();
+  const compact = width <= 360;
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable
-          accessibilityLabel="분석 결과로 돌아가기"
+          accessibilityLabel="탐색으로 돌아가기"
           accessibilityRole="button"
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <Text style={styles.backIcon}>‹</Text>
         </Pressable>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.title}>상세보기</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.listSummary}>
-          <Text style={styles.summaryValue}>총 {history.length}회</Text>
+      <ScrollView
+        contentContainerStyle={[styles.content, compact && styles.contentCompact]}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.listSummary} testID="number-history-summary">
+          <Text style={styles.summaryValue}>총 {entries.length}회</Text>
         </View>
-        {history.length ? history.map((draw) => (
-          <View key={draw.round} style={styles.historyItem} testID={`history-row-${draw.round}`}>
-            <Text numberOfLines={1} style={styles.round}>{draw.round}회</Text>
+        {entries.length ? entries.map((entry) => (
+          <View
+            key={entry.round}
+            style={[styles.row, compact && styles.rowCompact]}
+            testID={`number-history-row-${entry.round}`}>
+            <Text numberOfLines={1} style={[styles.round, compact && styles.roundCompact]}>
+              {entry.round}회
+            </Text>
             <LottoDrawBalls
-              bonus={draw.bonus}
-              highlightedNumbers={analysis.numbers}
-              numbers={draw.numbers}
-              style={styles.winningRow}
+              bonus={entry.bonus}
+              highlightedNumbers={[number]}
+              numbers={entry.numbers}
+              size={compact ? 22 : 24}
+              style={styles.balls}
             />
-            <Text numberOfLines={1} style={styles.matchLabel}>
-              {draw.prizeRank ? `${draw.prizeRank}등` : '-'}
+            <Text numberOfLines={1} style={[styles.gap, compact && styles.gapCompact]}>
+              {entry.gapSincePrevious === null
+                ? '첫 등장'
+                : `${entry.gapSincePrevious}회 만에 등장`}
             </Text>
           </View>
         )) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>해당 기록이 없습니다.</Text>
-            <Text style={styles.emptyDescription}>선택한 기간에 해당하는 회차가 없습니다.</Text>
-          </View>
+          <Text style={styles.empty}>출현 기록이 없습니다.</Text>
         )}
       </ScrollView>
     </View>
@@ -105,6 +106,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
     gap: spacing.md,
   },
+  contentCompact: {
+    paddingHorizontal: spacing.xs,
+  },
   listSummary: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -116,7 +120,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
   },
-  historyItem: {
+  row: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
@@ -125,38 +129,40 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
+  rowCompact: {
+    gap: spacing.xs,
+  },
   round: {
     width: 48,
     color: colors.textPrimary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
   },
-  matchLabel: {
-    width: 28,
-    color: colors.highlight,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
-    textAlign: 'right',
+  roundCompact: {
+    width: 44,
+    fontSize: 12,
   },
-  winningRow: {
+  balls: {
     flex: 1,
     minWidth: 0,
   },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.huge,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.semibold,
-  },
-  emptyDescription: {
+  gap: {
+    width: 92,
     color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    lineHeight: 18,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.medium,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  gapCompact: {
+    width: 80,
+    fontSize: 12,
+  },
+  empty: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
     textAlign: 'center',
-    marginTop: spacing.sm,
+    paddingVertical: spacing.huge,
   },
 });

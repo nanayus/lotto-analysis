@@ -2,9 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedValue } from '@/components/AnimatedValue';
 import type { GeneratedNumberAnalytics } from '@/data/numberAnalytics.types';
-import { colors, radius, spacing, typography } from '@/theme';
-
-import { SectionHeading } from './SectionHeading';
+import { colors, spacing, typography } from '@/theme';
 
 type FrequencyMetricsProps = {
   analytics: GeneratedNumberAnalytics;
@@ -12,18 +10,21 @@ type FrequencyMetricsProps = {
 
 export function FrequencyMetrics({ analytics }: FrequencyMetricsProps) {
   const metrics = [
-    { label: '평균 간격', value: `${analytics.averageGap.toFixed(1)}회` },
-    { label: '현재 미출현', value: `${analytics.currentGap}회` },
-    { label: '최대 미출현', value: `${analytics.maxGap}회` },
+    { displayLabel: '총 출현', label: '총 출현', value: `${analytics.appearanceCount}회` },
+    { displayLabel: '평균 간격', label: '평균 간격', value: `${analytics.averageGap.toFixed(1)}회` },
+    { displayLabel: '현재\n미출현', label: '현재 미출현', value: `${analytics.currentGap}회` },
+    { displayLabel: '최대\n미출현', label: '최대 미출현', value: `${analytics.maxGap}회` },
   ];
 
   return (
     <View style={styles.section}>
-      <SectionHeading title="출현 기록" subtitle="" />
+      <Text style={styles.title}>출현 기록</Text>
       <View style={styles.grid}>
         {metrics.map((metric) => (
-          <View key={metric.label} style={styles.metric}>
-            <Text style={styles.label}>{metric.label}</Text>
+          <View key={metric.label} style={styles.metric} testID={`frequency-metric-${metric.label}`}>
+            <Text accessibilityLabel={metric.label} style={styles.label}>
+              {metric.displayLabel}
+            </Text>
             <AnimatedValue height={22} style={styles.value} width="100%">
               {metric.value}
             </AnimatedValue>
@@ -36,31 +37,38 @@ export function FrequencyMetrics({ analytics }: FrequencyMetricsProps) {
 
 const styles = StyleSheet.create({
   section: {
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.xxl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#171B27',
+  },
+  title: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+    marginBottom: spacing.lg,
   },
   grid: {
     flexDirection: 'row',
-    gap: spacing.sm,
   },
   metric: {
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    alignItems: 'center',
   },
   label: {
+    height: 32,
     color: colors.textSecondary,
-    fontSize: 9,
-    marginBottom: spacing.sm,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+    textAlignVertical: 'center',
   },
   value: {
     color: colors.textPrimary,
     fontSize: typography.sizes.label,
     fontWeight: typography.weights.semibold,
+    textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
 });

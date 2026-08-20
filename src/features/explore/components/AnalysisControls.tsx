@@ -21,6 +21,7 @@ type AnalysisControlsProps = {
   onBonusChange: (included: boolean) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
   period: AnalysisPeriod;
+  variant?: 'chip' | 'plain';
 };
 
 const presetLabels = ['최근 3회', '최근 5회', '최근 10회', '최근 52회', '전체'] as const;
@@ -39,6 +40,7 @@ export function AnalysisControls({
   onBonusChange,
   onPeriodChange,
   period,
+  variant = 'chip',
 }: AnalysisControlsProps) {
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [customVisible, setCustomVisible] = useState(false);
@@ -73,31 +75,51 @@ export function AnalysisControls({
   };
 
   return (
-    <View style={[styles.controls, compact && styles.controlsCompact]}>
+    <View style={[
+      styles.controls,
+      compact && styles.controlsCompact,
+      variant === 'plain' && styles.controlsPlain,
+    ]}>
       <Pressable
         accessibilityLabel={`분석 기간 ${periodLabel(period)}`}
         accessibilityRole="button"
+        hitSlop={variant === 'plain' ? 4 : undefined}
         onPress={() => setSelectorVisible(true)}
-        style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+        style={({ pressed }) => [
+          styles.chip,
+          variant === 'plain' && styles.chipPlain,
+          pressed && styles.chipPressed,
+        ]}
         testID="analysis-period-chip">
-        <Text style={styles.chipLabel}>기간</Text>
-        <Text numberOfLines={1} style={styles.chipText}>{periodLabel(period)}</Text>
-        <Text style={styles.chevron}>⌄</Text>
+        <Text style={[styles.chipLabel, variant === 'plain' && styles.plainText]}>기간</Text>
+        <Text
+          numberOfLines={1}
+          style={[styles.chipText, variant === 'plain' && styles.plainText]}>
+          {periodLabel(period)}
+        </Text>
+        <Text style={[styles.chevron, variant === 'plain' && styles.plainText]}>⌄</Text>
       </Pressable>
       <Pressable
         accessibilityLabel={`보너스 번호 ${bonusIncluded ? '포함' : '제외'}`}
         accessibilityRole="switch"
         accessibilityState={{ checked: bonusIncluded }}
+        hitSlop={variant === 'plain' ? 4 : undefined}
         onPress={() => onBonusChange(!bonusIncluded)}
         style={({ pressed }) => [
           styles.chip,
           styles.bonusChip,
-          bonusIncluded && styles.bonusChipIncluded,
+          variant === 'plain' && styles.chipPlain,
+          variant === 'plain' && styles.bonusChipPlain,
+          bonusIncluded && variant === 'chip' && styles.bonusChipIncluded,
           pressed && styles.chipPressed,
         ]}
         testID="analysis-bonus-chip">
-        <Text style={styles.chipLabel}>보너스</Text>
-        <Text style={[styles.stateText, bonusIncluded && styles.stateTextIncluded]}>
+        <Text style={[styles.chipLabel, variant === 'plain' && styles.plainText]}>보너스</Text>
+        <Text style={[
+          styles.stateText,
+          variant === 'plain' && styles.plainText,
+          bonusIncluded && styles.stateTextIncluded,
+        ]}>
           {bonusIncluded ? '포함' : '제외'}
         </Text>
       </Pressable>
@@ -181,6 +203,9 @@ const styles = StyleSheet.create({
   controlsCompact: {
     paddingTop: 0,
   },
+  controlsPlain: {
+    gap: spacing.md,
+  },
   chip: {
     minHeight: 36,
     paddingHorizontal: spacing.md,
@@ -195,6 +220,16 @@ const styles = StyleSheet.create({
   bonusChip: {
     minWidth: 88,
     justifyContent: 'center',
+  },
+  chipPlain: {
+    minHeight: 36,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  bonusChipPlain: {
+    minWidth: 0,
   },
   bonusChipIncluded: {
     borderColor: colors.accentPrimary,
@@ -224,6 +259,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     marginTop: -2,
+  },
+  plainText: {
+    fontSize: typography.sizes.small,
   },
   backdrop: {
     flex: 1,
