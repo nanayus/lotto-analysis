@@ -58,7 +58,7 @@ export function AllNumberComparison({
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable
-          accessibilityLabel="탐색으로 돌아가기"
+          accessibilityLabel="번호분석으로 돌아가기"
           accessibilityRole="button"
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>

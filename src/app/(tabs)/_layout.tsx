@@ -102,32 +102,32 @@ export default function TabsLayout() {
         tabBarButton: (props) => <TabBarButton {...props} />,
       }}>
       <Tabs.Screen
-        name="explore"
+        name="combination-generator"
         options={{
-          title: '탐색',
-          tabBarAccessibilityLabel: '탐색 탭',
+          title: 'AI조합',
+          tabBarAccessibilityLabel: 'AI조합 탭',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon color={color} focused={focused} kind="explore" />
+            <TabIcon color={color} focused={focused} kind="generator" />
           ),
         }}
       />
       <Tabs.Screen
         name="combination"
         options={{
-          title: '조합 만들기',
-          tabBarAccessibilityLabel: '조합 만들기 탭',
+          title: '랜덤조합',
+          tabBarAccessibilityLabel: '랜덤조합 탭',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon color={color} focused={focused} kind="combination" />
           ),
         }}
       />
       <Tabs.Screen
-        name="combination-generator"
+        name="explore"
         options={{
-          title: '조합 만들기 (2)',
-          tabBarAccessibilityLabel: '조건 조합 만들기 탭',
+          title: '번호분석',
+          tabBarAccessibilityLabel: '번호분석 탭',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon color={color} focused={focused} kind="generator" />
+            <TabIcon color={color} focused={focused} kind="explore" />
           ),
         }}
       />
@@ -148,8 +148,7 @@ export default function TabsLayout() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
     backgroundColor: colors.background,
-    borderTopColor: colors.divider,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 0,
     elevation: 0,
   },
   tabBarWeb: {

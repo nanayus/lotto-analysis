@@ -15,21 +15,21 @@ void SplashScreen.preventAutoHideAsync();
 const SITE_URL = 'https://lotto-analysis.vercel.app';
 
 const exploreMetadata = {
-  title: '로또 6/45 데이터 탐색 | Lotto Insight',
+  title: '로또 6/45 번호분석 | Lotto Insight',
   description:
     '로또 6/45 과거 당첨 데이터를 바탕으로 번호별 출현 기록과 빈도, 페어·트리오 통계를 탐색하는 데이터 분석 웹앱입니다.',
   path: '/explore',
 };
 
 const combinationMetadata = {
-  title: '로또 번호 조합 분석 | Lotto Insight',
+  title: '로또 랜덤조합 | Lotto Insight',
   description:
     '직접 선택한 로또 6/45 번호 6개의 과거 일치 기록, 출현 빈도, 조합 형태와 부분 조합 통계를 분석합니다.',
   path: '/combination',
 };
 
 const generatorMetadata = {
-  title: '조건별 로또 번호 조합 만들기 | Lotto Insight',
+  title: '로또 AI조합 | Lotto Insight',
   description:
     '고정수, 제외수, 번호 분포와 수학적 형태 조건을 직접 선택해 로또 6/45 번호 한 조합을 무작위로 만듭니다.',
   path: '/combination-generator',

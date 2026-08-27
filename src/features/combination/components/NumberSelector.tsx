@@ -34,7 +34,7 @@ export function NumberSelector({
       <View style={styles.header}>
         <View>
           <Text style={styles.eyebrow}>LOTTO DATA EXPLORER</Text>
-          <Text style={styles.title}>조합 만들기</Text>
+          <Text style={styles.title}>랜덤조합</Text>
         </View>
         <View style={styles.countBadge}>
           <Text accessibilityLiveRegion="polite" style={styles.countText}>

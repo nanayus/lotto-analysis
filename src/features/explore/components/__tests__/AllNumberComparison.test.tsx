@@ -71,7 +71,7 @@ describe('AllNumberComparison', () => {
       fireEvent.press(getByRole('switch', { name: '보너스 번호 제외' }));
     });
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '탐색으로 돌아가기' }));
+      fireEvent.press(getByRole('button', { name: '번호분석으로 돌아가기' }));
     });
 
     expect(onSelect).toHaveBeenCalledWith(13);

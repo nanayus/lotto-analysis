@@ -135,7 +135,7 @@ export function CombinationGeneratorScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.eyebrow}>CONDITION RANDOMIZER</Text>
-              <Text style={styles.title}>조합 만들기 (2)</Text>
+              <Text style={styles.title}>AI조합</Text>
             </View>
             <View style={[styles.conditionBadge, conditionCount > 0 && styles.conditionBadgeActive]}>
               <Text style={[styles.conditionBadgeText, conditionCount > 0 && styles.conditionBadgeTextActive]}>
