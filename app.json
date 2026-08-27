@@ -21,7 +21,16 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Lotto Insight",
+      "shortName": "Lotto Insight",
+      "lang": "ko",
+      "display": "standalone",
+      "startUrl": "/",
+      "orientation": "portrait",
+      "themeColor": "#080A12",
+      "backgroundColor": "#080A12",
+      "barStyle": "black-translucent"
     },
     "plugins": [
       "expo-router",

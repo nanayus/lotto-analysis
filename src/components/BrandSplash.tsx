@@ -13,7 +13,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 const FADE_IN_DURATION = 360;
-const SPLASH_HOLD_DURATION = 560;
+const SPLASH_HOLD_DURATION = 2000;
 const FADE_OUT_DURATION = 300;
 
 export function BrandSplash() {

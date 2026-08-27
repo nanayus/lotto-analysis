@@ -1,0 +1,19 @@
+{
+  "name": "Lotto Insight",
+  "short_name": "Lotto Insight",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#080A12",
+  "background_color": "#080A12",
+  "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
