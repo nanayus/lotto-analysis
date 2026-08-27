@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedValue } from '@/components/AnimatedValue';
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 import type { GeneratedNumberAnalytics } from '@/data/numberAnalytics.types';
 
 import { RankBadge } from './RankBadge';
@@ -12,6 +12,7 @@ type NumberProfileProps = {
 };
 
 export function NumberProfile({ analytics, onOpenComparison }: NumberProfileProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.container}>
       <View style={styles.actionRow}>
@@ -36,7 +37,7 @@ export function NumberProfile({ analytics, onOpenComparison }: NumberProfileProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     paddingTop: spacing.lg,
   },

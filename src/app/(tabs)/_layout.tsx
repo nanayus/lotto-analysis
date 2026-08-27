@@ -5,17 +5,19 @@ import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
 import { ColorValue, Platform, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 const TAB_BAR_CONTENT_HEIGHT = 60;
 
 type TabIconProps = {
   color: ColorValue;
   focused: boolean;
-  kind: 'explore' | 'combination';
+  kind: 'explore' | 'combination' | 'generator' | 'settings';
 };
 
 function TabIcon({ color, focused, kind }: TabIconProps) {
+  const styles = useThemedStyles(createStyles);
+
   if (kind === 'explore') {
     return (
       <View style={[styles.compass, { borderColor: color }]}>
@@ -24,9 +26,31 @@ function TabIcon({ color, focused, kind }: TabIconProps) {
     );
   }
 
-  return (
+  if (kind === 'combination') return (
     <View style={[styles.hexagon, { borderColor: color }]}>
       <Text style={[styles.hexagonText, { color }]}>{focused ? '✦' : '·'}</Text>
+    </View>
+  );
+
+  if (kind === 'generator') return (
+    <View style={styles.generatorIcon}>
+      <View style={[styles.generatorDot, { backgroundColor: color }]} />
+      <View style={[styles.generatorDot, styles.generatorDotMiddle, { backgroundColor: color }]} />
+      <View style={[styles.generatorDot, { backgroundColor: color }]} />
+    </View>
+  );
+
+  return (
+    <View style={styles.settingsIcon}>
+      <View style={[styles.settingsLine, { backgroundColor: color }]}>
+        <View style={[styles.settingsKnob, styles.settingsKnobLeft, { borderColor: color }]} />
+      </View>
+      <View style={[styles.settingsLine, { backgroundColor: color }]}>
+        <View style={[styles.settingsKnob, styles.settingsKnobRight, { borderColor: color }]} />
+      </View>
+      <View style={[styles.settingsLine, { backgroundColor: color }]}>
+        <View style={[styles.settingsKnob, styles.settingsKnobMiddle, { borderColor: color }]} />
+      </View>
     </View>
   );
 }
@@ -36,6 +60,7 @@ const webOutlineReset = Platform.select({
 });
 
 function TabBarButton({ children, style, ...props }: BottomTabBarButtonProps) {
+  const styles = useThemedStyles(createStyles);
   const [focused, setFocused] = useState(false);
 
   return (
@@ -58,6 +83,8 @@ function TabBarButton({ children, style, ...props }: BottomTabBarButtonProps) {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
 
   return (
     <Tabs
@@ -94,11 +121,31 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="combination-generator"
+        options={{
+          title: '조합 만들기 (2)',
+          tabBarAccessibilityLabel: '조건 조합 만들기 탭',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon color={color} focused={focused} kind="generator" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: '환경설정',
+          tabBarAccessibilityLabel: '환경설정 탭',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon color={color} focused={focused} kind="settings" />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
     backgroundColor: colors.background,
     borderTopColor: colors.divider,
@@ -147,5 +194,51 @@ const styles = StyleSheet.create({
   hexagonText: {
     fontSize: 13,
     lineHeight: 16,
+  },
+  generatorIcon: {
+    width: 24,
+    height: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  generatorDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  generatorDotMiddle: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  settingsIcon: {
+    width: 23,
+    height: 20,
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  settingsLine: {
+    width: 23,
+    height: 1.5,
+    borderRadius: 1,
+  },
+  settingsKnob: {
+    position: 'absolute',
+    top: -2.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 1.5,
+    backgroundColor: colors.background,
+  },
+  settingsKnobLeft: {
+    left: 3,
+  },
+  settingsKnobRight: {
+    right: 3,
+  },
+  settingsKnobMiddle: {
+    left: 9,
   },
 });

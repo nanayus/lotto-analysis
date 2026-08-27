@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 import { NumberScrubberV3 } from './components/NumberScrubberV3';
 import { randomLottoNumber } from './sliderMath';
 
 export function ScrubberPlaygroundScreen() {
+  const styles = useThemedStyles(createStyles);
   const [selectedNumber, setSelectedNumber] = useState(() => randomLottoNumber());
 
   return (
@@ -26,7 +27,7 @@ export function ScrubberPlaygroundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     alignItems: 'center',

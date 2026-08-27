@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 type DetailMode =
   | { kind: 'history' }
@@ -15,6 +15,7 @@ type CombinationDetailProps = {
 };
 
 export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailProps) {
+  const styles = useThemedStyles(createStyles);
   const history = mode.kind === 'prizeRank'
     ? analysis.qualifyingHistory.filter((draw) => draw.prizeRank === mode.rank)
     : analysis.qualifyingHistory;
@@ -62,7 +63,7 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
   },

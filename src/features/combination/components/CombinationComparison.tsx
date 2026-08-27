@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { AnalysisPeriod } from '@/domain/analytics/types';
 import type { CombinationAnalysis } from '@/domain/combination/types';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 function bestRank(analysis: CombinationAnalysis) { return ([1,2,3,4,5] as const).find((rank) => analysis.prizeCounts[rank] > 0); }
 function recentRank(analysis: CombinationAnalysis) { return analysis.recentMeaningfulMatch?.prizeRank; }
@@ -12,6 +12,7 @@ export function CombinationComparison({ a, b, bonusIncluded, firstRound, latestR
   a: CombinationAnalysis; b: CombinationAnalysis; bonusIncluded:boolean; firstRound:number; latestRound:number; onBack:()=>void;
   onBonusChange:(value:boolean)=>void; onPeriodChange:(period:AnalysisPeriod)=>void; period:AnalysisPeriod;
 }) {
+  const styles = useThemedStyles(createStyles);
   const rows = [
     ['과거 최고 일치', bestRank(a) ? `${bestRank(a)}등 상당` : '없음', bestRank(b) ? `${bestRank(b)}등 상당` : '없음'],
     ['가장 최근 일치', recentRank(a) ? `${recentRank(a)}등 상당` : '없음', recentRank(b) ? `${recentRank(b)}등 상당` : '없음'],
@@ -29,4 +30,4 @@ export function CombinationComparison({ a, b, bonusIncluded, firstRound, latestR
     <Text style={styles.note}>같은 기간과 보너스 조건의 과거 기록을 나란히 표시합니다.</Text>
   </ScrollView>;
 }
-const styles=StyleSheet.create({content:{padding:spacing.lg,paddingBottom:spacing.xxxl,gap:spacing.lg},header:{flexDirection:'row',alignItems:'center',gap:spacing.lg},back:{minHeight:44,justifyContent:'center'},action:{color:colors.accentPrimary,fontSize:typography.sizes.small},title:{color:colors.textPrimary,fontSize:typography.sizes.section,fontWeight:typography.weights.semibold},sets:{gap:spacing.md,padding:spacing.lg,borderRadius:radius.lg,borderWidth:1,borderColor:colors.divider,backgroundColor:colors.surface},label:{color:colors.textSecondary,fontSize:typography.sizes.caption,marginBottom:spacing.xs},numbers:{color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},table:{borderRadius:radius.lg,borderWidth:1,borderColor:colors.divider,overflow:'hidden'},row:{flexDirection:'row',minHeight:48,alignItems:'center',paddingHorizontal:spacing.md,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.divider},name:{width:'40%',color:colors.textSecondary,fontSize:typography.sizes.caption},value:{width:'30%',textAlign:'right',color:colors.textPrimary,fontSize:typography.sizes.caption},common:{padding:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.surface},note:{color:colors.textSecondary,fontSize:typography.sizes.caption,textAlign:'center'}});
+const createStyles = (colors: ThemeColors) => StyleSheet.create({content:{padding:spacing.lg,paddingBottom:spacing.xxxl,gap:spacing.lg},header:{flexDirection:'row',alignItems:'center',gap:spacing.lg},back:{minHeight:44,justifyContent:'center'},action:{color:colors.accentPrimary,fontSize:typography.sizes.small},title:{color:colors.textPrimary,fontSize:typography.sizes.section,fontWeight:typography.weights.semibold},sets:{gap:spacing.md,padding:spacing.lg,borderRadius:radius.lg,borderWidth:1,borderColor:colors.divider,backgroundColor:colors.surface},label:{color:colors.textSecondary,fontSize:typography.sizes.caption,marginBottom:spacing.xs},numbers:{color:colors.textPrimary,fontSize:typography.sizes.small,fontWeight:typography.weights.semibold},table:{borderRadius:radius.lg,borderWidth:1,borderColor:colors.divider,overflow:'hidden'},row:{flexDirection:'row',minHeight:48,alignItems:'center',paddingHorizontal:spacing.md,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:colors.divider},name:{width:'40%',color:colors.textSecondary,fontSize:typography.sizes.caption},value:{width:'30%',textAlign:'right',color:colors.textPrimary,fontSize:typography.sizes.caption},common:{padding:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.surface},note:{color:colors.textSecondary,fontSize:typography.sizes.caption,textAlign:'center'}});

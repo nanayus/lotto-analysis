@@ -7,7 +7,7 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
-import { colors, typography } from '@/theme';
+import { type ThemeColors, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 import { MAX_NUMBER, NUMBER_STEP, RAIL_BASE_OFFSET } from '../constants';
 import { numberOffsetFromSelection } from '../sliderMath';
@@ -26,6 +26,8 @@ type NumberRowProps = NumberScaleProps & {
 };
 
 function NumberRow({ continuousNumber, number, onNumberPress }: NumberRowProps) {
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const rowStyle = useAnimatedStyle(() => {
     const signedDistance = number - continuousNumber.value;
     const distance = Math.abs(signedDistance);
@@ -103,6 +105,7 @@ function NumberRow({ continuousNumber, number, onNumberPress }: NumberRowProps) 
 }
 
 export function NumberScale(props: NumberScaleProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={[StyleSheet.absoluteFill, styles.scaleLayer]}>
       {Array.from({ length: MAX_NUMBER }, (_, index) => (
@@ -112,7 +115,7 @@ export function NumberScale(props: NumberScaleProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scaleLayer: {
     pointerEvents: 'box-none',
   },

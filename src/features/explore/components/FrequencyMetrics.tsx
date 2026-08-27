@@ -2,13 +2,14 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedValue } from '@/components/AnimatedValue';
 import type { GeneratedNumberAnalytics } from '@/data/numberAnalytics.types';
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 type FrequencyMetricsProps = {
   analytics: GeneratedNumberAnalytics;
 };
 
 export function FrequencyMetrics({ analytics }: FrequencyMetricsProps) {
+  const styles = useThemedStyles(createStyles);
   const metrics = [
     { displayLabel: '총 출현', label: '총 출현', value: `${analytics.appearanceCount}회` },
     { displayLabel: '평균 간격', label: '평균 간격', value: `${analytics.averageGap.toFixed(1)}회` },
@@ -35,11 +36,11 @@ export function FrequencyMetrics({ analytics }: FrequencyMetricsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   section: {
     paddingTop: spacing.xxl,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#171B27',
+    borderTopColor: colors.divider,
   },
   title: {
     color: colors.textPrimary,

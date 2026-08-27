@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedValue } from '@/components/AnimatedValue';
 import type { TrioDatum } from '@/data/numberAnalytics.types';
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 import { SectionHeading } from './SectionHeading';
 
@@ -13,6 +13,7 @@ type TrioSectionProps = {
 };
 
 export function TrioSection({ onSelectNumber, selectedNumber, trios }: TrioSectionProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.section} testID="trio-analysis-section">
       <SectionHeading title="자주 함께 나온 3개 조합" subtitle="TOP 3" />
@@ -59,7 +60,7 @@ export function TrioSection({ onSelectNumber, selectedNumber, trios }: TrioSecti
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   section: {
     marginTop: spacing.xxxl,
     marginBottom: spacing.xxxl,
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: '#171B27',
+    borderColor: colors.divider,
   },
   numberGroup: {
     flexDirection: 'row',

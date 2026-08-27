@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DrawHit } from '@/data/numberAnalytics.types';
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 const TOOLTIP_DURATION = 1500;
 const PRESS_SCALE = 1.14;
@@ -29,6 +29,7 @@ function TimelineCell({
   onSelect,
   showTooltip,
 }: TimelineCellProps) {
+  const styles = useThemedStyles(createStyles);
   const [scale] = useState(() => new Animated.Value(1));
 
   const select = () => {
@@ -81,6 +82,7 @@ function TimelineCell({
 }
 
 export function RecentTimeline({ hitCount, onOpenHistory, values }: RecentTimelineProps) {
+  const styles = useThemedStyles(createStyles);
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [hoveredRound, setHoveredRound] = useState<number | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,7 +150,7 @@ export function RecentTimeline({ hitCount, onOpenHistory, values }: RecentTimeli
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   section: {
     paddingBottom: spacing.xxl,
   },

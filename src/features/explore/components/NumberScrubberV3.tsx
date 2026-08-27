@@ -25,7 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { colors } from '@/theme';
+import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { MAX_NUMBER, MIN_NUMBER } from '../constants';
 import type { InteractionFocus } from '../interactionFocus';
@@ -76,6 +76,7 @@ export function NumberScrubberV3({
   onInteractionStart,
   onValueChange,
 }: NumberScrubberV3Props) {
+  const styles = useThemedStyles(createStyles);
   const [uncontrolledValue, setUncontrolledValue] = useState(() =>
     clampNumber(initialNumber ?? randomLottoNumber()),
   );
@@ -503,7 +504,7 @@ export function NumberScrubberV3({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 336,

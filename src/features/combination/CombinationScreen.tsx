@@ -8,7 +8,7 @@ import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
-import { colors } from '@/theme';
+import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { CombinationResult } from './components/CombinationResult';
 import { CombinationDetail } from './components/CombinationDetail';
@@ -39,6 +39,7 @@ type ScreenMode =
   | { kind: 'comparison' };
 
 export function CombinationScreen() {
+  const styles = useThemedStyles(createStyles);
   const { analyze } = useLocalSearchParams<{ analyze?: string | string[] }>();
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
@@ -87,13 +88,19 @@ export function CombinationScreen() {
     if (
       !analyzeToken
       || handledAnalyzeTokenRef.current === analyzeToken
-      || mode.kind !== 'select'
       || selectedNumbers.length !== 6
     ) return;
 
     handledAnalyzeTokenRef.current = analyzeToken;
-    startAnalysis();
-  }, [analyzeToken, mode.kind, selectedNumbers.length, startAnalysis]);
+    const snapshot = analyzeCombination(lottoHistory, selectedNumbers, DEFAULT_FILTERS);
+    const nextState = { ...DEFAULT_FILTERS, snapshot };
+    analysisStateRef.current = nextState;
+    setAnalysisState(nextState);
+    setComparisonA(null);
+    setComparisonB(null);
+    setExcludedNumbers([]);
+    setMode({ kind: 'result' });
+  }, [analyzeToken, selectedNumbers]);
 
   const commitFilters = useCallback((filters: AnalysisFilters) => {
     if (selectedNumbers.length !== 6) return;
@@ -173,7 +180,7 @@ export function CombinationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     alignItems: 'center',

@@ -12,7 +12,7 @@ import {
 
 import { AnimatedValue } from '@/components/AnimatedValue';
 import type { PairDatum } from '@/data/numberAnalytics.types';
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 import { SectionHeading } from './SectionHeading';
 
@@ -25,6 +25,7 @@ type PairSectionProps = {
 };
 
 export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
+  const styles = useThemedStyles(createStyles);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
@@ -94,7 +95,7 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   section: {
     marginTop: spacing.xxxl,
     paddingTop: spacing.xxl,
@@ -141,14 +142,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: EDGE_OVERLAY_WIDTH,
     overflow: 'hidden',
-    backgroundColor: '#080A1270',
+    backgroundColor: `${colors.background}70`,
   },
   edgeShade: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 24,
-    backgroundColor: '#080A12E6',
+    backgroundColor: `${colors.background}E6`,
   },
   edgeCueText: {
     position: 'absolute',

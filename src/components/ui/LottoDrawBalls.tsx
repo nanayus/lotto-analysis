@@ -1,7 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, typography } from '@/theme';
+import { type ThemeColors, radius, typography, useThemedStyles } from '@/theme';
 
 type LottoDrawBallsProps = {
   bonus: number;
@@ -22,6 +22,7 @@ export function LottoDrawBalls({
   size = 24,
   style,
 }: LottoDrawBallsProps) {
+  const styles = useThemedStyles(createStyles);
   const highlighted = new Set(highlightedNumbers);
   const compact = size === 22;
 
@@ -64,7 +65,7 @@ export function LottoDrawBalls({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -85,8 +86,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   ballActive: {
-    borderColor: '#35408A',
-    backgroundColor: '#171E48',
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
   },
   ballText: {
     color: colors.textSecondary,

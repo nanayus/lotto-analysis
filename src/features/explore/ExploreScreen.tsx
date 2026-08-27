@@ -30,7 +30,7 @@ import type {
   AnalyticsSnapshot,
   LottoHistoryDraw,
 } from '@/domain/analytics/types';
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 import {
   AnalysisControls,
@@ -66,6 +66,7 @@ const defaultAnalysisFilters: AnalysisFilters = {
 };
 
 export function ExploreScreen() {
+  const styles = useThemedStyles(createStyles);
   const router = useRouter();
   const draft = useCombinationDraft();
   const { width: windowWidth } = useWindowDimensions();
@@ -285,7 +286,7 @@ export function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     alignItems: 'center',

@@ -3,7 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } fr
 
 import type { AnalysisPeriod } from '@/domain/analytics/types';
 import type { CombinationAnalysis, CombinationSize, PrizeRank } from '@/domain/combination/types';
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
 
 type CombinationResultProps = {
@@ -37,6 +37,7 @@ function formatNumber(number: number) {
 }
 
 function NumberPills({ numbers }: { numbers: number[] }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.numberPills}>
       {numbers.map((number) => (
@@ -52,6 +53,7 @@ function SectionCard({ children, title }: {
   children: React.ReactNode;
   title?: string;
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.card}>
       {title ? <Text style={styles.cardTitle}>{title}</Text> : null}
@@ -61,6 +63,7 @@ function SectionCard({ children, title }: {
 }
 
 function FrequentCombinations({ analysis }: { analysis: CombinationAnalysis }) {
+  const styles = useThemedStyles(createStyles);
   const [activeSize, setActiveSize] = useState<(typeof VISIBLE_COMBINATION_SIZES)[number]>(2);
   const [focusedSize, setFocusedSize] = useState<CombinationSize | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -172,6 +175,7 @@ export function CombinationResult({
   onCompare,
   period,
 }: CombinationResultProps) {
+  const styles = useThemedStyles(createStyles);
   const individualNumbers = [...analysis.individualNumbers].sort(
     (left, right) => right.appearanceCount - left.appearanceCount || left.number - right.number,
   );
@@ -323,7 +327,7 @@ export function CombinationResult({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -383,7 +387,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.round,
     borderWidth: 1,
     borderColor: colors.accentPrimary,
-    backgroundColor: '#252E6D',
+    backgroundColor: colors.surfaceAccent,
   },
   numberPillText: {
     color: colors.highlight,
@@ -604,7 +608,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.accentPrimary,
   },
   comboTabFocused: {
-    backgroundColor: '#171C2A',
+    backgroundColor: colors.surfaceElevated,
   },
   comboTabText: {
     color: colors.textSecondary,

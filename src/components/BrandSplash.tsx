@@ -10,13 +10,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 const FADE_IN_DURATION = 360;
 const SPLASH_HOLD_DURATION = 560;
 const FADE_OUT_DURATION = 300;
 
 export function BrandSplash() {
+  const styles = useThemedStyles(createStyles);
   const [visible, setVisible] = useState(true);
   const opacity = useSharedValue(0);
 
@@ -67,7 +68,7 @@ export function BrandSplash() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,

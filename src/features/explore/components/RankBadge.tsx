@@ -1,19 +1,21 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 type RankBadgeProps = {
   rank: number;
 };
 
-function rankColor(rank: number) {
+function rankColor(rank: number, colors: ThemeColors) {
   if (rank <= 6) return colors.hot;
   if (rank >= 40) return colors.cold;
   return colors.neutral;
 }
 
 export function RankBadge({ rank }: RankBadgeProps) {
-  const color = rankColor(rank);
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const color = rankColor(rank, colors);
 
   return (
     <View
@@ -26,7 +28,7 @@ export function RankBadge({ rank }: RankBadgeProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ThemeColors) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

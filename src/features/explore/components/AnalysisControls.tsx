@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import type { AnalysisPeriod } from '@/domain/analytics/types';
 
 export type { AnalysisPeriod } from '@/domain/analytics/types';
@@ -42,6 +42,7 @@ export function AnalysisControls({
   period,
   variant = 'chip',
 }: AnalysisControlsProps) {
+  const styles = useThemedStyles(createStyles);
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [customVisible, setCustomVisible] = useState(false);
   const [startRound, setStartRound] = useState(String(firstRound));
@@ -193,7 +194,7 @@ export function AnalysisControls({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   controls: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
   },
   bonusChipIncluded: {
     borderColor: colors.accentPrimary,
-    backgroundColor: '#1B2140',
+    backgroundColor: colors.surfaceAccent,
   },
   chipPressed: {
     opacity: 0.72,
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xxl,
-    backgroundColor: '#00000080',
+    backgroundColor: colors.backdrop,
   },
   sheet: {
     width: '100%',

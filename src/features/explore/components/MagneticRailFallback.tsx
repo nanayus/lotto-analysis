@@ -1,11 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors } from '@/theme';
+import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { FOCUS_Y, RAIL_ACCENT_REST_LENGTH, RAIL_X } from '../scrubberV3.constants';
 import type { MagneticRailProps } from './MagneticRail.types';
 
 export function MagneticRailFallback({ height, width }: MagneticRailProps) {
+  const styles = useThemedStyles(createStyles);
   const railX = width * RAIL_X;
   const centerY = height * FOCUS_Y;
 
@@ -29,7 +30,7 @@ export function MagneticRailFallback({ height, width }: MagneticRailProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     pointerEvents: 'none',
   },

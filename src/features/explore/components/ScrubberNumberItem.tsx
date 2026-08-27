@@ -7,7 +7,7 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
-import { colors, typography } from '@/theme';
+import { type ThemeColors, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 import {
   FAR_OPACITY,
@@ -44,6 +44,8 @@ export function ScrubberNumberItem({
   scrollVelocity,
   onPress,
 }: ScrubberNumberItemProps) {
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const rowStyle = useAnimatedStyle(() => {
     const continuousValue = scrollOffset.value / NUMBER_STEP + 1;
     const distance = Math.abs(number - continuousValue);
@@ -135,7 +137,7 @@ export function ScrubberNumberItem({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pressTarget: {
     height: NUMBER_STEP,
     justifyContent: 'center',

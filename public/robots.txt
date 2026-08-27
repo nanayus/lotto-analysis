@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /scrubber-playground
+
+Sitemap: https://lotto-analysis.vercel.app/sitemap.xml

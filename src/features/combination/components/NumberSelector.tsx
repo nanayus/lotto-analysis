@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberSelectorProps = {
   excludedNumbers: number[];
@@ -23,6 +23,7 @@ export function NumberSelector({
   onToggleNumber,
   selectedNumbers,
 }: NumberSelectorProps) {
+  const styles = useThemedStyles(createStyles);
   const ready = selectedNumbers.length === 6;
 
   return (
@@ -131,7 +132,7 @@ export function NumberSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
   selectionSlotFilled: {
     borderStyle: 'solid',
     borderColor: colors.accentPrimary,
-    backgroundColor: '#252E6D',
+    backgroundColor: colors.surfaceAccent,
   },
   selectionText: {
     color: colors.textSecondary,

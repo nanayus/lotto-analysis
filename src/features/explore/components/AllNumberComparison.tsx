@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { AnalysisPeriod, AnalyticsSnapshot } from '@/domain/analytics/types';
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 import { AnalysisControls } from './AnalysisControls';
 
@@ -42,6 +42,7 @@ export function AllNumberComparison({
   selectedNumber,
   snapshot,
 }: AllNumberComparisonProps) {
+  const styles = useThemedStyles(createStyles);
   const { width } = useWindowDimensions();
   const [metric, setMetric] = useState<ComparisonMetric>('appearanceCount');
   const columnCount = width >= WIDE_GRID_BREAKPOINT
@@ -150,7 +151,7 @@ export function AllNumberComparison({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
   },
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
   },
   ballSelected: {
     borderColor: colors.accentPrimary,
-    backgroundColor: '#171E48',
+    backgroundColor: colors.surfaceAccent,
   },
   number: {
     color: colors.textPrimary,

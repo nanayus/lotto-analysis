@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import Animated, { SharedValue, useAnimatedProps } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
-import { colors } from '@/theme';
+import { useAppTheme } from '@/theme';
 
 import { CURVE_RADIUS, HANDLE_SIZE, RAIL_BASE_OFFSET } from '../constants';
 
@@ -15,6 +15,7 @@ type CurvedRailProps = {
 };
 
 export function CurvedRail({ continuousNumber, layoutHeight, layoutWidth }: CurvedRailProps) {
+  const { colors } = useAppTheme();
   const animatedProps = useAnimatedProps(() => {
     const height = layoutHeight.value;
     const baseX = layoutWidth.value - RAIL_BASE_OFFSET;

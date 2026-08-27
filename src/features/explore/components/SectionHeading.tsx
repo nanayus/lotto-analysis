@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 type SectionHeadingProps = {
   title: string;
@@ -8,6 +8,7 @@ type SectionHeadingProps = {
 };
 
 export function SectionHeading({ title, subtitle }: SectionHeadingProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.row}>
       <Text style={styles.title}>{title}</Text>
@@ -16,7 +17,7 @@ export function SectionHeading({ title, subtitle }: SectionHeadingProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'baseline',

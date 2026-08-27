@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing, typography } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type CombinationFloatingControlProps = {
   currentNumber: number;
@@ -17,6 +17,7 @@ export function CombinationFloatingControl({
   onToggle,
   selectedCount,
 }: CombinationFloatingControlProps) {
+  const styles = useThemedStyles(createStyles);
   const complete = selectedCount === 6;
   const accessibilityLabel = complete
     ? '선택한 조합 분석하기'
@@ -53,7 +54,7 @@ export function CombinationFloatingControl({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   control: {
     minWidth: 70,
     height: 40,
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.round,
     borderWidth: 1,
-    borderColor: '#35408A',
+    borderColor: colors.accentBorder,
     backgroundColor: colors.surface,
   },
   controlEmpty: {

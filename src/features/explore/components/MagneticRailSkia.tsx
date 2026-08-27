@@ -2,7 +2,7 @@ import { Canvas, LinearGradient, Path, vec } from '@shopify/react-native-skia';
 import { StyleSheet } from 'react-native';
 import { useDerivedValue } from 'react-native-reanimated';
 
-import { colors } from '@/theme';
+import { useAppTheme } from '@/theme';
 
 import {
   FOCUS_Y,
@@ -19,6 +19,7 @@ export default function MagneticRailSkia({
   scrollVelocity,
   width,
 }: MagneticRailProps) {
+  const { colors } = useAppTheme();
   const railX = width * RAIL_X;
   const path = `M ${railX} 0 L ${railX} ${height}`;
 
@@ -72,7 +73,13 @@ export default function MagneticRailSkia({
         strokeJoin="round"
         strokeWidth={accentWidth}>
         <LinearGradient
-          colors={['#7C8CFF00', '#7C8CFF00', '#7C8CFFD6', '#7C8CFF00', '#7C8CFF00']}
+          colors={[
+            `${colors.accentPrimary}00`,
+            `${colors.accentPrimary}00`,
+            `${colors.accentPrimary}D6`,
+            `${colors.accentPrimary}00`,
+            `${colors.accentPrimary}00`,
+          ]}
           end={vec(0, height)}
           positions={accentPositions}
           start={vec(0, 0)}

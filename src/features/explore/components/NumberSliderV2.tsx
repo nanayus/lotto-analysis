@@ -20,7 +20,7 @@ import {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { colors, spacing } from '@/theme';
+import { type ThemeColors, spacing, useThemedStyles } from '@/theme';
 
 import {
   DECELERATION,
@@ -49,6 +49,7 @@ const webClipStyle = Platform.select<ViewStyle>({
 });
 
 export function NumberSliderV2({ value, initialNumber, onValueChange }: NumberSliderProps) {
+  const styles = useThemedStyles(createStyles);
   const [uncontrolledValue, setUncontrolledValue] = useState(() =>
     clampNumber(initialNumber ?? randomLottoNumber()),
   );
@@ -230,7 +231,7 @@ export function NumberSliderV2({ value, initialNumber, onValueChange }: NumberSl
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 336,

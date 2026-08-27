@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
 import type { NumberAppearanceHistoryItem } from '@/domain/analytics/numberHistory';
-import { colors, spacing, typography } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberHistoryDetailProps = {
   entries: readonly NumberAppearanceHistoryItem[];
@@ -11,6 +11,7 @@ type NumberHistoryDetailProps = {
 };
 
 export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDetailProps) {
+  const styles = useThemedStyles(createStyles);
   const { width } = useWindowDimensions();
   const compact = width <= 360;
 
@@ -63,7 +64,7 @@ export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDe
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
   },

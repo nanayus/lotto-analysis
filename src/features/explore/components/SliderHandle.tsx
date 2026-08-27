@@ -1,10 +1,11 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '@/theme';
+import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { HANDLE_SIZE } from '../constants';
 
 export function SliderHandle() {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.focusLayer}>
       <View style={styles.handle} testID="slider-focus-handle">
@@ -15,7 +16,7 @@ export function SliderHandle() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   focusLayer: {
     position: 'absolute',
     top: '50%',
