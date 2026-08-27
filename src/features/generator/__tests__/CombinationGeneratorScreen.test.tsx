@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
 
 import { CombinationGeneratorScreen } from '../CombinationGeneratorScreen';
+import { pageIndexFromHorizontalSwipe } from '../components/ConditionSheet';
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
@@ -21,6 +22,14 @@ function renderScreen() {
 }
 
 describe('CombinationGeneratorScreen', () => {
+  test('moves exactly one page for a Safari-style horizontal touch swipe', () => {
+    expect(pageIndexFromHorizontalSwipe({ deltaX: -120, deltaY: 10, page: 0 })).toBe(1);
+    expect(pageIndexFromHorizontalSwipe({ deltaX: 120, deltaY: 10, page: 1 })).toBe(0);
+    expect(pageIndexFromHorizontalSwipe({ deltaX: -30, deltaY: 0, page: 0 })).toBe(0);
+    expect(pageIndexFromHorizontalSwipe({ deltaX: -45, deltaY: 100, page: 0 })).toBe(0);
+    expect(pageIndexFromHorizontalSwipe({ deltaX: -120, deltaY: 10, page: 4 })).toBe(4);
+  });
+
   test('starts unlimited and applies a fixed number from the condition sheet', async () => {
     const screen = await renderScreen();
     expect(screen.getByText('무제한')).toBeTruthy();
@@ -55,6 +64,34 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '번호 접기' })); });
     expect(screen.getByTestId('number-status-rail')).toBeTruthy();
     expect(screen.getByRole('button', { name: '번호 전체 펼치기' }).props.accessibilityState).toEqual({ expanded: false });
+  });
+
+  test('updates the selected category tab while swiping condition pages', async () => {
+    const screen = await renderScreen();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+
+    expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
+
+    await act(async () => {
+      fireEvent.scroll(screen.getByTestId('condition-pages'), {
+        nativeEvent: {
+          contentOffset: { x: 390, y: 0 },
+          layoutMeasurement: { height: 500, width: 390 },
+        },
+      });
+    });
+
+    expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: false });
+    expect(screen.getByRole('tab', { name: '분포' }).props.accessibilityState).toEqual({ selected: true });
+  });
+
+  test('keeps carry and neighbor bonus toggles in their section headers', async () => {
+    const screen = await renderScreen();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '직전·연번' })); });
+
+    expect(screen.getByTestId('carry-bonus-toggle')).toBeTruthy();
+    expect(screen.getByTestId('neighbor-bonus-toggle')).toBeTruthy();
   });
 
   test('shows definitions, examples, and historical frequencies from distribution help buttons', async () => {

@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
+  type GestureResponderEvent,
   type LayoutChangeEvent,
   Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -74,6 +77,32 @@ type ConditionSheetProps = {
 };
 
 type Option<T extends string | number> = { label: string; value: T };
+type PagerTouchStart = {
+  interactive: boolean;
+  page: number;
+  x: number;
+  y: number;
+};
+
+export function pageIndexFromHorizontalSwipe({
+  deltaX,
+  deltaY,
+  page,
+}: {
+  deltaX: number;
+  deltaY: number;
+  page: number;
+}) {
+  const horizontalDistance = Math.abs(deltaX);
+  const isHorizontalSwipe = horizontalDistance >= 44 && horizontalDistance > Math.abs(deltaY) * 1.15;
+  if (!isHorizontalSwipe) return page;
+  return Math.max(0, Math.min(PAGE_LABELS.length - 1, page + (deltaX < 0 ? 1 : -1)));
+}
+
+function isInteractiveWebTarget(target: unknown) {
+  if (Platform.OS !== 'web' || typeof Element === 'undefined' || !(target instanceof Element)) return false;
+  return Boolean(target.closest('input, textarea, [role="adjustable"], [role="slider"]'));
+}
 
 function toggleValue<T>(values: readonly T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -81,11 +110,13 @@ function toggleValue<T>(values: readonly T[], value: T) {
 
 function Section({
   children,
+  headerAction,
   hint,
   onHelpPress,
   title,
 }: {
   children: React.ReactNode;
+  headerAction?: React.ReactNode;
   hint?: string;
   onHelpPress?: () => void;
   title: string;
@@ -94,11 +125,14 @@ function Section({
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeading}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
+        <View style={styles.sectionHeadingCopy}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+            {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
+          </View>
+          {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
         </View>
-        {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+        {headerAction ? <View style={styles.sectionHeaderAction}>{headerAction}</View> : null}
       </View>
       {children}
     </View>
@@ -160,14 +194,23 @@ function CountSelector({
   );
 }
 
-function BonusToggle({ included, onChange }: { included: boolean; onChange: (value: boolean) => void }) {
+function BonusToggle({
+  included,
+  onChange,
+  testID,
+}: {
+  included: boolean;
+  onChange: (value: boolean) => void;
+  testID: string;
+}) {
   const styles = useThemedStyles(createStyles);
   return (
     <Pressable
       accessibilityRole="switch"
       accessibilityState={{ checked: included }}
       onPress={() => onChange(!included)}
-      style={[styles.bonusToggle, included && styles.bonusToggleActive]}>
+      style={[styles.bonusToggle, included && styles.bonusToggleActive]}
+      testID={testID}>
       <Text style={[styles.bonusText, included && styles.bonusTextActive]}>
         보너스 {included ? '포함' : '제외'}
       </Text>
@@ -241,6 +284,11 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
   const numbersExpandedRef = useRef(false);
   const previewMeasuredRef = useRef(false);
   const pagerRef = useRef<ScrollView>(null);
+  const pageRef = useRef(0);
+  const pageTabsRef = useRef<ScrollView>(null);
+  const pageTabLayoutsRef = useRef<Array<{ width: number; x: number } | undefined>>([]);
+  const pageTabsViewportWidthRef = useRef(0);
+  const pagerTouchStartRef = useRef<PagerTouchStart | null>(null);
 
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
@@ -276,10 +324,62 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
       useNativeDriver: Platform.OS !== 'web',
     }).start(complete);
   };
+  const revealPageTab = (nextPage: number) => {
+    const layout = pageTabLayoutsRef.current[nextPage];
+    const viewportWidth = pageTabsViewportWidthRef.current;
+    if (!layout || viewportWidth <= 0) return;
+
+    pageTabsRef.current?.scrollTo({
+      animated: !reduceMotion,
+      x: Math.max(0, layout.x + (layout.width / 2) - (viewportWidth / 2)),
+    });
+  };
+  const setActivePage = (nextPage: number) => {
+    const clampedPage = Math.max(0, Math.min(PAGE_LABELS.length - 1, nextPage));
+    if (pageRef.current === clampedPage) return;
+    pageRef.current = clampedPage;
+    setPage(clampedPage);
+    revealPageTab(clampedPage);
+  };
+  const syncPageWithPager = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const viewportWidth = event.nativeEvent.layoutMeasurement.width || sheetWidth;
+    if (viewportWidth <= 0) return;
+    setActivePage(Math.round(event.nativeEvent.contentOffset.x / viewportWidth));
+  };
   const goToPage = (nextPage: number) => {
-    setPage(nextPage);
+    setActivePage(nextPage);
     pagerRef.current?.scrollTo({ animated: !reduceMotion, x: nextPage * sheetWidth });
   };
+  const handlePagerTouchStart = (event: GestureResponderEvent) => {
+    if (Platform.OS !== 'web') return;
+    const touch = event.nativeEvent.touches[0] ?? event.nativeEvent.changedTouches[0];
+    if (!touch) return;
+    pagerTouchStartRef.current = {
+      interactive: isInteractiveWebTarget(event.target),
+      page: pageRef.current,
+      x: touch.pageX,
+      y: touch.pageY,
+    };
+  };
+  const handlePagerTouchEnd = (event: GestureResponderEvent) => {
+    if (Platform.OS !== 'web') return;
+    const start = pagerTouchStartRef.current;
+    pagerTouchStartRef.current = null;
+    if (!start || start.interactive) return;
+
+    const touch = event.nativeEvent.changedTouches[0] ?? event.nativeEvent.touches[0];
+    if (!touch) return;
+    goToPage(pageIndexFromHorizontalSwipe({
+      deltaX: touch.pageX - start.x,
+      deltaY: touch.pageY - start.y,
+      page: start.page,
+    }));
+  };
+  const webPagerTouchProps = Platform.OS === 'web' ? ({
+    onTouchCancel: () => { pagerTouchStartRef.current = null; },
+    onTouchEndCapture: handlePagerTouchEnd,
+    onTouchStartCapture: handlePagerTouchStart,
+  } as unknown as React.ComponentProps<typeof View>) : {};
   const toggleNumber = (number: number) => {
     setDraft((current) => {
       if (numberMode === 'fixed') {
@@ -414,6 +514,11 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
           <ScrollView
             contentContainerStyle={styles.pageTabsContent}
             horizontal
+            onLayout={(event) => {
+              pageTabsViewportWidthRef.current = event.nativeEvent.layout.width;
+              revealPageTab(pageRef.current);
+            }}
+            ref={pageTabsRef}
             showsHorizontalScrollIndicator={false}
             style={styles.pageTabs}>
             {PAGE_LABELS.map((label, index) => (
@@ -421,6 +526,9 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                 accessibilityRole="tab"
                 accessibilityState={{ selected: page === index }}
                 key={label}
+                onLayout={(event) => {
+                  pageTabLayoutsRef.current[index] = event.nativeEvent.layout;
+                }}
                 onPress={() => goToPage(index)}
                 style={[styles.pageTab, page === index && styles.pageTabActive]}>
                 <Text style={[styles.pageTabText, page === index && styles.pageTabTextActive]}>{label}</Text>
@@ -428,13 +536,21 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
             ))}
           </ScrollView>
 
-          <ScrollView
-            horizontal
-            onMomentumScrollEnd={(event) => setPage(Math.round(event.nativeEvent.contentOffset.x / sheetWidth))}
-            pagingEnabled
-            ref={pagerRef}
-            showsHorizontalScrollIndicator={false}
-            style={styles.pager}>
+          <View
+            {...webPagerTouchProps}
+            style={[styles.pagerContainer, styles.pagerWebTouch]}
+            testID="condition-pages-touch-area">
+            <ScrollView
+              horizontal
+              onMomentumScrollEnd={syncPageWithPager}
+              onScroll={syncPageWithPager}
+              onScrollEndDrag={syncPageWithPager}
+              pagingEnabled
+              ref={pagerRef}
+              scrollEventThrottle={16}
+              showsHorizontalScrollIndicator={false}
+              style={styles.pager}
+              testID="condition-pages">
             <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
               <Section
                 hint="번호 레일을 눌러 설정"
@@ -529,17 +645,29 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
 
             <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
               <Section
+                headerAction={(
+                  <BonusToggle
+                    included={draft.carry.includeBonus}
+                    onChange={(includeBonus) => update({ carry: { ...draft.carry, includeBonus } })}
+                    testID="carry-bonus-toggle"
+                  />
+                )}
                 hint={`${latest?.round ?? '-'}회 기준`}
                 onHelpPress={() => setActiveHelp('carryCount')}
                 title="이월수 개수">
-                <BonusToggle included={draft.carry.includeBonus} onChange={(includeBonus) => update({ carry: { ...draft.carry, includeBonus } })} />
                 <CountSelector label="이월수 개수" onChange={(allowed) => update({ carry: { ...draft.carry, allowed } })} selected={draft.carry.allowed} />
               </Section>
               <Section
+                headerAction={(
+                  <BonusToggle
+                    included={draft.neighbor.includeBonus}
+                    onChange={(includeBonus) => update({ neighbor: { ...draft.neighbor, includeBonus } })}
+                    testID="neighbor-bonus-toggle"
+                  />
+                )}
                 hint="직전 번호의 ±1 · 중복 제외"
                 onHelpPress={() => setActiveHelp('neighborCount')}
                 title="이웃수 개수">
-                <BonusToggle included={draft.neighbor.includeBonus} onChange={(includeBonus) => update({ neighbor: { ...draft.neighbor, includeBonus } })} />
                 <CountSelector label="이웃수 개수" onChange={(allowed) => update({ neighbor: { ...draft.neighbor, allowed } })} selected={draft.neighbor.allowed} />
               </Section>
               <Section
@@ -580,7 +708,8 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                 />
               </Section>
             </ScrollView>
-          </ScrollView>
+            </ScrollView>
+          </View>
 
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" onPress={() => closeAnimated(onClose)} style={styles.cancelButton}>
@@ -709,10 +838,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pageTabActive: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentPrimary },
   pageTabText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
   pageTabTextActive: { color: colors.highlight },
+  pagerContainer: { flex: 1, minHeight: 0 },
   pager: { flex: 1, minHeight: 0 },
+  pagerWebTouch: Platform.select({ web: { touchAction: 'pan-y' } }) as never,
   pageContent: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
   section: { gap: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.background, padding: spacing.md },
-  sectionHeading: { gap: spacing.xs },
+  sectionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
+  sectionHeadingCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
+  sectionHeaderAction: { flexShrink: 0, alignItems: 'flex-end' },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   sectionHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
@@ -729,7 +862,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modeTextActive: { color: colors.highlight },
   modeTextExcluded: { color: colors.hot },
   helper: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
-  bonusToggle: { alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
+  bonusToggle: { minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   bonusToggleActive: { borderColor: colors.accentSecondary, backgroundColor: colors.surfaceSuccess },
   bonusText: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   bonusTextActive: { color: colors.accentSecondary, fontWeight: typography.weights.semibold },
