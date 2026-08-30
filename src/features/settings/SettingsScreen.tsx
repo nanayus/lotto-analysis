@@ -4,6 +4,8 @@ import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
+import { AccountSettingsSection } from './AccountSettingsSection';
+
 import {
   type ThemeColors,
   type ThemeMode,
@@ -48,6 +50,8 @@ export function SettingsScreen() {
             <Text style={styles.eyebrow}>PREFERENCES</Text>
             <Text style={styles.title}>환경설정</Text>
           </View>
+
+          <AccountSettingsSection />
 
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>화면</Text>

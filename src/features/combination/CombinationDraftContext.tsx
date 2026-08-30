@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 
 type CombinationDraftValue = {
   addNumber: (number: number) => void;
@@ -10,6 +11,7 @@ type CombinationDraftValue = {
 };
 
 const CombinationDraftContext = createContext<CombinationDraftValue | null>(null);
+const WEB_DRAFT_KEY = 'lotto.combinationDraft.v1';
 
 export function normalizeDraftNumbers(numbers: readonly number[]) {
   return [...new Set(numbers)]
@@ -19,7 +21,19 @@ export function normalizeDraftNumbers(numbers: readonly number[]) {
 }
 
 export function CombinationDraftProvider({ children }: { children: React.ReactNode }) {
-  const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
+  const [selectedNumbers, setSelectedNumbers] = useState<number[]>(() => {
+    if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return [];
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(WEB_DRAFT_KEY) ?? '[]') as unknown;
+      return Array.isArray(stored) ? normalizeDraftNumbers(stored as number[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return;
+    sessionStorage.setItem(WEB_DRAFT_KEY, JSON.stringify(selectedNumbers));
+  }, [selectedNumbers]);
   const setNumbers = useCallback((numbers: readonly number[]) => {
     setSelectedNumbers(normalizeDraftNumbers(numbers));
   }, []);

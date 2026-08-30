@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /scrubber-playground
 
-Sitemap: https://lotto-analysis.vercel.app/sitemap.xml
+Sitemap: https://lotto.wondly.net/sitemap.xml

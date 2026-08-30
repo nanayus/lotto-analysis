@@ -9,6 +9,9 @@ import {
   useCombinationDraft,
 } from '../CombinationDraftContext';
 
+const mockOpenLogin = jest.fn();
+let mockAuthStatus: 'authenticated' | 'guest' = 'authenticated';
+
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
@@ -21,6 +24,23 @@ jest.mock('expo-router', () => ({
     analyze: 'generated-result',
     returnTo: 'random-draw',
   })),
+}));
+
+jest.mock('@/features/auth/AuthContext', () => ({
+  useAuth: () => ({
+    consumePendingIntent: () => false,
+    openLogin: mockOpenLogin,
+    state: mockAuthStatus === 'authenticated' ? {
+      status: mockAuthStatus,
+      user: {
+        displayName: null,
+        email: 'test@example.com',
+        photoUrl: null,
+        providers: ['google.com'],
+        uid: 'test-user',
+      },
+    } : { status: mockAuthStatus },
+  }),
 }));
 
 const mockReplace = router.replace as jest.Mock;
@@ -45,6 +65,19 @@ describe('CombinationScreen', () => {
       analyze: 'generated-result',
       returnTo: 'random-draw',
     });
+    mockAuthStatus = 'authenticated';
+    mockOpenLogin.mockClear();
+  });
+
+  test('requires login before opening a requested analysis', async () => {
+    mockAuthStatus = 'guest';
+    await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(mockOpenLogin).toHaveBeenCalledWith('combination-analysis'));
   });
 
   test('returns New analysis from a result to the Number Draw home', async () => {

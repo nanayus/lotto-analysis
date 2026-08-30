@@ -6,6 +6,66 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+jest.mock('firebase/app', () => ({
+  getApp: jest.fn(),
+  getApps: jest.fn(() => []),
+  initializeApp: jest.fn(),
+}));
+
+jest.mock('firebase/auth', () => ({
+  GoogleAuthProvider: { credential: jest.fn() },
+  OAuthProvider: Object.assign(jest.fn(), { credentialFromResult: jest.fn() }),
+  browserLocalPersistence: {},
+  getAuth: jest.fn(),
+  getReactNativePersistence: jest.fn(() => ({})),
+  getRedirectResult: jest.fn(() => Promise.resolve(null)),
+  initializeAuth: jest.fn(),
+  linkWithCredential: jest.fn(),
+  onAuthStateChanged: jest.fn(() => jest.fn()),
+  reauthenticateWithCredential: jest.fn(),
+  revokeAccessToken: jest.fn(),
+  setPersistence: jest.fn(() => Promise.resolve()),
+  signInWithCredential: jest.fn(),
+  signOut: jest.fn(() => Promise.resolve()),
+  updateProfile: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('firebase/firestore', () => ({
+  collection: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  getFirestore: jest.fn(),
+  onSnapshot: jest.fn(() => jest.fn()),
+  serverTimestamp: jest.fn(() => 'server-timestamp'),
+  setDoc: jest.fn(() => Promise.resolve()),
+  writeBatch: jest.fn(),
+}));
+
+jest.mock('firebase/functions', () => ({
+  getFunctions: jest.fn(),
+  httpsCallable: jest.fn(),
+}));
+
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn(),
+    revokeAccess: jest.fn(),
+    signIn: jest.fn(),
+  },
+}));
+
+jest.mock('@invertase/react-native-apple-authentication', () => ({
+  appleAuthAndroid: {
+    Error: { SIGNIN_CANCELLED: 'cancelled' },
+    ResponseType: { ALL: 'ALL' },
+    Scope: { ALL: 'ALL' },
+    configure: jest.fn(),
+    signIn: jest.fn(),
+  },
+}));
+
 jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Error: 'error', Success: 'success', Warning: 'warning' },
   notificationAsync: jest.fn(() => Promise.resolve()),

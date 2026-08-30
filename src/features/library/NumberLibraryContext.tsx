@@ -9,9 +9,20 @@ import {
   useRef,
   useState,
 } from 'react';
+import {
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
 
 import { normalizeDraftNumbers } from '@/features/combination/CombinationDraftContext';
 import type { GeneratorConditionDescription } from '@/domain/generator/describeGeneratorConditions';
+import { useAuth } from '@/features/auth/AuthContext';
+import { db } from '@/features/auth/firebaseClient';
 
 export type CombinationSource = 'ai' | 'random';
 
@@ -38,6 +49,11 @@ type NumberLibraryValue = {
 };
 
 export const NUMBER_LIBRARY_STORAGE_KEY = 'lotto.numberLibrary.v2';
+export const NUMBER_LIBRARY_MIGRATION_ID = 'numberLibraryV2';
+
+function userStorageKey(uid: string) {
+  return `lotto.numberLibrary.user.${uid}.v1`;
+}
 
 const fallbackValue: NumberLibraryValue = {
   addCombination: () => undefined,
@@ -76,7 +92,7 @@ function normalizeGenerationConditions(value: unknown) {
   }));
 }
 
-function normalizeStoredCombinations(values: unknown[]) {
+export function normalizeStoredCombinations(values: unknown[]) {
   const seenIds = new Set<string>();
   return values.filter(isSavedCombination).map((item, index) => {
     const id = seenIds.has(item.id) ? `${item.id}-restored-${index}` : item.id;
@@ -92,16 +108,77 @@ function normalizeStoredCombinations(values: unknown[]) {
   });
 }
 
+function toCloudCombination(item: SavedCombination, ownerUid: string) {
+  return {
+    createdAt: item.createdAt,
+    favorite: item.favorite,
+    ...(item.generationConditions ? {
+      generationConditions: item.generationConditions.map((condition) => ({ ...condition })),
+    } : {}),
+    id: item.id,
+    numbers: [...item.numbers],
+    ownerUid,
+    purchased: item.purchased,
+    source: item.source,
+    updatedAt: serverTimestamp(),
+  };
+}
+
+function cloudDocumentId(id: string) {
+  return encodeURIComponent(id);
+}
+
+async function migrateGuestLibrary(uid: string, combinations: SavedCombination[]) {
+  if (!db) return;
+  const database = db;
+  const cloudCollection = collection(database, 'users', uid, 'savedCombinations');
+  const cloudSnapshot = await getDocs(cloudCollection);
+  const existingDocumentIds = new Set(cloudSnapshot.docs.map((item) => item.id));
+  const batch = writeBatch(database);
+  combinations.forEach((item) => {
+    const documentId = cloudDocumentId(item.id);
+    if (existingDocumentIds.has(documentId)) return;
+    batch.set(
+      doc(database, 'users', uid, 'savedCombinations', documentId),
+      toCloudCombination(item, uid),
+      { merge: true },
+    );
+  });
+  batch.set(doc(database, 'users', uid, 'migrationState', NUMBER_LIBRARY_MIGRATION_ID), {
+    completedAt: serverTimestamp(),
+    itemCount: combinations.length,
+    version: 2,
+  }, { merge: true });
+  await batch.commit();
+}
+
 export function NumberLibraryProvider({ children }: PropsWithChildren) {
+  const { state: authState } = useAuth();
   const [combinations, setCombinations] = useState<SavedCombination[]>([]);
   const [isReady, setIsReady] = useState(false);
   const idSequence = useRef(0);
+  const combinationsRef = useRef<SavedCombination[]>([]);
+  const activeUid = authState.status === 'authenticated' ? authState.user.uid : null;
+
+  useEffect(() => {
+    combinationsRef.current = combinations;
+  }, [combinations]);
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(NUMBER_LIBRARY_STORAGE_KEY)
+    queueMicrotask(() => {
+      if (active) setIsReady(false);
+    });
+    if (authState.status === 'loading') return () => { active = false; };
+
+    const storageKey = activeUid ? userStorageKey(activeUid) : NUMBER_LIBRARY_STORAGE_KEY;
+    void AsyncStorage.getItem(storageKey)
       .then((stored) => {
-        if (!active || !stored) return;
+        if (!active) return;
+        if (!stored) {
+          setCombinations([]);
+          return;
+        }
         const parsed = JSON.parse(stored) as unknown;
         if (Array.isArray(parsed)) {
           setCombinations(normalizeStoredCombinations(parsed));
@@ -112,13 +189,59 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
         if (active) setIsReady(true);
       });
     return () => { active = false; };
-  }, []);
+  }, [activeUid, authState.status]);
+
+  useEffect(() => {
+    if (!activeUid || !db || !isReady) return;
+    let active = true;
+    let unsubscribe: () => void = () => undefined;
+
+    void AsyncStorage.getItem(NUMBER_LIBRARY_STORAGE_KEY)
+      .then((stored) => {
+        if (!active) return;
+        const parsed = stored ? JSON.parse(stored) as unknown : [];
+        const guestItems = Array.isArray(parsed) ? normalizeStoredCombinations(parsed) : [];
+        const itemsById = new Map([...combinationsRef.current, ...guestItems].map((item) => [item.id, item]));
+        return migrateGuestLibrary(activeUid, [...itemsById.values()]).then(() => {
+          if (stored) return AsyncStorage.removeItem(NUMBER_LIBRARY_STORAGE_KEY);
+          return undefined;
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!active || !db) return;
+        unsubscribe = onSnapshot(
+          collection(db, 'users', activeUid, 'savedCombinations'),
+          (snapshot) => {
+            const cloudItems = normalizeStoredCombinations(snapshot.docs.map((item) => item.data()));
+            setCombinations(cloudItems.sort((left, right) => right.createdAt.localeCompare(left.createdAt)));
+            setIsReady(true);
+          },
+          () => setIsReady(true),
+        );
+      });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [activeUid, isReady]);
 
   useEffect(() => {
     if (!isReady) return;
-    void AsyncStorage.setItem(NUMBER_LIBRARY_STORAGE_KEY, JSON.stringify(combinations))
+    const storageKey = activeUid ? userStorageKey(activeUid) : NUMBER_LIBRARY_STORAGE_KEY;
+    void AsyncStorage.setItem(storageKey, JSON.stringify(combinations))
       .catch(() => undefined);
-  }, [combinations, isReady]);
+  }, [activeUid, combinations, isReady]);
+
+  const syncCombination = useCallback((item: SavedCombination) => {
+    if (!activeUid || !db) return;
+    void setDoc(
+      doc(db, 'users', activeUid, 'savedCombinations', cloudDocumentId(item.id)),
+      toCloudCombination(item, activeUid),
+      { merge: true },
+    ).catch(() => undefined);
+  }, [activeUid]);
 
   const addCombination = useCallback((
     numbers: readonly number[],
@@ -129,7 +252,7 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     if (normalized.length !== 6) return;
     idSequence.current += 1;
     const createdAt = new Date().toISOString();
-    setCombinations((current) => [{
+    const nextItem: SavedCombination = {
       createdAt,
       favorite: false,
       ...(options?.generationConditions ? {
@@ -139,20 +262,28 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
       numbers: normalized,
       purchased: false,
       source,
-    }, ...current].slice(0, 200));
-  }, []);
+    };
+    setCombinations((current) => [nextItem, ...current].slice(0, 200));
+    syncCombination(nextItem);
+  }, [syncCombination]);
 
   const toggleFavorite = useCallback((id: string) => {
-    setCombinations((current) => current.map((item) => item.id === id
-      ? { ...item, favorite: !item.favorite }
-      : item));
-  }, []);
+    setCombinations((current) => current.map((item) => {
+      if (item.id !== id) return item;
+      const updated = { ...item, favorite: !item.favorite };
+      syncCombination(updated);
+      return updated;
+    }));
+  }, [syncCombination]);
 
   const togglePurchased = useCallback((id: string) => {
-    setCombinations((current) => current.map((item) => item.id === id
-      ? { ...item, purchased: !item.purchased }
-      : item));
-  }, []);
+    setCombinations((current) => current.map((item) => {
+      if (item.id !== id) return item;
+      const updated = { ...item, purchased: !item.purchased };
+      syncCombination(updated);
+      return updated;
+    }));
+  }, [syncCombination]);
 
   const value = useMemo(() => ({
     addCombination,

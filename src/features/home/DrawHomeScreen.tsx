@@ -3,12 +3,11 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 const GAME_COUNTS = [1, 3, 5] as const;
 
 export function DrawHomeScreen() {
-  const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [gameCount, setGameCount] = useState<(typeof GAME_COUNTS)[number]>(1);
 

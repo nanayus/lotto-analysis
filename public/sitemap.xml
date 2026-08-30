@@ -1,9 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://lotto-analysis.vercel.app/explore</loc>
+    <loc>https://lotto.wondly.net/statistics/explore</loc>
   </url>
   <url>
-    <loc>https://lotto-analysis.vercel.app/combination</loc>
+    <loc>https://lotto.wondly.net/combination-analysis</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/lotto-myths-and-reality</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/why-randomness-looks-patterned</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/hot-cold-numbers-are-about-the-window</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/birthday-numbers-and-shared-stories</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/consecutive-numbers-are-not-broken</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/the-human-pattern-machine</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/bonus-ball-two-different-meanings</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/pairs-and-trios-are-not-friendships</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/lotto-analysis-as-a-small-museum</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/content/a-calm-lotto-ritual</loc>
+  </url>
+  <url>
+    <loc>https://lotto.wondly.net/account-deletion</loc>
   </url>
 </urlset>

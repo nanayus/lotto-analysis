@@ -9,8 +9,10 @@ import { TamaguiProvider } from '@tamagui/core';
 
 import { BrandSplash } from '@/components/BrandSplash';
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
+import { getArticleBySlug } from '@/features/content/articles';
 import { GeneratorDraftProvider } from '@/features/generator/GeneratorDraftContext';
 import { NumberLibraryProvider } from '@/features/library/NumberLibraryContext';
+import { AuthProvider } from '@/features/auth/AuthContext';
 import { AppThemeProvider, useAppTheme } from '@/theme';
 import { tamaguiConfig } from '../../tamagui.config';
 
@@ -23,7 +25,7 @@ const STACK_ANIMATION = Platform.select({
 });
 const STACK_ANIMATION_DURATION_MS = 240;
 
-const SITE_URL = 'https://lotto-analysis.vercel.app';
+const SITE_URL = 'https://lotto.wondly.net';
 
 const drawMetadata = {
   title: '로또 번호뽑기 | Lotto Insight',
@@ -41,6 +43,12 @@ const statisticsMetadata = {
   title: '로또 통계보기 | Lotto Insight',
   description: '번호별 통계와 로또 6/45 과거 당첨데이터 종합 통계를 탐색합니다.',
   path: '/statistics',
+};
+
+const contentMetadata = {
+  title: '로또 콘텐츠 | Lotto Insight',
+  description: '로또 데이터와 번호를 더 재미있고 차분하게 읽는 가이드와 이야기를 만나보세요.',
+  path: '/content',
 };
 
 const exploreMetadata = {
@@ -76,29 +84,58 @@ const settingsMetadata = {
   path: '/settings',
 };
 
+const accountDeletionMetadata = {
+  title: '계정 및 데이터 삭제 | Lotto Insight',
+  description: 'Lotto Insight 계정과 계정에 저장된 데이터를 삭제합니다.',
+  path: '/account-deletion',
+};
+
+const authCallbackMetadata = {
+  title: '로그인 확인 | Lotto Insight',
+  description: 'Lotto Insight 소셜 로그인 확인 페이지입니다.',
+  path: '/auth/callback',
+};
+
 function AppMetadata() {
   const pathname = usePathname();
+  const contentArticle = pathname.startsWith('/content/')
+    ? getArticleBySlug(pathname.slice('/content/'.length))
+    : undefined;
+  const activeContentMetadata = contentArticle
+    ? {
+        title: `${contentArticle.title} | Lotto Insight`,
+        description: contentArticle.summary,
+        path: `/content/${contentArticle.slug}`,
+      }
+    : contentMetadata;
   const metadata = pathname === drawMetadata.path
     ? drawMetadata
     : pathname === libraryMetadata.path
       ? libraryMetadata
       : pathname === statisticsMetadata.path || pathname === '/statistics/overall-statistics'
         ? statisticsMetadata
+        : pathname === contentMetadata.path || pathname.startsWith('/content/')
+          ? activeContentMetadata
         : pathname === combinationMetadata.path
           ? combinationMetadata
           : pathname === generatorMetadata.path
             ? generatorMetadata
             : pathname === randomDrawMetadata.path
               ? randomDrawMetadata
-              : pathname === settingsMetadata.path
-                ? settingsMetadata
-                : exploreMetadata;
+              : pathname === accountDeletionMetadata.path
+                ? accountDeletionMetadata
+                : pathname === authCallbackMetadata.path
+                  ? authCallbackMetadata
+                : pathname === settingsMetadata.path
+                  ? settingsMetadata
+                  : exploreMetadata;
   const canonicalUrl = `${SITE_URL}${metadata.path}`;
 
   return (
     <Head>
       <title>{metadata.title}</title>
       <meta name="description" content={metadata.description} />
+      {metadata === authCallbackMetadata ? <meta name="robots" content="noindex,nofollow" /> : null}
       <link rel="canonical" href={canonicalUrl} />
 
       <meta property="og:type" content="website" />
@@ -139,23 +176,25 @@ function ThemedApp() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <AppMetadata />
       <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme}>
-        <NumberLibraryProvider>
-          <GeneratorDraftProvider>
-            <CombinationDraftProvider>
-              <ThemeProvider value={navigationTheme}>
-                <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-                <Stack
-                  screenOptions={{
-                    animation: STACK_ANIMATION,
-                    animationDuration: STACK_ANIMATION_DURATION_MS,
-                    headerShown: false,
-                  }}
-                />
-                <BrandSplash />
-              </ThemeProvider>
-            </CombinationDraftProvider>
-          </GeneratorDraftProvider>
-        </NumberLibraryProvider>
+        <AuthProvider>
+          <NumberLibraryProvider>
+            <GeneratorDraftProvider>
+              <CombinationDraftProvider>
+                <ThemeProvider value={navigationTheme}>
+                  <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+                  <Stack
+                    screenOptions={{
+                      animation: STACK_ANIMATION,
+                      animationDuration: STACK_ANIMATION_DURATION_MS,
+                      headerShown: false,
+                    }}
+                  />
+                  <BrandSplash />
+                </ThemeProvider>
+              </CombinationDraftProvider>
+            </GeneratorDraftProvider>
+          </NumberLibraryProvider>
+        </AuthProvider>
       </TamaguiProvider>
     </GestureHandlerRootView>
   );

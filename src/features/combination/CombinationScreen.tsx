@@ -18,6 +18,7 @@ import { useCombinationDraft } from './CombinationDraftContext';
 import { fillCombinationRandomly } from './randomFill';
 import { CombinationComparison } from './components/CombinationComparison';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+import { useAuth } from '@/features/auth/AuthContext';
 import {
   buildCombinationReturnDestination,
   type CombinationReturnTarget,
@@ -77,6 +78,7 @@ export function CombinationScreen() {
   }>();
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
+  const { consumePendingIntent, openLogin, state: authState } = useAuth();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
   const activeExcludedNumbers = excludedNumbers.filter(
     (number) => !selectedNumbers.includes(number),
@@ -104,7 +106,7 @@ export function CombinationScreen() {
     toggleNumber(number);
   }, [activeExcludedNumbers, selectedNumbers, toggleNumber]);
 
-  const startAnalysis = useCallback(() => {
+  const executeAnalysis = useCallback(() => {
     if (selectedNumbers.length !== 6) return;
     const filters = mode.kind === 'compareSelect' && analysisState
       ? { includeBonus: analysisState.includeBonus, period: analysisState.period }
@@ -120,6 +122,16 @@ export function CombinationScreen() {
       setMode({ kind: 'result' });
     }
   }, [addCombination, analysisState, comparisonA, mode.kind, selectedNumbers]);
+
+  const startAnalysis = useCallback(() => {
+    if (authState.status === 'authenticated') {
+      executeAnalysis();
+      return;
+    }
+    if (authState.status === 'guest') {
+      openLogin('combination-analysis', executeAnalysis);
+    }
+  }, [authState.status, executeAnalysis, openLogin]);
 
   const analyzeToken = latestParam(analyze);
   const returnTarget = latestParam(returnTo) as CombinationReturnTarget | undefined;
@@ -145,18 +157,38 @@ export function CombinationScreen() {
       !analyzeToken
       || handledAnalyzeTokenRef.current === analyzeToken
       || selectedNumbers.length !== 6
+      || authState.status === 'loading'
     ) return;
+
+    if (authState.status === 'guest') {
+      openLogin('combination-analysis');
+      return;
+    }
+
+    consumePendingIntent('combination-analysis');
 
     handledAnalyzeTokenRef.current = analyzeToken;
     const snapshot = analyzeCombination(lottoHistory, selectedNumbers, DEFAULT_FILTERS);
     const nextState = { ...DEFAULT_FILTERS, snapshot };
     analysisStateRef.current = nextState;
-    setAnalysisState(nextState);
-    setComparisonA(null);
-    setComparisonB(null);
-    setExcludedNumbers([]);
-    setMode({ kind: 'result' });
-  }, [analyzeToken, selectedNumbers]);
+    queueMicrotask(() => {
+      setAnalysisState(nextState);
+      setComparisonA(null);
+      setComparisonB(null);
+      setExcludedNumbers([]);
+      setMode({ kind: 'result' });
+    });
+  }, [analyzeToken, authState.status, consumePendingIntent, openLogin, selectedNumbers]);
+
+  useEffect(() => {
+    if (
+      authState.status !== 'authenticated'
+      || selectedNumbers.length !== 6
+      || !consumePendingIntent('combination-analysis')
+    ) return;
+    if (analyzeToken) return;
+    queueMicrotask(executeAnalysis);
+  }, [analyzeToken, authState.status, consumePendingIntent, executeAnalysis, selectedNumbers.length]);
 
   const commitFilters = useCallback((filters: AnalysisFilters) => {
     if (selectedNumbers.length !== 6) return;

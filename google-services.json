@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "179779101419",
+    "project_id": "lotto-analyzer-6e624",
+    "storage_bucket": "lotto-analyzer-6e624.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:179779101419:android:874f94bab4d469b83214ae",
+        "android_client_info": {
+          "package_name": "net.wondly.lottoinsight"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "179779101419-fjca77il4rvo1aevesimuggqrv8btqjm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "net.wondly.lottoinsight",
+            "certificate_hash": "a1b6576a96f90591c2437169de5a53061419d009"
+          }
+        },
+        {
+          "client_id": "179779101419-98l9lru3em5f09fffkksk9fb6284lp6v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDcsDk87uZeCMb-MJW_Zc5YxuSz6Rt9LY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "179779101419-98l9lru3em5f09fffkksk9fb6284lp6v.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "179779101419-gmmvtanbmnr4eo1rtbl0oaie3pgol987.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "net.wondly.lottoinsight"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

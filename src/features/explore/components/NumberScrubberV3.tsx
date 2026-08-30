@@ -13,7 +13,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
@@ -64,6 +63,7 @@ type LottoPickerItem = PickerItem<number> & {
 type PickerNumberItemProps = RenderItemContainerProps<LottoPickerItem> & {
   colors: ThemeColors;
   paneWidth: number;
+  selectedNumber: number;
 };
 
 const PICKER_DATA: LottoPickerItem[] = Array.from({ length: MAX_NUMBER }, (_, index) => ({
@@ -123,6 +123,7 @@ function PickerNumberItem({
   listRef,
   paneWidth,
   readOnly,
+  selectedNumber,
 }: PickerNumberItemProps) {
   const offset = useScrollContentOffset();
   const itemHeight = usePickerItemHeight();
@@ -143,22 +144,7 @@ function PickerNumberItem({
       },
     ],
   };
-  const numberStyle: NativeAnimated.WithAnimatedObject<TextStyle> = {
-    color: offset.interpolate({
-      extrapolate: 'clamp',
-      inputRange,
-      outputRange: [
-        colors.textSecondary,
-        colors.textSecondary,
-        colors.textSecondary,
-        colors.textPrimary,
-        colors.accentPrimary,
-        colors.textPrimary,
-        colors.textSecondary,
-        colors.textSecondary,
-        colors.textSecondary,
-      ],
-    }),
+  const numberStyle = {
     transform: [
       {
         scale: offset.interpolate({
@@ -169,6 +155,12 @@ function PickerNumberItem({
       },
     ],
   };
+  const distanceFromSelection = Math.abs(item.value - selectedNumber);
+  const numberColor = distanceFromSelection === 0
+    ? colors.accentPrimary
+    : distanceFromSelection === 1
+      ? colors.textPrimary
+      : colors.textSecondary;
 
   const scrollToItem = () => {
     if (enableScrollByTapOnItem && !readOnly) {
@@ -189,6 +181,7 @@ function PickerNumberItem({
             styles.number,
             { right: paneWidth * (1 - RAIL_X) + LABEL_RAIL_SAFE_GAP },
             numberStyle,
+            { color: numberColor },
           ]}>
           {item.label}
         </NativeAnimated.Text>
@@ -313,9 +306,10 @@ export function NumberScrubberV3({
         colors={colors}
         key={props.key}
         paneWidth={layout.width}
+        selectedNumber={selectedNumber}
       />
     ),
-    [colors, layout.width],
+    [colors, layout.width, selectedNumber],
   );
 
   const focusY = layout.height * FOCUS_Y;
@@ -330,23 +324,25 @@ export function NumberScrubberV3({
       onLayout={(event) => setLayout(event.nativeEvent.layout)}
       style={[themedStyles.container, webClipStyle]}
       testID="number-scrubber-v3">
-      <WheelPicker<LottoPickerItem>
-        _onScrollEnd={handleInteractionEnd}
-        _onScrollStart={handleInteractionStart}
-        data={PICKER_DATA}
-        enableScrollByTapOnItem
-        itemHeight={NUMBER_STEP}
-        onValueChanged={({ item }) => commitNumber(item.value)}
-        onValueChanging={handleValueChanging}
-        renderItemContainer={renderItemContainer}
-        renderOverlay={null}
-        scrollEventThrottle={16}
-        style={themedStyles.wheel}
-        testID="number-scrubber-scroll"
-        value={selectedNumber}
-        visibleItemCount={VISIBLE_ITEM_COUNT}
-        width="100%"
-      />
+      {layout.height > 0 && layout.width > 0 ? (
+        <WheelPicker<LottoPickerItem>
+          _onScrollEnd={handleInteractionEnd}
+          _onScrollStart={handleInteractionStart}
+          data={PICKER_DATA}
+          enableScrollByTapOnItem
+          itemHeight={NUMBER_STEP}
+          onValueChanged={({ item }) => commitNumber(item.value)}
+          onValueChanging={handleValueChanging}
+          renderItemContainer={renderItemContainer}
+          renderOverlay={null}
+          scrollEventThrottle={16}
+          style={themedStyles.wheel}
+          testID="number-scrubber-scroll"
+          value={selectedNumber}
+          visibleItemCount={VISIBLE_ITEM_COUNT}
+          width="100%"
+        />
+      ) : null}
 
       {layout.height > 0 && layout.width > 0 ? (
         <MagneticRail

@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validNumbers(numbers) {
+      return numbers is list
+        && numbers.size() == 6
+        && numbers.toSet().size() == 6
+        && numbers[0] is int && numbers[0] >= 1 && numbers[0] <= 45
+        && numbers[1] is int && numbers[1] >= 1 && numbers[1] <= 45
+        && numbers[2] is int && numbers[2] >= 1 && numbers[2] <= 45
+        && numbers[3] is int && numbers[3] >= 1 && numbers[3] <= 45
+        && numbers[4] is int && numbers[4] >= 1 && numbers[4] <= 45
+        && numbers[5] is int && numbers[5] >= 1 && numbers[5] <= 45;
+    }
+
+    match /users/{uid} {
+      allow read: if signedInAs(uid);
+      allow create, update: if signedInAs(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.providers is list
+        && request.resource.data.providers.hasOnly(['apple.com', 'google.com'])
+        && request.resource.data.keys().hasOnly([
+          'uid', 'createdAt', 'lastLoginAt', 'providers'
+        ]);
+      allow delete: if false;
+
+      match /savedCombinations/{combinationId} {
+        allow read: if signedInAs(uid);
+        allow create, update: if signedInAs(uid)
+          && request.resource.data.ownerUid == uid
+          && request.resource.data.id is string
+          && request.resource.data.createdAt is string
+          && request.resource.data.favorite is bool
+          && request.resource.data.purchased is bool
+          && request.resource.data.source in ['ai', 'random']
+          && validNumbers(request.resource.data.numbers)
+          && request.resource.data.keys().hasOnly([
+            'ownerUid', 'id', 'createdAt', 'favorite', 'purchased',
+            'source', 'numbers', 'generationConditions', 'updatedAt'
+          ]);
+        allow delete: if signedInAs(uid);
+      }
+
+      match /migrationState/{migrationId} {
+        allow read, create, update: if signedInAs(uid);
+        allow delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
