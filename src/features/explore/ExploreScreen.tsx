@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  BackHandler,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   Extrapolation,
@@ -57,6 +59,9 @@ import {
 
 const numberAnalytics = numberAnalyticsJson as unknown as NumberAnalyticsDataset;
 const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
+const EXPLORE_DETAIL_HISTORY_KEY = '__lottoExploreDetail';
+
+type ExploreDetailMode = 'explore' | 'comparison' | 'history';
 
 type AnalysisState = AnalysisFilters & {
   snapshot: AnalyticsSnapshot;
@@ -86,7 +91,8 @@ export function ExploreScreen() {
     period: { kind: 'preset', label: '최근 52회' },
   });
   const recent52Analytics = recent52Snapshot.numbers[String(selectedNumber)];
-  const [detailMode, setDetailMode] = useState<'explore' | 'comparison' | 'history'>('explore');
+  const [detailMode, setDetailMode] = useState<ExploreDetailMode>('explore');
+  const detailModeRef = useRef<ExploreDetailMode>('explore');
   const recentAppearanceHistory = useMemo(
     () => getNumberAppearanceHistory(lottoHistory, selectedNumber, {
       includeBonus: analysisState.includeBonus,
@@ -122,6 +128,65 @@ export function ExploreScreen() {
   const analyticsScrollOffset = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analyticsEmphasis = useSharedValue(0);
+
+  const setCurrentDetailMode = useCallback((mode: ExploreDetailMode) => {
+    detailModeRef.current = mode;
+    setDetailMode(mode);
+  }, []);
+
+  const openDetail = useCallback((mode: Exclude<ExploreDetailMode, 'explore'>) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const currentState = window.history.state;
+      const state = currentState && typeof currentState === 'object' ? currentState : {};
+      window.history.pushState(
+        { ...state, [EXPLORE_DETAIL_HISTORY_KEY]: mode },
+        '',
+        window.location.href,
+      );
+    }
+    setCurrentDetailMode(mode);
+  }, [setCurrentDetailMode]);
+
+  const closeDetail = useCallback(() => {
+    if (
+      Platform.OS === 'web'
+      && typeof window !== 'undefined'
+      && window.history.state?.[EXPLORE_DETAIL_HISTORY_KEY]
+    ) {
+      window.history.back();
+      return;
+    }
+    setCurrentDetailMode('explore');
+  }, [setCurrentDetailMode]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return undefined;
+    }
+    const handlePopState = () => {
+      if (detailModeRef.current !== 'explore') {
+        setCurrentDetailMode('explore');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [setCurrentDetailMode]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'web') {
+        return undefined;
+      }
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (detailModeRef.current === 'explore') {
+          return false;
+        }
+        setCurrentDetailMode('explore');
+        return true;
+      });
+      return () => subscription.remove();
+    }, [setCurrentDetailMode]),
+  );
 
   const activateFocus = useCallback((focus: Exclude<InteractionFocus, 'IDLE'>) => {
     if (idleTimerRef.current) {
@@ -186,12 +251,12 @@ export function ExploreScreen() {
             bonusIncluded={analysisState.includeBonus}
             firstRound={numberAnalytics.metadata.firstDrawNumber}
             latestRound={numberAnalytics.metadata.latestDrawNumber}
-            onBack={() => setDetailMode('explore')}
+            onBack={closeDetail}
             onBonusChange={changeBonusIncluded}
             onPeriodChange={changeAnalysisPeriod}
             onSelect={(number) => {
               setSelectedNumber(number);
-              setDetailMode('explore');
+              closeDetail();
             }}
             period={analysisState.period}
             selectedNumber={selectedNumber}
@@ -201,7 +266,7 @@ export function ExploreScreen() {
       </SafeAreaView>
     );
   }
-  if (detailMode === 'history') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><View style={styles.detailContainer}><NumberHistoryDetail entries={recentAppearanceHistory} number={selectedNumber} onBack={() => setDetailMode('explore')} /></View></SafeAreaView>;
+  if (detailMode === 'history') return <SafeAreaView style={styles.safeArea} edges={['top','left','right']}><View style={styles.detailContainer}><NumberHistoryDetail entries={recentAppearanceHistory} number={selectedNumber} onBack={closeDetail} /></View></SafeAreaView>;
   const selectedInDraft = draft.selectedNumbers.includes(selectedNumber);
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -250,7 +315,7 @@ export function ExploreScreen() {
                 <>
                   <NumberProfile
                     analytics={analytics}
-                    onOpenComparison={() => setDetailMode('comparison')}
+                    onOpenComparison={() => openDetail('comparison')}
                   />
                   <View style={styles.filterRow}>
                     <AnalysisControls
@@ -268,7 +333,7 @@ export function ExploreScreen() {
                     <RecentTimeline
                       hitCount={recent52Analytics.recent52Count}
                       values={recent52Analytics.recent52}
-                      onOpenHistory={() => setDetailMode('history')}
+                      onOpenHistory={() => openDetail('history')}
                     />
                     <FrequencyMetrics analytics={analytics} />
                   </View>
