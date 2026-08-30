@@ -18,6 +18,28 @@ const PRIME_NUMBERS = new Set([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 4
 const SQUARE_NUMBERS = new Set([4, 9, 16, 25, 36]);
 const BAND_KEYS = ['1-9', '10-19', '20-29', '30-39', '40-45'] as const;
 const COUNT_VALUES = [0, 1, 2, 3, 4, 5, 6] as const;
+const GENERATOR_SECTION_KEYS: GeneratorSectionKey[] = [
+  'fixedExcluded',
+  'sameEnding',
+  'oddEven',
+  'lowHigh',
+  'acValue',
+  'primeCount',
+  'squareCount',
+  'compositeCount',
+  'multiple3',
+  'multiple4',
+  'multiple5',
+  'carryCount',
+  'neighborCount',
+  'consecutivePattern',
+  'band1To9',
+  'band10To19',
+  'band20To29',
+  'band30To39',
+  'band40To45',
+  'pastRanks',
+];
 
 type PrizeIndex = {
   fiveMain: Map<string, { bonus: number; missing: number }[]>;
@@ -166,9 +188,12 @@ export function buildGeneratorRangePresets(
 export function buildGeneratorConditionDefaults(history: readonly LottoHistoryDraw[]) {
   const defaults = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
   const presets = buildGeneratorRangePresets(history);
-  defaults.standardDeviation = { enabled: false, min: presets.standardDeviation.min, max: presets.standardDeviation.max };
-  defaults.sum = { enabled: false, min: presets.sum.min, max: presets.sum.max };
-  defaults.lastDigitSum = { enabled: false, min: presets.lastDigitSum.min, max: presets.lastDigitSum.max };
+  defaults.enabledSections = Object.fromEntries(
+    GENERATOR_SECTION_KEYS.map((key) => [key, true]),
+  ) as Record<GeneratorSectionKey, boolean>;
+  defaults.standardDeviation = { enabled: true, min: presets.standardDeviation.min, max: presets.standardDeviation.max };
+  defaults.sum = { enabled: true, min: presets.sum.min, max: presets.sum.max };
+  defaults.lastDigitSum = { enabled: true, min: presets.lastDigitSum.min, max: presets.lastDigitSum.max };
   return defaults;
 }
 
@@ -180,7 +205,9 @@ export function buildBalancedGeneratorPreset(history: readonly LottoHistoryDraw[
   preset.highLowCounts = [2, 3, 4];
   preset.acValues = [7, 8, 9, 10];
   preset.consecutivePatterns = ['none', '2', '2+2', '2+2+2'];
+  preset.lastDigitSum.enabled = false;
   preset.enabledSections = {
+    ...Object.fromEntries(GENERATOR_SECTION_KEYS.map((key) => [key, false])),
     oddEven: true,
     lowHigh: true,
     acValue: true,

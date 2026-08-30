@@ -16,6 +16,13 @@ import { tamaguiConfig } from '../../tamagui.config';
 
 void SplashScreen.preventAutoHideAsync();
 
+const STACK_ANIMATION = Platform.select({
+  android: 'ios_from_right' as const,
+  ios: 'simple_push' as const,
+  default: 'fade' as const,
+});
+const STACK_ANIMATION_DURATION_MS = 240;
+
 const SITE_URL = 'https://lotto-analysis.vercel.app';
 
 const drawMetadata = {
@@ -40,14 +47,14 @@ const exploreMetadata = {
   title: '로또 6/45 번호분석 | Lotto Insight',
   description:
     '로또 6/45 과거 당첨 데이터를 바탕으로 번호별 출현 기록과 빈도, 페어·트리오 통계를 탐색하는 데이터 분석 웹앱입니다.',
-  path: '/explore',
+  path: '/statistics/explore',
 };
 
 const combinationMetadata = {
-  title: '로또 랜덤조합 | Lotto Insight',
+  title: '로또 조합분석 | Lotto Insight',
   description:
     '직접 선택한 로또 6/45 번호 6개의 과거 일치 기록, 출현 빈도, 조합 형태와 부분 조합 통계를 분석합니다.',
-  path: '/draw/combination',
+  path: '/combination-analysis',
 };
 
 const generatorMetadata = {
@@ -75,7 +82,7 @@ function AppMetadata() {
     ? drawMetadata
     : pathname === libraryMetadata.path
       ? libraryMetadata
-      : pathname === statisticsMetadata.path || pathname === '/overall-statistics'
+      : pathname === statisticsMetadata.path || pathname === '/statistics/overall-statistics'
         ? statisticsMetadata
         : pathname === combinationMetadata.path
           ? combinationMetadata
@@ -137,7 +144,13 @@ function ThemedApp() {
             <CombinationDraftProvider>
               <ThemeProvider value={navigationTheme}>
                 <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-                <Stack screenOptions={{ animation: 'fade', headerShown: false }} />
+                <Stack
+                  screenOptions={{
+                    animation: STACK_ANIMATION,
+                    animationDuration: STACK_ANIMATION_DURATION_MS,
+                    headerShown: false,
+                  }}
+                />
                 <BrandSplash />
               </ThemeProvider>
             </CombinationDraftProvider>

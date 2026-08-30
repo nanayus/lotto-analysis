@@ -12,20 +12,22 @@ import {
 } from '../combinationGenerator';
 
 describe('generator condition defaults', () => {
-  test('uses the most frequent bundled historical ranges without enabling them', () => {
+  test('uses the most frequent bundled historical ranges with every condition enabled', () => {
     const defaults = buildGeneratorConditionDefaults(historyJson as LottoHistoryDraw[]);
 
-    expect(defaults.standardDeviation).toEqual({ enabled: false, min: 12, max: 12.9 });
-    expect(defaults.sum).toEqual({ enabled: false, min: 130, max: 139 });
-    expect(defaults.lastDigitSum).toEqual({ enabled: false, min: 25, max: 29 });
+    expect(defaults.standardDeviation).toEqual({ enabled: true, min: 12, max: 12.9 });
+    expect(defaults.sum).toEqual({ enabled: true, min: 130, max: 139 });
+    expect(defaults.lastDigitSum).toEqual({ enabled: true, min: 25, max: 29 });
+    expect(Object.values(defaults.enabledSections ?? {})).toHaveLength(20);
+    expect(Object.values(defaults.enabledSections ?? {}).every(Boolean)).toBe(true);
   });
 
   test('falls back to the unrestricted static ranges when history is empty', () => {
     const defaults = buildGeneratorConditionDefaults([]);
 
-    expect(defaults.standardDeviation).toEqual(DEFAULT_GENERATOR_CONDITIONS.standardDeviation);
-    expect(defaults.sum).toEqual(DEFAULT_GENERATOR_CONDITIONS.sum);
-    expect(defaults.lastDigitSum).toEqual(DEFAULT_GENERATOR_CONDITIONS.lastDigitSum);
+    expect(defaults.standardDeviation).toEqual({ ...DEFAULT_GENERATOR_CONDITIONS.standardDeviation, enabled: true });
+    expect(defaults.sum).toEqual({ ...DEFAULT_GENERATOR_CONDITIONS.sum, enabled: true });
+    expect(defaults.lastDigitSum).toEqual({ ...DEFAULT_GENERATOR_CONDITIONS.lastDigitSum, enabled: true });
   });
 
   test('builds the broad six-condition balanced preset', () => {

@@ -11,9 +11,12 @@ jest.mock('expo-router', () => ({
 const mockNavigate = router.navigate as jest.Mock;
 
 describe('DrawHomeScreen', () => {
-  test('opens the AI condition picker route with a fresh open token', async () => {
+  test('keeps the random game count independent from the single AI condition draw', async () => {
     mockNavigate.mockClear();
     const screen = await render(<DrawHomeScreen />);
+
+    expect(screen.queryByText('몇 게임을 뽑을까요?')).toBeNull();
+    expect(screen.getByLabelText('랜덤조합 게임 수')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByRole('radio', { name: '3게임' }));
@@ -25,7 +28,7 @@ describe('DrawHomeScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith({
       pathname: '/(tabs)/draw/combination-generator',
       params: {
-        count: '3',
+        count: '1',
         openConditions: expect.any(String),
       },
     });
@@ -39,7 +42,7 @@ describe('DrawHomeScreen', () => {
       fireEvent.press(screen.getByRole('radio', { name: '5게임' }));
     });
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /랜덤조합/ }));
+      fireEvent.press(screen.getByRole('button', { name: '랜덤으로 5게임 뽑기' }));
     });
 
     expect(mockNavigate).toHaveBeenCalledWith({

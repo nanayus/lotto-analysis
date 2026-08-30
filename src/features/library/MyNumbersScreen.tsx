@@ -6,6 +6,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
+import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
@@ -37,8 +38,8 @@ export function MyNumbersScreen() {
 
   const analyze = useCallback((item: SavedCombination) => {
     setNumbers(item.numbers);
-    router.navigate({
-      pathname: '/(tabs)/draw/combination',
+    router.push({
+      pathname: COMBINATION_ANALYSIS_ROUTE,
       params: {
         analyze: `library-${item.id}`,
         returnTo: 'my-numbers',

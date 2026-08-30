@@ -16,14 +16,17 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import NumberFlow from 'rn-number-flow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { fillCombinationRandomly } from '@/features/combination/randomFill';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
@@ -36,8 +39,14 @@ import {
   useThemedStyles,
 } from '@/theme';
 
-const ROLL_INTERVAL_MS = 58;
-const DRAW_DURATION_MS = 1_080;
+const SHUFFLE_FRAME_MS = 72;
+const SHUFFLE_DURATION_MS = 1_950;
+const REVEAL_INTERVAL_MS = 600;
+const BALL_REVEAL_SPRING = {
+  damping: 9,
+  mass: 0.55,
+  stiffness: 230,
+} as const;
 
 function createUniqueResults(gameCount: 1 | 3 | 5) {
   const results: number[][] = [];
@@ -57,6 +66,55 @@ function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
+function AnimatedNumberBall({
+  number,
+  revealed,
+  styles,
+}: {
+  number: number;
+  revealed: boolean;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const revealScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (!revealed) {
+      revealScale.set(1);
+      return;
+    }
+    revealScale.set(0.7);
+    revealScale.set(withSpring(1, BALL_REVEAL_SPRING));
+  }, [revealScale, revealed]);
+
+  const revealStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: revealScale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.numberBall,
+        revealed && styles.numberBallReady,
+        revealStyle,
+      ]}>
+      <NumberFlow
+        animationConfig={{
+          animateOnMount: false,
+          damping: 15,
+          digitDelay: 18,
+          mass: 0.55,
+          stiffness: 180,
+        }}
+        style={StyleSheet.flatten([
+          styles.numberText,
+          revealed && styles.numberTextReady,
+        ])}
+        value={formatNumber(number)}
+      />
+    </Animated.View>
+  );
+}
+
 export function RandomDrawScreen({
   autoDrawToken,
   gameCount,
@@ -71,18 +129,19 @@ export function RandomDrawScreen({
   const [displayNumbers, setDisplayNumbers] = useState(() => fillCombinationRandomly([]));
   const [results, setResults] = useState<number[][]>([]);
   const [isRolling, setIsRolling] = useState(false);
+  const [revealedCount, setRevealedCount] = useState(0);
   const drawSequence = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollingMotion = useSharedValue(0);
 
   const clearTimers = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    revealTimerRefs.current.forEach(clearTimeout);
     if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
     intervalRef.current = null;
-    settleTimerRef.current = null;
+    revealTimerRefs.current = [];
     autoTimerRef.current = null;
   }, []);
 
@@ -97,6 +156,7 @@ export function RandomDrawScreen({
     clearTimers();
     setResults([]);
     setIsRolling(true);
+    setRevealedCount(0);
     setDisplayNumbers(fillCombinationRandomly([]));
     rollingMotion.set(0);
     rollingMotion.set(withRepeat(withTiming(1, { duration: 150 }), -1, true));
@@ -104,22 +164,36 @@ export function RandomDrawScreen({
     const finalResults = createUniqueResults(gameCount);
     intervalRef.current = setInterval(() => {
       if (drawSequence.current === sequence) setDisplayNumbers(fillCombinationRandomly([]));
-    }, ROLL_INTERVAL_MS);
+    }, SHUFFLE_FRAME_MS);
 
-    settleTimerRef.current = setTimeout(() => {
+    const shuffleTimer = setTimeout(() => {
       if (drawSequence.current !== sequence) return;
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
       cancelAnimation(rollingMotion);
       rollingMotion.set(withTiming(0, { duration: 180 }));
-      setDisplayNumbers(finalResults[0]);
-      setResults(finalResults);
-      setIsRolling(false);
-      finalResults.forEach((numbers) => addCombination(numbers, 'random'));
-      if (Platform.OS !== 'web') {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    }, DRAW_DURATION_MS);
+
+      finalResults[0].forEach((number, index) => {
+        const revealTimer = setTimeout(() => {
+          if (drawSequence.current !== sequence) return;
+          setDisplayNumbers((current) => current.map((value, currentIndex) => (
+            currentIndex === index ? number : value
+          )));
+          setRevealedCount(index + 1);
+
+          if (index === finalResults[0].length - 1) {
+            setResults(finalResults);
+            setIsRolling(false);
+            finalResults.forEach((numbers) => addCombination(numbers, 'random'));
+            if (Platform.OS !== 'web') {
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+          }
+        }, index * REVEAL_INTERVAL_MS);
+        revealTimerRefs.current.push(revealTimer);
+      });
+    }, SHUFFLE_DURATION_MS);
+    revealTimerRefs.current.push(shuffleTimer);
   }, [addCombination, clearTimers, gameCount, rollingMotion]);
 
   useEffect(() => {
@@ -133,8 +207,8 @@ export function RandomDrawScreen({
 
   const analyze = useCallback((numbers: readonly number[]) => {
     setNumbers(numbers);
-    router.navigate({
-      pathname: '/(tabs)/draw/combination',
+    router.push({
+      pathname: COMBINATION_ANALYSIS_ROUTE,
       params: {
         analyze: `random-draw-${Date.now()}`,
         returnCount: String(gameCount),
@@ -173,28 +247,35 @@ export function RandomDrawScreen({
               <View style={styles.statusRow}>
                 <View style={[styles.statusDot, isRolling && styles.statusDotRolling]} />
                 <Text accessibilityLiveRegion="polite" style={styles.statusLabel}>
-                  {isRolling ? '번호를 섞는 중' : firstResult ? '추첨 완료' : '추첨 준비'}
+                  {isRolling
+                    ? revealedCount > 0 ? '번호를 확인하는 중' : '번호를 섞는 중'
+                    : firstResult ? '추첨 완료' : '추첨 준비'}
                 </Text>
               </View>
               <Ionicons color={colors.accentPrimary} name={isRolling ? 'sync' : 'shuffle'} size={19} />
             </View>
 
             <Animated.View
-              accessibilityLabel={`${isRolling ? '섞는 중인 번호' : '생성 번호'} ${displayNumbers.join(', ')}`}
+              accessibilityLabel={`${isRolling
+                ? revealedCount > 0 ? '확정 중인 번호' : '섞는 중인 번호'
+                : '생성 번호'} ${displayNumbers.join(', ')}`}
               style={[styles.rollingNumbers, rollingStyle]}>
               {displayNumbers.map((number, index) => (
-                <View key={index} style={[styles.numberBall, firstResult && styles.numberBallReady]}>
-                  <Text style={[styles.numberText, firstResult && styles.numberTextReady]}>
-                    {formatNumber(number)}
-                  </Text>
-                </View>
+                <AnimatedNumberBall
+                  key={index}
+                  number={number}
+                  revealed={revealedCount > index}
+                  styles={styles}
+                />
               ))}
             </Animated.View>
 
             {isRolling ? (
               <View style={styles.rollingGuide}>
                 <View style={styles.rollingLine} />
-                <Text style={styles.rollingText}>RANDOMIZING</Text>
+                <Text style={styles.rollingText}>
+                  {revealedCount > 0 ? 'REVEALING' : 'RANDOMIZING'}
+                </Text>
                 <View style={styles.rollingLine} />
               </View>
             ) : firstResult ? (

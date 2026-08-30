@@ -3,6 +3,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
@@ -31,6 +32,10 @@ const DEFAULT_FILTERS: AnalysisFilters = {
   period: { kind: 'preset', label: '전체' },
 };
 
+const RESULT_ENTERING = FadeInDown
+  .duration(210)
+  .withInitialValues({ opacity: 0, transform: [{ translateY: 10 }] });
+
 type AnalysisState = AnalysisFilters & {
   snapshot: CombinationAnalysis;
 };
@@ -45,6 +50,14 @@ type ScreenMode =
 
 function latestParam(value?: string | string[]) {
   return Array.isArray(value) ? value.at(-1) : value;
+}
+
+function shouldPreserveOrigin(target?: CombinationReturnTarget) {
+  return target === 'combination-generator'
+    || target === 'explore'
+    || target === 'my-numbers'
+    || target === 'random-draw'
+    || target === 'statistics';
 }
 
 export function CombinationScreen() {
@@ -115,6 +128,10 @@ export function CombinationScreen() {
   const returnDrawToken = latestParam(returnToken);
 
   const leaveCombination = useCallback(() => {
+    if (shouldPreserveOrigin(returnTarget) && router.canGoBack()) {
+      router.back();
+      return;
+    }
     router.replace(buildCombinationReturnDestination({
       gameCount: returnGameCount,
       sessionToken: returnSessionToken,
@@ -177,7 +194,7 @@ export function CombinationScreen() {
   }, [clear]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
       <View style={styles.container}>
         {mode.kind === 'select' || mode.kind === 'compareSelect' ? (
           <>{mode.kind === 'compareSelect' && comparisonA ? <View style={styles.compareBasis}><Text style={styles.compareLabel}>비교 기준 A</Text><Text style={styles.compareNumbers}>{comparisonA.numbers.map((n)=>String(n).padStart(2,'0')).join(' · ')}</Text></View> : null}
@@ -200,20 +217,22 @@ export function CombinationScreen() {
           <CombinationComparison a={comparisonA} b={comparisonB} bonusIncluded={analysisState.includeBonus} firstRound={firstRound} latestRound={latestRound} onBack={() => setMode({kind:'result'})} onBonusChange={changeBonus} onPeriodChange={changePeriod} period={analysisState.period}/>
         ) : analysisState ? (
           mode.kind === 'result' ? (
-            <CombinationResult
-              analysis={analysisState.snapshot}
-              bonusIncluded={analysisState.includeBonus}
-              firstRound={firstRound}
-              latestRound={latestRound}
-              onBack={leaveCombination}
-              onBonusChange={changeBonus}
-              onOpenHistory={() => setMode({ kind: 'history' })}
-              onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
-              onPeriodChange={changePeriod}
-              onStartOver={startOver}
-              onCompare={() => { setComparisonA(analysisState.snapshot); setComparisonB(null); clear(); setExcludedNumbers([]); setMode({kind:'compareSelect'}); }}
-              period={analysisState.period}
-            />
+            <Animated.View entering={RESULT_ENTERING} style={styles.animatedScreen}>
+              <CombinationResult
+                analysis={analysisState.snapshot}
+                bonusIncluded={analysisState.includeBonus}
+                firstRound={firstRound}
+                latestRound={latestRound}
+                onBack={leaveCombination}
+                onBonusChange={changeBonus}
+                onOpenHistory={() => setMode({ kind: 'history' })}
+                onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
+                onPeriodChange={changePeriod}
+                onStartOver={startOver}
+                onCompare={() => { setComparisonA(analysisState.snapshot); setComparisonB(null); clear(); setExcludedNumbers([]); setMode({kind:'compareSelect'}); }}
+                period={analysisState.period}
+              />
+            </Animated.View>
           ) : mode.kind === 'history' || mode.kind === 'prizeRank' ? (
             <CombinationDetail
               analysis={analysisState.snapshot}
@@ -238,6 +257,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
     maxWidth: 500,
     backgroundColor: colors.background,
+  },
+  animatedScreen: {
+    flex: 1,
   },
   compareBasis:{marginHorizontal:20,marginTop:16,padding:14,borderWidth:1,borderColor:colors.divider,borderRadius:12,backgroundColor:colors.surface},compareLabel:{color:colors.textSecondary,fontSize:12,marginBottom:6},compareNumbers:{color:colors.textPrimary,fontSize:14},
 });

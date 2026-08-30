@@ -6,7 +6,7 @@ describe('combination analysis return navigation', () => {
   test.each([
     ['draw', '/(tabs)/draw'],
     ['my-numbers', '/(tabs)/my-numbers'],
-    ['explore', '/(tabs)/explore'],
+    ['explore', '/statistics/explore'],
     ['statistics', '/(tabs)/statistics'],
     [undefined, '/(tabs)/statistics'],
   ])('returns %s analysis to its explicit parent', (target, expected) => {

@@ -24,6 +24,7 @@ import {
 } from '@/domain/generator/combinationGenerator';
 import type { GenerationOutcome, GeneratorConditions } from '@/domain/generator/types';
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
+import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { AppButton } from '@/components/ui/AppButton';
@@ -185,7 +186,7 @@ export function CombinationGeneratorScreen({
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       const destination = {
-        pathname: '/(tabs)/draw/combination',
+        pathname: COMBINATION_ANALYSIS_ROUTE,
         params: {
           analyze: `generator-conditions-${Date.now()}`,
           returnCount: String(gameCount),
@@ -194,11 +195,8 @@ export function CombinationGeneratorScreen({
           returnToken: String(Date.now()),
         },
       } as const;
-      if (conditionOnly) {
-        router.replace(destination);
-      } else {
-        router.navigate(destination);
-      }
+      if (conditionOnly) setSheetVisible(true);
+      router.push(destination);
     } catch (error) {
       if (generationToken.current !== token || (error as Error).message === 'GENERATION_CANCELLED') return;
       setErrorMessage((error as Error).message);
@@ -216,8 +214,8 @@ export function CombinationGeneratorScreen({
   const analyzeOutcome = useCallback((selectedOutcome: GenerationOutcome | null) => {
     if (!selectedOutcome) return;
     setNumbers(selectedOutcome.numbers);
-    router.navigate({
-      pathname: '/(tabs)/draw/combination',
+    router.push({
+      pathname: COMBINATION_ANALYSIS_ROUTE,
       params: {
         analyze: `generator-${Date.now()}`,
         returnTo: 'draw',

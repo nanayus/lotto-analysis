@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 export function StatisticsHubScreen() {
@@ -19,7 +20,7 @@ export function StatisticsHubScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.navigate('/(tabs)/explore')}
+            onPress={() => router.push('/statistics/explore')}
             style={({ pressed }) => [styles.featureCard, pressed && styles.pressed]}>
             <View style={styles.featureTop}>
               <View style={styles.featureIcon}>
@@ -38,7 +39,7 @@ export function StatisticsHubScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.navigate('/(tabs)/overall-statistics')}
+            onPress={() => router.push('/statistics/overall-statistics')}
             style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}>
             <View style={styles.listIcon}>
               <Ionicons color={colors.accentPrimary} name="bar-chart" size={22} />
@@ -52,8 +53,8 @@ export function StatisticsHubScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.navigate({
-              pathname: '/(tabs)/draw/combination',
+            onPress={() => router.push({
+              pathname: COMBINATION_ANALYSIS_ROUTE,
               params: { returnTo: 'statistics' },
             })}
             style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}>

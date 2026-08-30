@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 const TAB_BAR_CONTENT_HEIGHT = 56;
+const TAB_TRANSITION_DURATION_MS = 180;
 
 type TabIconProps = {
   color: ColorValue;
@@ -67,6 +68,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        animation: 'fade',
         headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.neutral,
@@ -78,6 +80,10 @@ export default function TabsLayout() {
         ],
         tabBarItemStyle: styles.tabItem,
         tabBarButton: (props) => <TabBarButton {...props} />,
+        transitionSpec: {
+          animation: 'timing',
+          config: { duration: TAB_TRANSITION_DURATION_MS },
+        },
       }}>
       <Tabs.Screen
         name="draw"
@@ -119,8 +125,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
-      <Tabs.Screen name="overall-statistics" options={{ href: null }} />
     </Tabs>
   );
 }

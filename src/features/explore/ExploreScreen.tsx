@@ -23,6 +23,7 @@ import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { NumberAnalyticsDataset } from '@/data/numberAnalytics.types';
 import { buildAnalyticsSnapshot } from '@/domain/analytics/buildAnalyticsSnapshot';
 import { getNumberAppearanceHistory } from '@/domain/analytics/numberHistory';
+import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { AllNumberComparison } from './components/AllNumberComparison';
@@ -210,6 +211,9 @@ export function ExploreScreen() {
             accessibilityLabel="통계보기로 돌아가기"
             onPress={() => router.back()}
           />
+          <Text accessibilityRole="header" style={styles.subHeaderTitle}>
+            번호별 통계
+          </Text>
         </View>
         <View style={styles.columns} testID={`explore-focus-${interactionFocus.toLowerCase()}`}>
           <View
@@ -284,7 +288,7 @@ export function ExploreScreen() {
                 currentNumber={selectedNumber}
                 currentSelected={selectedInDraft}
                 onAnalyze={() => router.push({
-                  pathname: '/(tabs)/draw/combination',
+                  pathname: COMBINATION_ANALYSIS_ROUTE,
                   params: {
                     analyze: String(Date.now()),
                     returnTo: 'explore',
@@ -322,10 +326,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   subHeader: {
     minHeight: 54,
     paddingHorizontal: spacing.md,
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
+  },
+  subHeaderTitle: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.bold,
+    letterSpacing: -0.5,
   },
   sliderPane: {
     paddingLeft: spacing.xs,

@@ -15,7 +15,7 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), navigate: jest.fn(), push: jest.fn(), replace: jest.fn() },
 }));
 
-const mockNavigate = router.navigate as jest.Mock;
+const mockPush = router.push as jest.Mock;
 const mockReplace = router.replace as jest.Mock;
 const mockBack = router.back as jest.Mock;
 
@@ -65,19 +65,18 @@ describe('CombinationGeneratorScreen', () => {
     expect(patternGroups(pattern)).toEqual(expected);
   });
 
-  test('starts unlimited and applies a fixed number from the condition sheet', async () => {
-    mockNavigate.mockClear();
+  test('starts with active range defaults and applies a fixed number from the condition sheet', async () => {
+    mockPush.mockClear();
     const screen = await renderScreen();
-    expect(screen.getByText('무제한')).toBeTruthy();
+    expect(screen.getByText('3 조건')).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
     expect(screen.getByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
     await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
-    await act(async () => { fireEvent.press(screen.getByText('1개 조건 적용')); });
+    await act(async () => { fireEvent.press(screen.getByText('4개 조건 적용')); });
     await waitFor(() => expect(screen.getByText('고정 7')).toBeTruthy());
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith({
-      pathname: '/(tabs)/draw/combination',
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/combination-analysis',
       params: {
         analyze: expect.stringMatching(/^generator-conditions-/),
         returnTo: 'draw',
@@ -88,22 +87,21 @@ describe('CombinationGeneratorScreen', () => {
     }));
   });
 
-  test('restores direct condition selections for the same generator session', async () => {
-    mockReplace.mockClear();
+  test('keeps the direct condition selector in history while opening analysis', async () => {
+    mockPush.mockClear();
     const screen = await render(<DirectSessionHarness />);
 
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
     expect(screen.queryByText('AI 뽑기')).toBeNull();
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
     await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
     await act(async () => {
-      fireEvent.press(screen.getByText('1개 조건 적용'));
+      fireEvent.press(screen.getByText('4개 조건 적용'));
     });
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith({
-      pathname: '/(tabs)/draw/combination',
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/combination-analysis',
       params: {
         analyze: expect.stringMatching(/^generator-conditions-/),
         returnCount: '1',
@@ -112,10 +110,10 @@ describe('CombinationGeneratorScreen', () => {
         returnToken: expect.any(String),
       },
     }));
+    expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
     await act(async () => { fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
-    expect(screen.getByText('고정 7')).toBeTruthy();
   });
 
   test('pops the direct condition selector from the draw stack', async () => {
@@ -139,8 +137,11 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByTestId('number-status-grid')).toBeTruthy();
     expect(screen.getByTestId('number-grid-placeholder-3')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '번호 보기' })).toBeNull();
+    expect(screen.queryByText('아래 번호판에서 바로 설정')).toBeNull();
+    expect(screen.queryByText('선택 방식')).toBeNull();
+    expect(screen.queryByText('방식을 고른 뒤 번호를 눌러주세요.')).toBeNull();
+    expect(screen.queryByText('고정수는 최대 6개이며 고정수와 제외수는 자동으로 겹치지 않게 처리됩니다.')).toBeNull();
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
     await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '제외수' })); });
@@ -226,7 +227,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByLabelText('해당 번호: 4, 9, 16, 25, 36')).toBeTruthy();
   });
 
-  test('shows the same condition switch on every condition card', async () => {
+  test('shows every condition switch enabled by default', async () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
@@ -239,7 +240,7 @@ describe('CombinationGeneratorScreen', () => {
 
     conditionTitles.forEach((title) => {
       expect(screen.getByRole('switch', { name: `${title} 조건` }).props.accessibilityState)
-        .toEqual({ checked: false });
+        .toEqual({ checked: true });
     });
   });
 
@@ -247,13 +248,14 @@ describe('CombinationGeneratorScreen', () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
-    expect(screen.getByText('0개 조건 적용')).toBeTruthy();
+    expect(screen.getByText('3개 조건 적용')).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' })); });
 
     expect(screen.getByText('6개 조건 적용')).toBeTruthy();
     expect(screen.getByRole('button', { name: '추천 조건 적용됨' }).props.accessibilityState)
       .toEqual({ selected: true });
-    expect(screen.getByText('표준편차 · 합계 · 홀짝 · 저고 · A/C · 연번')).toBeTruthy();
+    expect(screen.queryByText('표준편차 · 합계 · 홀짝 · 저고 · A/C · 연번')).toBeNull();
+    expect(screen.queryByText('과거 형태를 넓게 포함하는 6개 조건 · 당첨 예측 아님')).toBeNull();
     expect(screen.getByRole('tab', { name: '수 성격' }).props.accessibilityState).toEqual({ selected: true });
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByRole('switch', { name: '번호 총합 조건' }).props.accessibilityState).toEqual({ checked: true });
@@ -305,19 +307,18 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByTestId('condition-help-dialog')).toBeNull();
   });
 
-  test('shows historical range presets disabled, preserves edits across toggles, and resets them', async () => {
+  test('shows historical range presets enabled, preserves edits across toggles, and resets them', async () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
 
-    expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: false });
+    expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('12.0');
     expect(screen.getByLabelText('표준편차 최댓값').props.defaultValue).toBe('12.9');
     expect(screen.getByLabelText('번호 총합 최솟값').props.defaultValue).toBe('130');
     expect(screen.getByLabelText('끝수 총합 최솟값').props.defaultValue).toBe('25');
     expect(screen.getAllByText('과거 최다').length).toBeGreaterThanOrEqual(3);
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     await act(async () => {
       fireEvent(screen.getByLabelText('표준편차 최솟값'), 'endEditing', { nativeEvent: { text: '11.0' } });
     });
@@ -326,7 +327,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('11.0');
 
     await act(async () => { fireEvent.press(screen.getByText('초기화')); });
-    expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: false });
+    expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('12.0');
   });
 
@@ -337,25 +338,23 @@ describe('CombinationGeneratorScreen', () => {
 
     const sameEnding = screen.getByTestId('pattern-sameEnding-2+2');
     expect(sameEnding.props.accessibilityState).toEqual({ checked: false });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '동끝수 형태 조건' })); });
     await act(async () => { fireEvent.press(sameEnding); });
     expect(screen.getByTestId('pattern-sameEnding-2+2').props.accessibilityState).toEqual({ checked: true });
 
     await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '직전·연번' })); });
     expect(screen.getByLabelText('없음, 과거 최다')).toBeTruthy();
     const consecutive = screen.getByTestId('pattern-consecutive-3+2');
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '연번 형태 조건' })); });
     await act(async () => { fireEvent.press(consecutive); });
     expect(screen.getByTestId('pattern-consecutive-3+2').props.accessibilityState).toEqual({ checked: true });
   });
 
   test('generates one combination and hands it to the existing analysis tab', async () => {
-    mockNavigate.mockClear();
+    mockPush.mockClear();
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조합 만들기' })); });
     await waitFor(() => expect(screen.getByText('생성된 번호')).toBeTruthy());
     expect(screen.getByText('다시 만들기')).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조합 분석하기' })); });
-    expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/(tabs)/draw/combination' }));
+    expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/combination-analysis' }));
   });
 });

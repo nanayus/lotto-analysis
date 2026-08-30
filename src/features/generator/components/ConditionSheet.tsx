@@ -672,11 +672,6 @@ export function ConditionSheet({
               ]}>
                 {recommendedPresetActive ? '균형 조건 프리셋 적용됨' : '균형 조건 프리셋'}
               </Text>
-              <Text style={styles.recommendedPresetDescription}>
-                {recommendedPresetActive
-                  ? '표준편차 · 합계 · 홀짝 · 저고 · A/C · 연번'
-                  : '과거 형태를 넓게 포함하는 6개 조건 · 당첨 예측 아님'}
-              </Text>
             </View>
             <Pressable
               accessibilityLabel={recommendedPresetActive ? '추천 조건 적용됨' : '추천 조건 적용'}
@@ -734,59 +729,43 @@ export function ConditionSheet({
               testID="condition-group-0">
               <Section
                 enabled={sectionEnabled('fixedExcluded')}
-                hint="아래 번호판에서 바로 설정"
                 onEnabledChange={(enabled) => setSectionEnabled('fixedExcluded', enabled)}
                 onHelpPress={() => setActiveHelp('fixedExcluded')}
                 title="고정수 · 제외수">
-                <Text style={styles.numberConditionSummary}>
-                  고정 {draft.fixedNumbers.length ? draft.fixedNumbers.join(', ') : '없음'}
-                </Text>
-                <Text style={styles.numberConditionSummary}>
-                  제외 {draft.excludedNumbers.length ? draft.excludedNumbers.join(', ') : '없음'}
-                </Text>
-                <Text style={styles.helper}>고정수는 최대 6개이며 고정수와 제외수는 자동으로 겹치지 않게 처리됩니다.</Text>
+                <View style={styles.fixedExcludedContent}>
+                  <View style={styles.modeRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: numberMode === 'fixed' }}
+                      onPress={() => setNumberMode('fixed')}
+                      style={[styles.modeButton, numberMode === 'fixed' && styles.modeButtonFixed]}>
+                      <Text style={[styles.modeText, numberMode === 'fixed' && styles.modeTextActive]}>고정수</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: numberMode === 'excluded' }}
+                      onPress={() => setNumberMode('excluded')}
+                      style={[styles.modeButton, numberMode === 'excluded' && styles.modeButtonExcluded]}>
+                      <Text style={[styles.modeText, numberMode === 'excluded' && styles.modeTextExcluded]}>제외수</Text>
+                    </Pressable>
+                  </View>
+                  <View style={[styles.numberGrid, { width: expandedGridWidth }]} testID="number-status-grid">
+                    {NUMBERS.map((number) => renderNumber(number, expandedNumberSize))}
+                    {NUMBER_GRID_PLACEHOLDERS.map((placeholder) => (
+                      <View
+                        key={`placeholder-${placeholder}`}
+                        style={{ height: expandedNumberSize, width: expandedNumberSize }}
+                        testID={`number-grid-placeholder-${placeholder}`}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.numberLegend}>
+                    <Text style={styles.numberLegendFixed}>● 고정수</Text>
+                    <Text style={styles.numberLegendExcluded}>● 제외수</Text>
+                    <Text style={styles.numberLegendDerived}>○ 조건상 제외</Text>
+                  </View>
+                </View>
               </Section>
-              <View style={[
-                styles.numberSelector,
-                sectionEnabled('fixedExcluded') && styles.sectionEnabled,
-                !sectionEnabled('fixedExcluded') && styles.conditionDisabled,
-              ]}>
-                <View style={styles.numberSelectorHeader}>
-                  <Text style={styles.numberSelectorTitle}>선택 방식</Text>
-                  <Text style={styles.numberSelectorHint}>방식을 고른 뒤 번호를 눌러주세요.</Text>
-                </View>
-                <View style={styles.modeRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: numberMode === 'fixed' }}
-                    onPress={() => setNumberMode('fixed')}
-                    style={[styles.modeButton, numberMode === 'fixed' && styles.modeButtonFixed]}>
-                    <Text style={[styles.modeText, numberMode === 'fixed' && styles.modeTextActive]}>고정수</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: numberMode === 'excluded' }}
-                    onPress={() => setNumberMode('excluded')}
-                    style={[styles.modeButton, numberMode === 'excluded' && styles.modeButtonExcluded]}>
-                    <Text style={[styles.modeText, numberMode === 'excluded' && styles.modeTextExcluded]}>제외수</Text>
-                  </Pressable>
-                </View>
-                <View style={[styles.numberGrid, { width: expandedGridWidth }]} testID="number-status-grid">
-                  {NUMBERS.map((number) => renderNumber(number, expandedNumberSize))}
-                  {NUMBER_GRID_PLACEHOLDERS.map((placeholder) => (
-                    <View
-                      key={`placeholder-${placeholder}`}
-                      style={{ height: expandedNumberSize, width: expandedNumberSize }}
-                      testID={`number-grid-placeholder-${placeholder}`}
-                    />
-                  ))}
-                </View>
-                <View style={styles.numberLegend}>
-                  <Text style={styles.numberLegendFixed}>● 고정수</Text>
-                  <Text style={styles.numberLegendExcluded}>● 제외수</Text>
-                  <Text style={styles.numberLegendDerived}>○ 조건상 제외</Text>
-                </View>
-              </View>
             </View>
 
             <View
@@ -1093,10 +1072,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   recommendedPresetActive: { borderBottomColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
-  recommendedPresetCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  recommendedPresetCopy: { flex: 1, minWidth: 0 },
   recommendedPresetTitle: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   recommendedPresetTitleActive: { color: colors.accentPrimary },
-  recommendedPresetDescription: { color: colors.textSecondary, fontSize: 10, lineHeight: 14 },
   recommendedPresetButton: {
     minHeight: 38, flexShrink: 0, justifyContent: 'center', paddingHorizontal: spacing.md,
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentPrimary,
@@ -1205,7 +1183,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   ratioLegendLowText: { color: colors.accentPrimary },
   ratioLegendHighText: { color: colors.neutral },
   ratioLegendOrder: { color: colors.textSecondary, fontSize: 9 },
-  numberSetGuide: { gap: spacing.xs },
+  numberSetGuide: { gap: spacing.xs, marginBottom: spacing.sm },
   numberSetLabel: { color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.semibold },
   numberSetValues: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   numberSetChip: {
@@ -1227,22 +1205,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bandGuideSegmentActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   bandGuideText: { color: colors.textSecondary, fontSize: 8 },
   bandGuideTextActive: { color: colors.highlight, fontWeight: typography.weights.semibold },
-  numberSelector: {
-    gap: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider,
-    backgroundColor: colors.background, paddingVertical: spacing.lg, overflow: 'hidden',
-  },
-  numberSelectorHeader: { gap: spacing.xs, paddingHorizontal: spacing.md },
-  numberSelectorTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  numberSelectorHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
-  modeRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md },
+  fixedExcludedContent: { gap: spacing.lg },
+  modeRow: { flexDirection: 'row', gap: spacing.sm },
   modeButton: { flex: 1, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   modeButtonFixed: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   modeButtonExcluded: { borderColor: colors.hot, backgroundColor: colors.surfaceDanger },
   modeText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   modeTextActive: { color: colors.highlight },
   modeTextExcluded: { color: colors.hot },
-  numberConditionSummary: { color: colors.textPrimary, fontSize: typography.sizes.small, lineHeight: 20 },
-  helper: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
   bonusToggle: { minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   bonusToggleActive: { borderColor: colors.accentSecondary, backgroundColor: colors.surfaceSuccess },
   bonusText: { color: colors.textSecondary, fontSize: typography.sizes.caption },

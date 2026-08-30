@@ -1,3 +1,5 @@
+export const COMBINATION_ANALYSIS_ROUTE = '/combination-analysis' as const;
+
 export type CombinationReturnTarget =
   | 'combination-generator'
   | 'draw'
@@ -30,7 +32,7 @@ export function buildCombinationReturnDestination({
     };
   }
   if (target === 'my-numbers') return '/(tabs)/my-numbers' as const;
-  if (target === 'explore') return '/(tabs)/explore' as const;
+  if (target === 'explore') return '/statistics/explore' as const;
   if (target === 'random-draw') {
     return {
       pathname: '/(tabs)/draw/random-draw' as const,
