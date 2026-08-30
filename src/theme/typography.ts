@@ -1,17 +1,17 @@
 export const typography = {
   sizes: {
-    caption: 11,
-    small: 13,
-    body: 15,
-    label: 16,
-    section: 18,
-    title: 28,
-    hero: 64,
+    caption: 12,
+    small: 14,
+    body: 17,
+    label: 17,
+    section: 21,
+    title: 34,
+    hero: 56,
   },
   weights: {
     regular: '400',
-    medium: '500',
+    medium: '400',
     semibold: '600',
-    bold: '700',
+    bold: '600',
   },
 } as const;

@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
-  Animated,
-  type GestureResponderEvent,
-  type LayoutChangeEvent,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,16 +11,21 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import {
   activeConditionCount,
+  buildBalancedGeneratorPreset,
+  buildGeneratorConditionDefaults,
+  buildGeneratorRangePresets,
   cloneGeneratorConditions,
   conditionDerivedExclusions,
   CONSECUTIVE_LABELS,
-  DEFAULT_GENERATOR_CONDITIONS,
   GENERATOR_BAND_KEYS,
   GENERATOR_COUNT_VALUES,
+  generatorSectionEnabled,
   SAME_ENDING_LABELS,
 } from '@/domain/generator/combinationGenerator';
 import {
@@ -35,17 +36,24 @@ import type {
   ConsecutivePattern,
   CountValue,
   GeneratorConditions,
+  GeneratorSectionKey,
   SameEndingPattern,
 } from '@/domain/generator/types';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 import { ConditionInfoButton } from './ConditionInfoButton';
+import { ConditionToggle } from './ConditionToggle';
 import { RangeControl } from './RangeControl';
 
 const NUMBERS = Array.from({ length: 45 }, (_, index) => index + 1);
+const PRIME_NUMBERS = NUMBERS.filter((number) => {
+  if (number < 2) return false;
+  return !Array.from({ length: Math.floor(Math.sqrt(number)) - 1 }, (_, index) => index + 2)
+    .some((divisor) => number % divisor === 0);
+});
+const SQUARE_NUMBERS = [4, 9, 16, 25, 36];
+const COMPOSITE_NUMBERS = NUMBERS.filter((number) => number > 1 && !PRIME_NUMBERS.includes(number));
 const NUMBER_GRID_PLACEHOLDERS = Array.from({ length: 4 }, (_, index) => index);
-const PREVIEW_SHEET_GAP = spacing.sm;
-const PREVIEW_TRANSITION_DURATION = 200;
 const PAGE_LABELS = ['번호', '분포', '수 성격', '직전·연번', '번호대·과거'];
 const SAME_ENDING_PATTERNS: SameEndingPattern[] = [
   'none', '2', '2+2', '2+2+2', '3', '3+2', '3+3', '4', '4+2', '5',
@@ -67,6 +75,18 @@ const BAND_HELP_KEYS = {
   '30-39': 'band30To39',
   '40-45': 'band40To45',
 } as const satisfies Record<(typeof GENERATOR_BAND_KEYS)[number], ConditionHelpKey>;
+const BAND_SECTION_KEYS = {
+  '1-9': 'band1To9',
+  '10-19': 'band10To19',
+  '20-29': 'band20To29',
+  '30-39': 'band30To39',
+  '40-45': 'band40To45',
+} as const satisfies Record<(typeof GENERATOR_BAND_KEYS)[number], GeneratorSectionKey>;
+const MULTIPLE_SECTION_KEYS = {
+  3: 'multiple3',
+  4: 'multiple4',
+  5: 'multiple5',
+} as const satisfies Record<3 | 4 | 5, GeneratorSectionKey>;
 
 type ConditionSheetProps = {
   conditions: GeneratorConditions;
@@ -76,33 +96,12 @@ type ConditionSheetProps = {
   visible: boolean;
 };
 
-type Option<T extends string | number> = { label: string; value: T };
-type PagerTouchStart = {
-  interactive: boolean;
-  page: number;
-  x: number;
-  y: number;
+type Option<T extends string | number> = {
+  accessibilityLabel?: string;
+  label: string;
+  value: T;
+  visual?: React.ReactNode;
 };
-
-export function pageIndexFromHorizontalSwipe({
-  deltaX,
-  deltaY,
-  page,
-}: {
-  deltaX: number;
-  deltaY: number;
-  page: number;
-}) {
-  const horizontalDistance = Math.abs(deltaX);
-  const isHorizontalSwipe = horizontalDistance >= 44 && horizontalDistance > Math.abs(deltaY) * 1.15;
-  if (!isHorizontalSwipe) return page;
-  return Math.max(0, Math.min(PAGE_LABELS.length - 1, page + (deltaX < 0 ? 1 : -1)));
-}
-
-function isInteractiveWebTarget(target: unknown) {
-  if (Platform.OS !== 'web' || typeof Element === 'undefined' || !(target instanceof Element)) return false;
-  return Boolean(target.closest('input, textarea, [role="adjustable"], [role="slider"]'));
-}
 
 function toggleValue<T>(values: readonly T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -110,20 +109,24 @@ function toggleValue<T>(values: readonly T[], value: T) {
 
 function Section({
   children,
+  enabled,
   headerAction,
   hint,
+  onEnabledChange,
   onHelpPress,
   title,
 }: {
   children: React.ReactNode;
+  enabled?: boolean;
   headerAction?: React.ReactNode;
   hint?: string;
+  onEnabledChange?: (enabled: boolean) => void;
   onHelpPress?: () => void;
   title: string;
 }) {
   const styles = useThemedStyles(createStyles);
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, enabled && styles.sectionEnabled]}>
       <View style={styles.sectionHeading}>
         <View style={styles.sectionHeadingCopy}>
           <View style={styles.sectionTitleRow}>
@@ -132,9 +135,20 @@ function Section({
           </View>
           {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
         </View>
-        {headerAction ? <View style={styles.sectionHeaderAction}>{headerAction}</View> : null}
+        {headerAction || enabled !== undefined ? (
+          <View style={styles.sectionHeaderActions}>
+            {headerAction ? (
+              <View style={[styles.sectionHeaderAction, enabled === false && styles.conditionDisabled]}>
+                {headerAction}
+              </View>
+            ) : null}
+            {enabled !== undefined && onEnabledChange ? (
+              <ConditionToggle enabled={enabled} onChange={onEnabledChange} title={title} />
+            ) : null}
+          </View>
+        ) : null}
       </View>
-      {children}
+      <View style={enabled === false && styles.conditionDisabled}>{children}</View>
     </View>
   );
 }
@@ -157,12 +171,14 @@ function OptionSelector<T extends string | number>({
         const active = selected.includes(option.value);
         return (
           <Pressable
+            accessibilityLabel={option.accessibilityLabel}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: active }}
             key={String(option.value)}
             onPress={() => onChange(toggleValue(selected, option.value))}
-            style={[styles.option, active && styles.optionActive]}>
+            style={[styles.option, Boolean(option.visual) && styles.optionVisual, active && styles.optionActive]}>
             <Text style={[styles.optionText, active && styles.optionTextActive]}>{option.label}</Text>
+            {option.visual ? <View aria-hidden accessibilityElementsHidden style={styles.optionVisualContent}>{option.visual}</View> : null}
           </Pressable>
         );
       })}
@@ -170,27 +186,264 @@ function OptionSelector<T extends string | number>({
   );
 }
 
+export function patternGroups(pattern: SameEndingPattern | ConsecutivePattern) {
+  const grouped = pattern === 'none' ? [] : pattern.split('+').map(Number);
+  const singles = Math.max(0, 6 - grouped.reduce((total, size) => total + size, 0));
+  return [...grouped, ...Array.from({ length: singles }, () => 1)];
+}
+
+function PatternDiagram({ kind, pattern }: { kind: 'consecutive' | 'sameEnding'; pattern: SameEndingPattern | ConsecutivePattern }) {
+  const styles = useThemedStyles(createStyles);
+  const groups = patternGroups(pattern);
+  return (
+    <View aria-hidden accessibilityElementsHidden style={styles.patternDiagram}>
+      {groups.map((size, groupIndex) => {
+        if (kind === 'sameEnding') {
+          const ending = (groupIndex + 2) % 10;
+          return (
+            <View key={`${pattern}-${groupIndex}`} style={[styles.endingGroup, size > 1 && styles.endingGroupLinked]}>
+              {Array.from({ length: size }, (_, index) => (
+                <Text key={index} style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
+                  {ending + (index * 10)}
+                </Text>
+              ))}
+            </View>
+          );
+        }
+        const start = 4 + groups
+          .slice(0, groupIndex)
+          .reduce((total, groupSize) => total + groupSize + 3, 0);
+        return (
+          <View key={`${pattern}-${groupIndex}`} style={[styles.consecutiveGroup, size > 1 && styles.consecutiveGroupLinked]}>
+            {Array.from({ length: size }, (_, index) => (
+              <Text key={index} style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
+                {start + index}
+              </Text>
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PatternSelector<T extends SameEndingPattern | ConsecutivePattern>({
+  accessibilityLabel,
+  historicalValue,
+  kind,
+  onChange,
+  options,
+  selected,
+}: {
+  accessibilityLabel: string;
+  historicalValue?: T;
+  kind: 'consecutive' | 'sameEnding';
+  onChange: (values: T[]) => void;
+  options: Option<T>[];
+  selected: readonly T[];
+}) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View accessibilityLabel={accessibilityLabel} style={styles.patternGrid}>
+      {options.map((option) => {
+        const active = selected.includes(option.value);
+        return (
+          <Pressable
+            accessibilityLabel={`${option.label}${historicalValue === option.value ? ', 과거 최다' : ''}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: active }}
+            key={option.value}
+            onPress={() => onChange(toggleValue(selected, option.value))}
+            style={[styles.patternOption, active && styles.patternOptionActive]}
+            testID={`pattern-${kind}-${option.value}`}>
+            <View style={styles.patternOptionHeader}>
+              <Text style={[styles.patternOptionText, active && styles.optionTextActive]}>{option.label}</Text>
+              {historicalValue === option.value ? <Text style={styles.patternTopBadge}>과거 최다</Text> : null}
+            </View>
+            <PatternDiagram kind={kind} pattern={option.value} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+type RatioPalette = 'oddEven' | 'lowHigh';
+
+function RatioDiagram({
+  palette,
+  primaryCount,
+}: {
+  palette: RatioPalette;
+  primaryCount: number;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const primaryStyle = palette === 'oddEven' ? styles.ratioSegmentOdd : styles.ratioSegmentLow;
+  const secondaryStyle = palette === 'oddEven' ? styles.ratioSegmentEven : styles.ratioSegmentHigh;
+  return (
+    <View aria-hidden accessibilityElementsHidden style={styles.ratioDiagram}>
+      {GENERATOR_COUNT_VALUES.slice(0, 6).map((_, index) => (
+        <View key={index} style={[styles.ratioSegment, index < primaryCount ? primaryStyle : secondaryStyle]} />
+      ))}
+    </View>
+  );
+}
+
+function CountDiagram({ count }: { count: number }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View aria-hidden accessibilityElementsHidden style={styles.countDiagram}>
+      {GENERATOR_COUNT_VALUES.slice(0, 6).map((_, index) => (
+        <View key={index} style={[styles.countDot, index < count && styles.countDotActive]} />
+      ))}
+    </View>
+  );
+}
+
+function NumberSetGuide({
+  label,
+  maxVisible = 14,
+  numbers,
+}: {
+  label: string;
+  maxVisible?: number;
+  numbers: readonly number[];
+}) {
+  const styles = useThemedStyles(createStyles);
+  const visibleNumbers = numbers.slice(0, maxVisible);
+  const hiddenCount = numbers.length - visibleNumbers.length;
+  return (
+    <View accessibilityLabel={`${label}: ${numbers.join(', ')}`} style={styles.numberSetGuide}>
+      <Text style={styles.numberSetLabel}>{label}</Text>
+      <View aria-hidden accessibilityElementsHidden style={styles.numberSetValues}>
+        {visibleNumbers.map((number) => (
+          <View key={number} style={styles.numberSetChip}>
+            <Text style={styles.numberSetChipText}>{number}</Text>
+          </View>
+        ))}
+        {hiddenCount > 0 ? <Text style={styles.numberSetMore}>+{hiddenCount}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function RecentNumberGuide({
+  includeBonus,
+  kind,
+  latest,
+}: {
+  includeBonus: boolean;
+  kind: 'carry' | 'neighbor';
+  latest?: LottoHistoryDraw;
+}) {
+  const styles = useThemedStyles(createStyles);
+  if (!latest) return null;
+  const sourceNumbers = [...latest.numbers, ...(includeBonus ? [latest.bonus] : [])]
+    .sort((left, right) => left - right);
+  const targetNumbers = kind === 'carry'
+    ? sourceNumbers
+    : [...new Set(sourceNumbers.flatMap((number) => [number - 1, number + 1]))]
+      .filter((number) => number >= 1 && number <= 45)
+      .sort((left, right) => left - right);
+  return (
+    <View style={styles.recentGuide}>
+      <View style={styles.recentGuideHeading}>
+        <Text style={styles.recentGuideTitle}>
+          {kind === 'carry' ? '직전 번호와 같은 수' : '직전 번호의 앞·뒤 수'}
+        </Text>
+        <Text style={styles.recentGuideMeta}>{latest.round}회 기준</Text>
+      </View>
+      {kind === 'neighbor' ? (
+        <NumberSetGuide label="기준 번호" maxVisible={7} numbers={sourceNumbers} />
+      ) : null}
+      <NumberSetGuide
+        label={kind === 'carry' ? '선택 기준' : '선택 후보'}
+        maxVisible={kind === 'carry' ? 7 : 14}
+        numbers={targetNumbers}
+      />
+    </View>
+  );
+}
+
+function BandGuide({ activeBand }: { activeBand: (typeof GENERATOR_BAND_KEYS)[number] }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View accessibilityLabel={`1에서 45 중 ${activeBand} 번호대`} style={styles.bandGuide}>
+      {GENERATOR_BAND_KEYS.map((band, index) => (
+        <View
+          key={band}
+          style={[styles.bandGuideSegment, { flex: index === 4 ? 6 : index === 0 ? 9 : 10 }, band === activeBand && styles.bandGuideSegmentActive]}>
+          <Text style={[styles.bandGuideText, band === activeBand && styles.bandGuideTextActive]}>{band}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function CountSelector({
   label,
-  ratio,
+  ratioPalette,
+  ratioLabels,
   selected,
+  visual = false,
   onChange,
 }: {
   label: string;
   onChange: (values: CountValue[]) => void;
-  ratio?: boolean;
+  ratioPalette?: RatioPalette;
+  ratioLabels?: { primary: string; primaryLong: string; secondary: string; secondaryLong: string };
   selected: readonly CountValue[];
+  visual?: boolean;
 }) {
+  const styles = useThemedStyles(createStyles);
+  const primaryLegendDotStyle = ratioPalette === 'lowHigh'
+    ? styles.ratioLegendLowDot
+    : styles.ratioLegendOddDot;
+  const primaryLegendTextStyle = ratioPalette === 'lowHigh'
+    ? styles.ratioLegendLowText
+    : styles.ratioLegendOddText;
+  const secondaryLegendDotStyle = ratioPalette === 'lowHigh'
+    ? styles.ratioLegendHighDot
+    : styles.ratioLegendEvenDot;
+  const secondaryLegendTextStyle = ratioPalette === 'lowHigh'
+    ? styles.ratioLegendHighText
+    : styles.ratioLegendEvenText;
+  const countValues = ratioLabels
+    ? [...GENERATOR_COUNT_VALUES].reverse()
+    : GENERATOR_COUNT_VALUES;
   return (
-    <OptionSelector
-      accessibilityLabel={label}
-      onChange={(values) => onChange(values as CountValue[])}
-      options={GENERATOR_COUNT_VALUES.map((value) => ({
-        value,
-        label: ratio ? `${value}:${6 - value}` : `${value}개`,
-      }))}
-      selected={selected}
-    />
+    <View style={styles.countSelector}>
+      {ratioLabels ? (
+        <View accessibilityLabel={`${ratioLabels.primaryLong} 대 ${ratioLabels.secondaryLong} 순서`} style={styles.ratioLegend}>
+          <View style={styles.ratioLegendItem}>
+            <View style={[styles.ratioLegendDot, primaryLegendDotStyle]} />
+            <Text style={[styles.ratioLegendText, primaryLegendTextStyle]}>{ratioLabels.primaryLong}</Text>
+          </View>
+          <Text style={styles.ratioLegendOrder}>왼쪽 : 오른쪽</Text>
+          <View style={styles.ratioLegendItem}>
+            <View style={[styles.ratioLegendDot, secondaryLegendDotStyle]} />
+            <Text style={[styles.ratioLegendText, secondaryLegendTextStyle]}>{ratioLabels.secondaryLong}</Text>
+          </View>
+        </View>
+      ) : null}
+      <OptionSelector
+        accessibilityLabel={label}
+        onChange={(values) => onChange(values as CountValue[])}
+        options={countValues.map((value) => ({
+          accessibilityLabel: ratioLabels
+            ? `${ratioLabels.primaryLong} ${value}개, ${ratioLabels.secondaryLong} ${6 - value}개`
+            : `${value}개`,
+          value,
+          label: ratioLabels
+            ? `${ratioLabels.primary} ${value} : ${ratioLabels.secondary} ${6 - value}`
+            : `${value}개`,
+          visual: ratioLabels
+            ? <RatioDiagram palette={ratioPalette ?? 'oddEven'} primaryCount={value} />
+            : visual ? <CountDiagram count={value} /> : undefined,
+        }))}
+        selected={selected}
+      />
+    </View>
   );
 }
 
@@ -258,14 +511,18 @@ function PreviewNumber({
   );
 }
 
-export function ConditionSheet({ conditions, history, onApply, onClose, visible }: ConditionSheetProps) {
+export function ConditionSheet({
+  conditions,
+  history,
+  onApply,
+  onClose,
+  visible,
+}: ConditionSheetProps) {
   const styles = useThemedStyles(createStyles);
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const sheetWidth = Math.min(windowWidth, 500);
-  const previewTop = Platform.OS === 'web' ? 16 : 44;
-  const collapsedSheetHeight = Math.min(windowHeight * 0.72, 720);
   const gridMaximumSize = sheetWidth >= 460 ? 52 : 47;
-  const gridAvailableWidth = sheetWidth - (spacing.md * 2);
+  const gridAvailableWidth = sheetWidth - (spacing.xl * 2);
   const expandedNumberSize = Math.min(gridMaximumSize, (gridAvailableWidth - (spacing.xs * 6)) / 7);
   const expandedGridWidth = Math.min(
     gridAvailableWidth - 2,
@@ -273,41 +530,19 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
   );
   const [draft, setDraft] = useState(() => cloneGeneratorConditions(conditions));
   const [numberMode, setNumberMode] = useState<'fixed' | 'excluded'>('fixed');
-  const [numbersExpanded, setNumbersExpanded] = useState(false);
   const [activeHelp, setActiveHelp] = useState<ConditionHelpKey | null>(null);
   const [page, setPage] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [translateY] = useState(() => new Animated.Value(680));
-  const [previewHeight] = useState(() => new Animated.Value(180));
-  const [sheetHeight] = useState(() => new Animated.Value(collapsedSheetHeight));
-  const activePreviewHeightRef = useRef<number | null>(null);
-  const numbersExpandedRef = useRef(false);
-  const previewMeasuredRef = useRef(false);
-  const pagerRef = useRef<ScrollView>(null);
+  const contentScrollRef = useRef<ScrollView>(null);
   const pageRef = useRef(0);
   const pageTabsRef = useRef<ScrollView>(null);
-  const pageTabLayoutsRef = useRef<Array<{ width: number; x: number } | undefined>>([]);
+  const pageTabLayoutsRef = useRef<({ width: number; x: number } | undefined)[]>([]);
   const pageTabsViewportWidthRef = useRef(0);
-  const pagerTouchStartRef = useRef<PagerTouchStart | null>(null);
+  const pageOffsetsRef = useRef<(number | undefined)[]>([]);
 
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
   }, []);
-  useEffect(() => {
-    translateY.setValue(reduceMotion ? 0 : 680);
-    Animated.timing(translateY, {
-      duration: reduceMotion ? 0 : 210,
-      toValue: 0,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [reduceMotion, translateY]);
-  useEffect(() => {
-    const previewContentHeight = activePreviewHeightRef.current;
-    const nextHeight = numbersExpandedRef.current && previewContentHeight
-      ? Math.min(collapsedSheetHeight, Math.max(0, windowHeight - previewTop - previewContentHeight - PREVIEW_SHEET_GAP))
-      : collapsedSheetHeight;
-    sheetHeight.setValue(nextHeight);
-  }, [collapsedSheetHeight, previewTop, sheetHeight, windowHeight]);
 
   const derived = useMemo(() => new Set(conditionDerivedExclusions(draft, history)), [draft, history]);
   const latest = useMemo(
@@ -315,14 +550,22 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
     [history],
   );
   const conditionHelp = useMemo(() => buildConditionHelp(history), [history]);
+  const rangePresets = useMemo(() => buildGeneratorRangePresets(history), [history]);
+  const recommendedPreset = useMemo(() => buildBalancedGeneratorPreset(history), [history]);
+  const recommendedPresetActive = useMemo(
+    () => JSON.stringify(draft) === JSON.stringify(recommendedPreset),
+    [draft, recommendedPreset],
+  );
+  const historicalSameEnding = SAME_ENDING_OPTIONS.find(([, label]) => label === conditionHelp.sameEnding.historicalLabel)?.[0];
+  const historicalConsecutive = CONSECUTIVE_OPTIONS.find(([, label]) => label === conditionHelp.consecutivePattern.historicalLabel)?.[0];
   const helpContent = activeHelp ? conditionHelp[activeHelp] : null;
   const update = (partial: Partial<GeneratorConditions>) => setDraft((current) => ({ ...current, ...partial }));
-  const closeAnimated = (complete: () => void) => {
-    Animated.timing(translateY, {
-      duration: reduceMotion ? 0 : 170,
-      toValue: 680,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start(complete);
+  const sectionEnabled = (key: GeneratorSectionKey) => generatorSectionEnabled(draft, key);
+  const setSectionEnabled = (key: GeneratorSectionKey, enabled: boolean) => {
+    setDraft((current) => ({
+      ...current,
+      enabledSections: { ...current.enabledSections, [key]: enabled },
+    }));
   };
   const revealPageTab = (nextPage: number) => {
     const layout = pageTabLayoutsRef.current[nextPage];
@@ -341,45 +584,28 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
     setPage(clampedPage);
     revealPageTab(clampedPage);
   };
-  const syncPageWithPager = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const viewportWidth = event.nativeEvent.layoutMeasurement.width || sheetWidth;
-    if (viewportWidth <= 0) return;
-    setActivePage(Math.round(event.nativeEvent.contentOffset.x / viewportWidth));
+  const syncPageWithScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const anchorY = event.nativeEvent.contentOffset.y + spacing.lg + 1;
+    let nextPage = 0;
+    pageOffsetsRef.current.forEach((offset, index) => {
+      if (offset !== undefined && offset <= anchorY) nextPage = index;
+    });
+    setActivePage(nextPage);
   };
   const goToPage = (nextPage: number) => {
-    setActivePage(nextPage);
-    pagerRef.current?.scrollTo({ animated: !reduceMotion, x: nextPage * sheetWidth });
+    const clampedPage = Math.max(0, Math.min(PAGE_LABELS.length - 1, nextPage));
+    setActivePage(clampedPage);
+    const offset = pageOffsetsRef.current[clampedPage];
+    if (offset === undefined) return;
+    contentScrollRef.current?.scrollTo({
+      animated: !reduceMotion,
+      y: Math.max(0, offset - spacing.lg),
+    });
   };
-  const handlePagerTouchStart = (event: GestureResponderEvent) => {
-    if (Platform.OS !== 'web') return;
-    const touch = event.nativeEvent.touches[0] ?? event.nativeEvent.changedTouches[0];
-    if (!touch) return;
-    pagerTouchStartRef.current = {
-      interactive: isInteractiveWebTarget(event.target),
-      page: pageRef.current,
-      x: touch.pageX,
-      y: touch.pageY,
-    };
+  const applyRecommendedPreset = () => {
+    setDraft(cloneGeneratorConditions(recommendedPreset));
+    goToPage(2);
   };
-  const handlePagerTouchEnd = (event: GestureResponderEvent) => {
-    if (Platform.OS !== 'web') return;
-    const start = pagerTouchStartRef.current;
-    pagerTouchStartRef.current = null;
-    if (!start || start.interactive) return;
-
-    const touch = event.nativeEvent.changedTouches[0] ?? event.nativeEvent.touches[0];
-    if (!touch) return;
-    goToPage(pageIndexFromHorizontalSwipe({
-      deltaX: touch.pageX - start.x,
-      deltaY: touch.pageY - start.y,
-      page: start.page,
-    }));
-  };
-  const webPagerTouchProps = Platform.OS === 'web' ? ({
-    onTouchCancel: () => { pagerTouchStartRef.current = null; },
-    onTouchEndCapture: handlePagerTouchEnd,
-    onTouchStartCapture: handlePagerTouchStart,
-  } as unknown as React.ComponentProps<typeof View>) : {};
   const toggleNumber = (number: number) => {
     setDraft((current) => {
       if (numberMode === 'fixed') {
@@ -398,36 +624,6 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
       };
     });
   };
-  const handlePreviewLayout = (event: LayoutChangeEvent) => {
-    const nextPreviewHeight = Math.ceil(event.nativeEvent.layout.height);
-    if (nextPreviewHeight <= 0) return;
-
-    activePreviewHeightRef.current = nextPreviewHeight;
-    const nextSheetHeight = numbersExpanded
-      ? Math.min(collapsedSheetHeight, Math.max(0, windowHeight - previewTop - nextPreviewHeight - PREVIEW_SHEET_GAP))
-      : collapsedSheetHeight;
-
-    if (!previewMeasuredRef.current || reduceMotion) {
-      previewMeasuredRef.current = true;
-      previewHeight.setValue(nextPreviewHeight);
-      sheetHeight.setValue(nextSheetHeight);
-      return;
-    }
-
-    Animated.parallel([
-      Animated.timing(previewHeight, {
-        duration: PREVIEW_TRANSITION_DURATION,
-        toValue: nextPreviewHeight,
-        useNativeDriver: false,
-      }),
-      Animated.timing(sheetHeight, {
-        duration: PREVIEW_TRANSITION_DURATION,
-        toValue: nextSheetHeight,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  };
-
   const renderNumber = (number: number, size: number, marginRight = 0) => (
     <PreviewNumber
       conditionExcluded={derived.has(number)}
@@ -443,72 +639,60 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
 
   return (
     <Modal
-      animationType="fade"
-      onRequestClose={() => activeHelp ? setActiveHelp(null) : closeAnimated(onClose)}
-      transparent
+      animationType={reduceMotion ? 'none' : 'slide'}
+      onRequestClose={() => activeHelp ? setActiveHelp(null) : onClose()}
+      presentationStyle="fullScreen"
       visible={visible}>
-      <View style={styles.modalRoot}>
-        <Pressable accessibilityLabel="조건 패널 닫기" onPress={() => closeAnimated(onClose)} style={styles.backdrop} />
-        <Animated.View style={[styles.numberPreview, { height: previewHeight, top: previewTop, width: sheetWidth }]}>
-          <View onLayout={handlePreviewLayout} style={styles.previewContent} testID="number-preview-content">
-            <View style={styles.previewHeader}>
-              <View>
-                <Text style={styles.previewEyebrow}>CONDITION PREVIEW</Text>
-                <Text style={styles.previewTitle}>번호 상태</Text>
-              </View>
-              <Text style={styles.previewCount}>{activeConditionCount(draft)}개 조건</Text>
-            </View>
-            <Text numberOfLines={2} style={styles.numberSummary}>
-              고정 {draft.fixedNumbers.length ? draft.fixedNumbers.join(', ') : '없음'}  ·  제외 {draft.excludedNumbers.length ? draft.excludedNumbers.join(', ') : '없음'}
-            </Text>
-            {numbersExpanded ? (
-              <View style={[styles.numberGrid, { width: expandedGridWidth }]} testID="number-status-grid">
-                {NUMBERS.map((number) => renderNumber(number, expandedNumberSize))}
-                {NUMBER_GRID_PLACEHOLDERS.map((placeholder) => (
-                  <View
-                    key={`placeholder-${placeholder}`}
-                    style={{ height: expandedNumberSize, width: expandedNumberSize }}
-                    testID={`number-grid-placeholder-${placeholder}`}
-                  />
-                ))}
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.numberRail}
-                testID="number-status-rail">
-                {NUMBERS.map((number) => renderNumber(number, 44, spacing.sm))}
-              </ScrollView>
-            )}
-            <Pressable
-              accessibilityLabel={numbersExpanded ? '번호 접기' : '번호 전체 펼치기'}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: numbersExpanded }}
-              onPress={() => setNumbersExpanded((current) => {
-                numbersExpandedRef.current = !current;
-                return !current;
-              })}
-              style={styles.expandToggle}
-              testID="number-status-toggle">
-              <View style={numbersExpanded ? styles.triangleUp : styles.triangleDown} />
-            </Pressable>
-          </View>
-        </Animated.View>
-
-        <Animated.View style={{ width: sheetWidth, transform: [{ translateY }] }}>
-          <Animated.View style={[styles.sheet, { height: sheetHeight }]} testID="condition-sheet">
-          <View style={styles.handle} />
-          <View style={styles.sheetHeader}>
-            <View>
-              <Text style={styles.sheetTitle}>조건 선택하기</Text>
-              <Text style={styles.sheetSubtitle}>선택 안 함은 제한 없음으로 적용돼요.</Text>
+      <SafeAreaView style={styles.editorSafeArea}>
+        <View style={[styles.editor, { width: sheetWidth }]} testID="condition-editor">
+          <View style={styles.editorHeader}>
+            <SubScreenBackButton
+              accessibilityLabel="조건 선택 취소"
+              onPress={onClose}
+            />
+            <View style={styles.editorHeadingCopy}>
+              <Text style={styles.editorTitle}>조합 선택하기</Text>
+              <Text style={styles.editorSubtitle}>선택하지 않은 항목은 제한 없이 적용돼요.</Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setDraft(cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS))}
+              onPress={() => setDraft(buildGeneratorConditionDefaults(history))}
               style={styles.resetButton}>
               <Text style={styles.resetText}>초기화</Text>
+            </Pressable>
+          </View>
+          <View style={[
+            styles.recommendedPreset,
+            recommendedPresetActive && styles.recommendedPresetActive,
+          ]}>
+            <View style={styles.recommendedPresetCopy}>
+              <Text style={[
+                styles.recommendedPresetTitle,
+                recommendedPresetActive && styles.recommendedPresetTitleActive,
+              ]}>
+                {recommendedPresetActive ? '균형 조건 프리셋 적용됨' : '균형 조건 프리셋'}
+              </Text>
+              <Text style={styles.recommendedPresetDescription}>
+                {recommendedPresetActive
+                  ? '표준편차 · 합계 · 홀짝 · 저고 · A/C · 연번'
+                  : '과거 형태를 넓게 포함하는 6개 조건 · 당첨 예측 아님'}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel={recommendedPresetActive ? '추천 조건 적용됨' : '추천 조건 적용'}
+              accessibilityRole="button"
+              accessibilityState={{ selected: recommendedPresetActive }}
+              onPress={applyRecommendedPreset}
+              style={[
+                styles.recommendedPresetButton,
+                recommendedPresetActive && styles.recommendedPresetButtonActive,
+              ]}>
+              <Text style={[
+                styles.recommendedPresetButtonText,
+                recommendedPresetActive && styles.recommendedPresetButtonTextActive,
+              ]}>
+                {recommendedPresetActive ? '✓ 적용됨' : '추천 조건 적용'}
+              </Text>
             </Pressable>
           </View>
           <ScrollView
@@ -536,42 +720,88 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
             ))}
           </ScrollView>
 
-          <View
-            {...webPagerTouchProps}
-            style={[styles.pagerContainer, styles.pagerWebTouch]}
-            testID="condition-pages-touch-area">
-            <ScrollView
-              horizontal
-              onMomentumScrollEnd={syncPageWithPager}
-              onScroll={syncPageWithPager}
-              onScrollEndDrag={syncPageWithPager}
-              pagingEnabled
-              ref={pagerRef}
-              scrollEventThrottle={16}
-              showsHorizontalScrollIndicator={false}
-              style={styles.pager}
-              testID="condition-pages">
-            <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
+          <ScrollView
+            contentContainerStyle={styles.conditionContent}
+            onScroll={syncPageWithScroll}
+            ref={contentScrollRef}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            style={styles.conditionScroll}
+            testID="condition-content">
+            <View
+              onLayout={(event) => { pageOffsetsRef.current[0] = event.nativeEvent.layout.y; }}
+              style={styles.conditionGroup}
+              testID="condition-group-0">
               <Section
-                hint="번호 레일을 눌러 설정"
+                enabled={sectionEnabled('fixedExcluded')}
+                hint="아래 번호판에서 바로 설정"
+                onEnabledChange={(enabled) => setSectionEnabled('fixedExcluded', enabled)}
                 onHelpPress={() => setActiveHelp('fixedExcluded')}
                 title="고정수 · 제외수">
+                <Text style={styles.numberConditionSummary}>
+                  고정 {draft.fixedNumbers.length ? draft.fixedNumbers.join(', ') : '없음'}
+                </Text>
+                <Text style={styles.numberConditionSummary}>
+                  제외 {draft.excludedNumbers.length ? draft.excludedNumbers.join(', ') : '없음'}
+                </Text>
+                <Text style={styles.helper}>고정수는 최대 6개이며 고정수와 제외수는 자동으로 겹치지 않게 처리됩니다.</Text>
+              </Section>
+              <View style={[
+                styles.numberSelector,
+                sectionEnabled('fixedExcluded') && styles.sectionEnabled,
+                !sectionEnabled('fixedExcluded') && styles.conditionDisabled,
+              ]}>
+                <View style={styles.numberSelectorHeader}>
+                  <Text style={styles.numberSelectorTitle}>선택 방식</Text>
+                  <Text style={styles.numberSelectorHint}>방식을 고른 뒤 번호를 눌러주세요.</Text>
+                </View>
                 <View style={styles.modeRow}>
-                  <Pressable onPress={() => setNumberMode('fixed')} style={[styles.modeButton, numberMode === 'fixed' && styles.modeButtonFixed]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: numberMode === 'fixed' }}
+                    onPress={() => setNumberMode('fixed')}
+                    style={[styles.modeButton, numberMode === 'fixed' && styles.modeButtonFixed]}>
                     <Text style={[styles.modeText, numberMode === 'fixed' && styles.modeTextActive]}>고정수</Text>
                   </Pressable>
-                  <Pressable onPress={() => setNumberMode('excluded')} style={[styles.modeButton, numberMode === 'excluded' && styles.modeButtonExcluded]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: numberMode === 'excluded' }}
+                    onPress={() => setNumberMode('excluded')}
+                    style={[styles.modeButton, numberMode === 'excluded' && styles.modeButtonExcluded]}>
                     <Text style={[styles.modeText, numberMode === 'excluded' && styles.modeTextExcluded]}>제외수</Text>
                   </Pressable>
                 </View>
-                <Text style={styles.helper}>고정수는 최대 6개이며 고정수와 제외수는 자동으로 겹치지 않게 처리됩니다.</Text>
-              </Section>
-            </ScrollView>
+                <View style={[styles.numberGrid, { width: expandedGridWidth }]} testID="number-status-grid">
+                  {NUMBERS.map((number) => renderNumber(number, expandedNumberSize))}
+                  {NUMBER_GRID_PLACEHOLDERS.map((placeholder) => (
+                    <View
+                      key={`placeholder-${placeholder}`}
+                      style={{ height: expandedNumberSize, width: expandedNumberSize }}
+                      testID={`number-grid-placeholder-${placeholder}`}
+                    />
+                  ))}
+                </View>
+                <View style={styles.numberLegend}>
+                  <Text style={styles.numberLegendFixed}>● 고정수</Text>
+                  <Text style={styles.numberLegendExcluded}>● 제외수</Text>
+                  <Text style={styles.numberLegendDerived}>○ 조건상 제외</Text>
+                </View>
+              </View>
+            </View>
 
-            <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
-              <Section onHelpPress={() => setActiveHelp('sameEnding')} title="동끝수 형태">
-                <OptionSelector
+            <View
+              onLayout={(event) => { pageOffsetsRef.current[1] = event.nativeEvent.layout.y; }}
+              style={styles.conditionGroup}
+              testID="condition-group-1">
+              <Section
+                enabled={sectionEnabled('sameEnding')}
+                onEnabledChange={(enabled) => setSectionEnabled('sameEnding', enabled)}
+                onHelpPress={() => setActiveHelp('sameEnding')}
+                title="동끝수 형태">
+                <PatternSelector
                   accessibilityLabel="동끝수 형태"
+                  historicalValue={historicalSameEnding}
+                  kind="sameEnding"
                   onChange={(sameEndingPatterns) => update({ sameEndingPatterns })}
                   options={SAME_ENDING_OPTIONS.map(([value, label]) => ({ value, label }))}
                   selected={draft.sameEndingPatterns}
@@ -579,6 +809,7 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
               </Section>
               <RangeControl
                 decimals={1}
+                historicalPreset={rangePresets.standardDeviation}
                 limits={{ min: 1.7, max: 21.1 }}
                 onChange={(standardDeviation) => update({ standardDeviation })}
                 onHelpPress={() => setActiveHelp('standardDeviation')}
@@ -587,6 +818,7 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                 value={draft.standardDeviation}
               />
               <RangeControl
+                historicalPreset={rangePresets.sum}
                 limits={{ min: 21, max: 255 }}
                 onChange={(sum) => update({ sum })}
                 onHelpPress={() => setActiveHelp('sum')}
@@ -594,23 +826,49 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                 value={draft.sum}
               />
               <RangeControl
+                historicalPreset={rangePresets.lastDigitSum}
                 limits={{ min: 2, max: 52 }}
                 onChange={(lastDigitSum) => update({ lastDigitSum })}
                 onHelpPress={() => setActiveHelp('lastDigitSum')}
                 title="끝수 총합"
                 value={draft.lastDigitSum}
               />
-              <Section onHelpPress={() => setActiveHelp('oddEven')} title="홀짝 비율">
-                <CountSelector label="홀짝 비율" onChange={(oddCounts) => update({ oddCounts })} ratio selected={draft.oddCounts} />
-              </Section>
-              <Section onHelpPress={() => setActiveHelp('lowHigh')} title="저고 비율">
-                <CountSelector label="저고 비율" onChange={(highLowCounts) => update({ highLowCounts })} ratio selected={draft.highLowCounts} />
-              </Section>
-            </ScrollView>
-
-            <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
               <Section
+                enabled={sectionEnabled('oddEven')}
+                onEnabledChange={(enabled) => setSectionEnabled('oddEven', enabled)}
+                onHelpPress={() => setActiveHelp('oddEven')}
+                title="홀짝 비율">
+                <CountSelector
+                  label="홀짝 비율"
+                  onChange={(oddCounts) => update({ oddCounts })}
+                  ratioPalette="oddEven"
+                  ratioLabels={{ primary: '홀', primaryLong: '홀수', secondary: '짝', secondaryLong: '짝수' }}
+                  selected={draft.oddCounts}
+                />
+              </Section>
+              <Section
+                enabled={sectionEnabled('lowHigh')}
+                onEnabledChange={(enabled) => setSectionEnabled('lowHigh', enabled)}
+                onHelpPress={() => setActiveHelp('lowHigh')}
+                title="저고 비율">
+                <CountSelector
+                  label="저고 비율"
+                  onChange={(highLowCounts) => update({ highLowCounts })}
+                  ratioPalette="lowHigh"
+                  ratioLabels={{ primary: '저', primaryLong: '저번호 1–22', secondary: '고', secondaryLong: '고번호 23–45' }}
+                  selected={draft.highLowCounts}
+                />
+              </Section>
+            </View>
+
+            <View
+              onLayout={(event) => { pageOffsetsRef.current[2] = event.nativeEvent.layout.y; }}
+              style={styles.conditionGroup}
+              testID="condition-group-2">
+              <Section
+                enabled={sectionEnabled('acValue')}
                 hint="과거 1,237회 본번호 기준 8~10: 70.7%"
+                onEnabledChange={(enabled) => setSectionEnabled('acValue', enabled)}
                 onHelpPress={() => setActiveHelp('acValue')}
                 title="A/C 값">
                 <OptionSelector
@@ -620,31 +878,55 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                   selected={draft.acValues}
                 />
               </Section>
-              <Section onHelpPress={() => setActiveHelp('primeCount')} title="소수 개수">
-                <CountSelector label="소수 개수" onChange={(primeCounts) => update({ primeCounts })} selected={draft.primeCounts} />
+              <Section
+                enabled={sectionEnabled('primeCount')}
+                onEnabledChange={(enabled) => setSectionEnabled('primeCount', enabled)}
+                onHelpPress={() => setActiveHelp('primeCount')}
+                title="소수 개수">
+                <NumberSetGuide label="해당 번호" numbers={PRIME_NUMBERS} />
+                <CountSelector label="소수 개수" onChange={(primeCounts) => update({ primeCounts })} selected={draft.primeCounts} visual />
               </Section>
-              <Section hint="4 · 9 · 16 · 25 · 36" onHelpPress={() => setActiveHelp('squareCount')} title="완전제곱수 개수">
-                <CountSelector label="완전제곱수 개수" onChange={(squareCounts) => update({ squareCounts })} selected={draft.squareCounts} />
+              <Section
+                enabled={sectionEnabled('squareCount')}
+                onEnabledChange={(enabled) => setSectionEnabled('squareCount', enabled)}
+                onHelpPress={() => setActiveHelp('squareCount')}
+                title="완전제곱수 개수">
+                <NumberSetGuide label="해당 번호" numbers={SQUARE_NUMBERS} />
+                <CountSelector label="완전제곱수 개수" onChange={(squareCounts) => update({ squareCounts })} selected={draft.squareCounts} visual />
               </Section>
-              <Section hint="1과 소수를 제외한 수" onHelpPress={() => setActiveHelp('compositeCount')} title="합성수 개수">
-                <CountSelector label="합성수 개수" onChange={(compositeCounts) => update({ compositeCounts })} selected={draft.compositeCounts} />
+              <Section
+                enabled={sectionEnabled('compositeCount')}
+                hint="1과 소수를 제외한 수"
+                onEnabledChange={(enabled) => setSectionEnabled('compositeCount', enabled)}
+                onHelpPress={() => setActiveHelp('compositeCount')}
+                title="합성수 개수">
+                <NumberSetGuide label="해당 번호" maxVisible={12} numbers={COMPOSITE_NUMBERS} />
+                <CountSelector label="합성수 개수" onChange={(compositeCounts) => update({ compositeCounts })} selected={draft.compositeCounts} visual />
               </Section>
               {([3, 4, 5] as const).map((multiple) => (
                 <Section
+                  enabled={sectionEnabled(MULTIPLE_SECTION_KEYS[multiple])}
                   key={multiple}
+                  onEnabledChange={(enabled) => setSectionEnabled(MULTIPLE_SECTION_KEYS[multiple], enabled)}
                   onHelpPress={() => setActiveHelp(MULTIPLE_HELP_KEYS[multiple])}
                   title={`${multiple}의 배수`}>
+                  <NumberSetGuide label="해당 번호" maxVisible={12} numbers={NUMBERS.filter((number) => number % multiple === 0)} />
                   <CountSelector
                     label={`${multiple}의 배수 개수`}
                     onChange={(values) => update({ multipleCounts: { ...draft.multipleCounts, [multiple]: values } })}
                     selected={draft.multipleCounts[multiple]}
+                    visual
                   />
                 </Section>
               ))}
-            </ScrollView>
+            </View>
 
-            <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
+            <View
+              onLayout={(event) => { pageOffsetsRef.current[3] = event.nativeEvent.layout.y; }}
+              style={styles.conditionGroup}
+              testID="condition-group-3">
               <Section
+                enabled={sectionEnabled('carryCount')}
                 headerAction={(
                   <BonusToggle
                     included={draft.carry.includeBonus}
@@ -652,12 +934,15 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                     testID="carry-bonus-toggle"
                   />
                 )}
-                hint={`${latest?.round ?? '-'}회 기준`}
+                onEnabledChange={(enabled) => setSectionEnabled('carryCount', enabled)}
                 onHelpPress={() => setActiveHelp('carryCount')}
                 title="이월수 개수">
-                <CountSelector label="이월수 개수" onChange={(allowed) => update({ carry: { ...draft.carry, allowed } })} selected={draft.carry.allowed} />
+                <RecentNumberGuide includeBonus={draft.carry.includeBonus} kind="carry" latest={latest} />
+                <Text style={styles.selectorPrompt}>위 번호 중 조합에 다시 포함할 개수</Text>
+                <CountSelector label="이월수 개수" onChange={(allowed) => update({ carry: { ...draft.carry, allowed } })} selected={draft.carry.allowed} visual />
               </Section>
               <Section
+                enabled={sectionEnabled('neighborCount')}
                 headerAction={(
                   <BonusToggle
                     included={draft.neighbor.includeBonus}
@@ -665,30 +950,42 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                     testID="neighbor-bonus-toggle"
                   />
                 )}
-                hint="직전 번호의 ±1 · 중복 제외"
+                onEnabledChange={(enabled) => setSectionEnabled('neighborCount', enabled)}
                 onHelpPress={() => setActiveHelp('neighborCount')}
                 title="이웃수 개수">
-                <CountSelector label="이웃수 개수" onChange={(allowed) => update({ neighbor: { ...draft.neighbor, allowed } })} selected={draft.neighbor.allowed} />
+                <RecentNumberGuide includeBonus={draft.neighbor.includeBonus} kind="neighbor" latest={latest} />
+                <Text style={styles.selectorPrompt}>선택 후보 중 조합에 포함할 개수</Text>
+                <CountSelector label="이웃수 개수" onChange={(allowed) => update({ neighbor: { ...draft.neighbor, allowed } })} selected={draft.neighbor.allowed} visual />
               </Section>
               <Section
+                enabled={sectionEnabled('consecutivePattern')}
                 hint="가장 긴 연속그룹 기준"
+                onEnabledChange={(enabled) => setSectionEnabled('consecutivePattern', enabled)}
                 onHelpPress={() => setActiveHelp('consecutivePattern')}
                 title="연번 형태">
-                <OptionSelector
+                <PatternSelector
                   accessibilityLabel="연번 형태"
+                  historicalValue={historicalConsecutive}
+                  kind="consecutive"
                   onChange={(consecutivePatterns) => update({ consecutivePatterns })}
                   options={CONSECUTIVE_OPTIONS.map(([value, label]) => ({ value, label }))}
                   selected={draft.consecutivePatterns}
                 />
               </Section>
-            </ScrollView>
+            </View>
 
-            <ScrollView contentContainerStyle={styles.pageContent} style={{ width: sheetWidth }}>
+            <View
+              onLayout={(event) => { pageOffsetsRef.current[4] = event.nativeEvent.layout.y; }}
+              style={[styles.conditionGroup, styles.conditionGroupLast]}
+              testID="condition-group-4">
               {GENERATOR_BAND_KEYS.map((band) => (
                 <Section
+                  enabled={sectionEnabled(BAND_SECTION_KEYS[band])}
                   key={band}
+                  onEnabledChange={(enabled) => setSectionEnabled(BAND_SECTION_KEYS[band], enabled)}
                   onHelpPress={() => setActiveHelp(BAND_HELP_KEYS[band])}
                   title={`${band} 번호대`}>
+                  <BandGuide activeBand={band} />
                   <CountSelector
                     label={`${band} 번호대 개수`}
                     onChange={(values) => update({ bandCounts: { ...draft.bandCounts, [band]: values } })}
@@ -697,7 +994,9 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                 </Section>
               ))}
               <Section
+                enabled={sectionEnabled('pastRanks')}
                 hint="전체 과거 회차와 비교"
+                onEnabledChange={(enabled) => setSectionEnabled('pastRanks', enabled)}
                 onHelpPress={() => setActiveHelp('pastRanks')}
                 title="과거 등수 조합 제외">
                 <OptionSelector
@@ -707,23 +1006,20 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
                   selected={draft.excludedPastRanks}
                 />
               </Section>
-            </ScrollView>
-            </ScrollView>
-          </View>
+            </View>
+          </ScrollView>
 
           <View style={styles.actions}>
-            <Pressable accessibilityRole="button" onPress={() => closeAnimated(onClose)} style={styles.cancelButton}>
+            <Pressable accessibilityRole="button" onPress={onClose} style={styles.cancelButton}>
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() => closeAnimated(() => onApply(cloneGeneratorConditions(draft)))}
+              onPress={() => onApply(cloneGeneratorConditions(draft))}
               style={styles.applyButton}>
               <Text style={styles.applyText}>{activeConditionCount(draft)}개 조건 적용</Text>
             </Pressable>
           </View>
-          </Animated.View>
-        </Animated.View>
 
         {helpContent ? (
           <View accessibilityViewIsModal style={styles.helpOverlay}>
@@ -772,43 +1068,46 @@ export function ConditionSheet({ conditions, history, onApply, onClose, visible 
             </View>
           </View>
         ) : null}
-      </View>
+        </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  modalRoot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  backdrop: { position: 'absolute', inset: 0, backgroundColor: colors.backdropStrong },
-  numberPreview: {
-    position: 'absolute', overflow: 'hidden',
-    borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg,
-    borderWidth: 1, borderTopWidth: 0, borderColor: colors.divider,
+  editorSafeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
+  editor: { flex: 1, maxWidth: 500, backgroundColor: colors.surface, overflow: 'hidden' },
+  editorHeader: {
+    minHeight: 72, flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider,
+  },
+  editorHeadingCopy: { flex: 1, minWidth: 0, paddingHorizontal: spacing.xs },
+  editorTitle: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold },
+  editorSubtitle: { color: colors.textSecondary, fontSize: 11, marginTop: spacing.xs },
+  resetButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.sm },
+  resetText: { color: colors.hot, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  recommendedPreset: {
+    minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  recommendedPresetActive: { borderBottomColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
+  recommendedPresetCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  recommendedPresetTitle: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  recommendedPresetTitleActive: { color: colors.accentPrimary },
+  recommendedPresetDescription: { color: colors.textSecondary, fontSize: 10, lineHeight: 14 },
+  recommendedPresetButton: {
+    minHeight: 38, flexShrink: 0, justifyContent: 'center', paddingHorizontal: spacing.md,
+    borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentPrimary,
     backgroundColor: colors.background,
   },
-  previewContent: {
-    paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg,
-  },
-  previewHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  previewEyebrow: { color: colors.textSecondary, fontSize: 9, letterSpacing: 1.5, marginBottom: spacing.xs },
-  previewTitle: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.semibold },
-  previewCount: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  numberSummary: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: spacing.sm, lineHeight: 16 },
-  numberRail: { marginTop: spacing.md, flexGrow: 0 },
+  recommendedPresetButtonActive: { backgroundColor: colors.accentPrimary },
+  recommendedPresetButtonText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  recommendedPresetButtonTextActive: { color: colors.background },
   numberGrid: {
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
-    alignSelf: 'center', rowGap: spacing.sm, marginTop: spacing.md,
-  },
-  expandToggle: {
-    width: 44, height: 44, alignItems: 'center', justifyContent: 'center', alignSelf: 'center',
-  },
-  triangleDown: {
-    width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 7,
-    borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: colors.textSecondary,
-  },
-  triangleUp: {
-    width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderBottomWidth: 7,
-    borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: colors.textSecondary,
+    alignSelf: 'center', rowGap: spacing.sm,
   },
   numberChip: {
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
@@ -821,56 +1120,142 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberChipTextFixed: { color: colors.background, fontWeight: typography.weights.bold },
   numberChipTextExcluded: { color: colors.hot, textDecorationLine: 'line-through' },
   numberChipTextDerived: { color: colors.neutral },
-  sheet: {
-    borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    borderWidth: 1, borderBottomWidth: 0, borderColor: colors.divider,
-    backgroundColor: colors.surface, overflow: 'hidden',
+  pageTabs: {
+    flexGrow: 0, flexShrink: 0, height: 58,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
   },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.divider, alignSelf: 'center', marginTop: spacing.sm },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, paddingTop: spacing.md },
-  sheetTitle: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.semibold },
-  sheetSubtitle: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: spacing.xs },
-  resetButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  resetText: { color: colors.hot, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  pageTabs: { flexGrow: 0, flexShrink: 0, height: 48, marginTop: spacing.sm },
-  pageTabsContent: { alignItems: 'center', paddingHorizontal: spacing.xl },
-  pageTab: { height: 38, justifyContent: 'center', paddingHorizontal: spacing.md, marginRight: spacing.sm, borderRadius: radius.round, backgroundColor: colors.background },
-  pageTabActive: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentPrimary },
-  pageTabText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
-  pageTabTextActive: { color: colors.highlight },
-  pagerContainer: { flex: 1, minHeight: 0 },
-  pager: { flex: 1, minHeight: 0 },
-  pagerWebTouch: Platform.select({ web: { touchAction: 'pan-y' } }) as never,
-  pageContent: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
+  pageTabsContent: { alignItems: 'stretch', paddingHorizontal: spacing.xl },
+  pageTab: {
+    height: 58, justifyContent: 'center', paddingHorizontal: spacing.sm, marginRight: spacing.lg,
+    borderBottomWidth: 3, borderBottomColor: 'transparent',
+  },
+  pageTabActive: { borderBottomColor: colors.accentPrimary },
+  pageTabText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
+  pageTabTextActive: { color: colors.textPrimary, fontWeight: typography.weights.bold },
+  conditionScroll: { flex: 1, minHeight: 0 },
+  conditionContent: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.huge },
+  conditionGroup: { gap: spacing.md, paddingBottom: spacing.xxxl },
+  conditionGroupLast: { paddingBottom: 0 },
   section: { gap: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.background, padding: spacing.md },
+  sectionEnabled: { borderColor: colors.accentBorder },
   sectionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   sectionHeadingCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
   sectionHeaderAction: { flexShrink: 0, alignItems: 'flex-end' },
+  sectionHeaderActions: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   sectionHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
+  conditionDisabled: { opacity: 0.38, pointerEvents: 'none' },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   option: { minHeight: 40, minWidth: 46, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  optionVisual: { minWidth: 76, minHeight: 58, borderRadius: radius.md, paddingVertical: spacing.sm },
+  optionVisualContent: { marginTop: spacing.xs },
   optionActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   optionText: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   optionTextActive: { color: colors.highlight, fontWeight: typography.weights.semibold },
-  modeRow: { flexDirection: 'row', gap: spacing.sm },
+  patternGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm },
+  patternOption: {
+    width: '48.7%', minHeight: 104, padding: spacing.sm,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  patternOptionActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
+  patternOptionHeader: { minHeight: 30, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.xs },
+  patternOptionText: { flex: 1, color: colors.textSecondary, fontSize: 11, lineHeight: 15 },
+  patternTopBadge: {
+    flexShrink: 0, color: colors.accentSecondary, fontSize: 8, fontWeight: typography.weights.semibold,
+    borderRadius: radius.round, backgroundColor: colors.surfaceSuccess,
+    paddingHorizontal: 5, paddingVertical: 2,
+  },
+  patternDiagram: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  endingGroup: { alignItems: 'center', gap: 2, borderRadius: radius.sm, padding: 2 },
+  endingGroupLinked: { backgroundColor: colors.surfaceAccent },
+  consecutiveGroup: { flexDirection: 'row', alignItems: 'center', gap: 1, borderRadius: radius.sm, padding: 2 },
+  consecutiveGroupLinked: { backgroundColor: colors.surfaceAccent },
+  patternCell: {
+    width: 17, height: 17, borderRadius: 5, borderWidth: 1, borderColor: colors.divider,
+    backgroundColor: colors.background, color: colors.textSecondary,
+    fontSize: 8, lineHeight: 15, textAlign: 'center', fontVariant: ['tabular-nums'],
+  },
+  patternCellLinked: { borderColor: colors.accentBorder, color: colors.highlight },
+  ratioDiagram: { width: 54, height: 5, flexDirection: 'row', gap: 2 },
+  ratioSegment: { flex: 1, borderRadius: 2 },
+  ratioSegmentOdd: { backgroundColor: colors.accentPrimary },
+  ratioSegmentEven: { backgroundColor: colors.neutral },
+  ratioSegmentLow: { backgroundColor: colors.accentPrimary },
+  ratioSegmentHigh: { backgroundColor: colors.neutral },
+  countSelector: { gap: spacing.sm },
+  countDiagram: { width: 54, height: 8, flexDirection: 'row', justifyContent: 'center', gap: 3 },
+  countDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.divider },
+  countDotActive: { backgroundColor: colors.accentPrimary },
+  ratioLegend: {
+    minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: radius.sm, backgroundColor: colors.surface, paddingHorizontal: spacing.md,
+  },
+  ratioLegendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  ratioLegendDot: { width: 7, height: 7, borderRadius: 4 },
+  ratioLegendText: { fontSize: 10, fontWeight: typography.weights.semibold },
+  ratioLegendOddDot: { backgroundColor: colors.accentPrimary },
+  ratioLegendEvenDot: { backgroundColor: colors.neutral },
+  ratioLegendLowDot: { backgroundColor: colors.accentPrimary },
+  ratioLegendHighDot: { backgroundColor: colors.neutral },
+  ratioLegendOddText: { color: colors.accentPrimary },
+  ratioLegendEvenText: { color: colors.neutral },
+  ratioLegendLowText: { color: colors.accentPrimary },
+  ratioLegendHighText: { color: colors.neutral },
+  ratioLegendOrder: { color: colors.textSecondary, fontSize: 9 },
+  numberSetGuide: { gap: spacing.xs },
+  numberSetLabel: { color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.semibold },
+  numberSetValues: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  numberSetChip: {
+    minWidth: 25, height: 25, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center',
+    borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent,
+  },
+  numberSetChipText: { color: colors.highlight, fontSize: 9, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
+  numberSetMore: { color: colors.textSecondary, fontSize: 10, marginLeft: 2 },
+  recentGuide: { gap: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md },
+  recentGuideHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  recentGuideTitle: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  recentGuideMeta: { color: colors.textSecondary, fontSize: 9 },
+  selectorPrompt: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
+  bandGuide: { height: 32, flexDirection: 'row', gap: 2 },
+  bandGuideSegment: {
+    alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm,
+    borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
+  },
+  bandGuideSegmentActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
+  bandGuideText: { color: colors.textSecondary, fontSize: 8 },
+  bandGuideTextActive: { color: colors.highlight, fontWeight: typography.weights.semibold },
+  numberSelector: {
+    gap: spacing.lg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider,
+    backgroundColor: colors.background, paddingVertical: spacing.lg, overflow: 'hidden',
+  },
+  numberSelectorHeader: { gap: spacing.xs, paddingHorizontal: spacing.md },
+  numberSelectorTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  numberSelectorHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
+  modeRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md },
   modeButton: { flex: 1, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   modeButtonFixed: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   modeButtonExcluded: { borderColor: colors.hot, backgroundColor: colors.surfaceDanger },
   modeText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   modeTextActive: { color: colors.highlight },
   modeTextExcluded: { color: colors.hot },
+  numberConditionSummary: { color: colors.textPrimary, fontSize: typography.sizes.small, lineHeight: 20 },
   helper: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
   bonusToggle: { minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   bonusToggleActive: { borderColor: colors.accentSecondary, backgroundColor: colors.surfaceSuccess },
   bonusText: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   bonusTextActive: { color: colors.accentSecondary, fontWeight: typography.weights.semibold },
-  actions: { flexDirection: 'row', flexShrink: 0, gap: spacing.sm, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xl, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider, backgroundColor: colors.surface },
+  actions: { flexDirection: 'row', flexShrink: 0, gap: spacing.sm, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider, backgroundColor: colors.surface },
   cancelButton: { width: 82, minHeight: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   applyButton: { flex: 1, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.accentPrimary, alignItems: 'center', justifyContent: 'center' },
   applyText: { color: colors.background, fontSize: typography.sizes.body, fontWeight: typography.weights.bold },
+  numberLegend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md },
+  numberLegendFixed: { color: colors.accentPrimary, fontSize: 10 },
+  numberLegendExcluded: { color: colors.hot, fontSize: 10 },
+  numberLegendDerived: { color: colors.neutral, fontSize: 10 },
   helpOverlay: {
     position: 'absolute', inset: 0, zIndex: 30,
     alignItems: 'center', justifyContent: 'center', padding: spacing.xl,

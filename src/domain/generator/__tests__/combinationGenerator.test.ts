@@ -3,6 +3,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 
 import {
+  activeConditionCount,
   calculateCombinationMetrics,
   cloneGeneratorConditions,
   DEFAULT_GENERATOR_CONDITIONS,
@@ -57,6 +58,21 @@ describe('condition evaluation and generation', () => {
     conditions.sum = { enabled: true, min: 30, max: 40 };
     const result = evaluateCombination([1, 2, 3, 4, 5, 6], conditions, history);
     expect(result.violations.map((violation) => violation.key)).toEqual(['sum']);
+  });
+
+  test('keeps selected values but ignores a condition while its section switch is off', () => {
+    const conditions = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
+    conditions.oddCounts = [6];
+    conditions.enabledSections = { oddEven: false };
+
+    expect(evaluateCombination([2, 4, 6, 8, 10, 12], conditions, history).violations).toEqual([]);
+    expect(activeConditionCount(conditions)).toBe(0);
+
+    conditions.enabledSections.oddEven = true;
+    expect(evaluateCombination([2, 4, 6, 8, 10, 12], conditions, history).violations.map(
+      (violation) => violation.key,
+    )).toEqual(['odd']);
+    expect(activeConditionCount(conditions)).toBe(1);
   });
 
   test('generates six ascending unique values while preserving hard rules', async () => {

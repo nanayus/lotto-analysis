@@ -1,4 +1,5 @@
 import type { AnalysisFilters } from '@/domain/analytics/types';
+import type { CombinationMetrics } from '@/domain/generator/types';
 
 export type PrizeRank = 1 | 2 | 3 | 4 | 5;
 
@@ -30,6 +31,7 @@ export type SubCombinationAnalysis = {
 
 export type CombinationAnalysis = {
   activeDrawCount: number;
+  conditionMetrics: CombinationMetrics;
   filters: AnalysisFilters;
   groupFrequency: {
     differencePct: number;

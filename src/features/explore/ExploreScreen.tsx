@@ -24,6 +24,7 @@ import type { NumberAnalyticsDataset } from '@/data/numberAnalytics.types';
 import { buildAnalyticsSnapshot } from '@/domain/analytics/buildAnalyticsSnapshot';
 import { getNumberAppearanceHistory } from '@/domain/analytics/numberHistory';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
+import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { AllNumberComparison } from './components/AllNumberComparison';
 import type {
   AnalysisFilters,
@@ -203,84 +204,98 @@ export function ExploreScreen() {
   const selectedInDraft = draft.selectedNumbers.includes(selectedNumber);
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <View style={styles.columns} testID={`explore-focus-${interactionFocus.toLowerCase()}`}>
-        <View
-          style={[styles.sliderPane, { width: windowWidth <= 360 ? '30%' : '29%' }]}
-          testID="scrubber-pane">
-          {USE_NUMBER_SCRUBBER_V3 ? (
-            <NumberScrubberV3
-              interactionFocus={interactionFocus}
-              onInteractionEnd={scheduleIdle}
-              onInteractionStart={() => activateFocus('LEFT')}
-              value={selectedNumber}
-              onValueChange={setSelectedNumber}
-            />
-          ) : (
-            <NumberSlider value={selectedNumber} onValueChange={setSelectedNumber} />
-          )}
+      <View style={styles.exploreContainer}>
+        <View style={styles.subHeader}>
+          <SubScreenBackButton
+            accessibilityLabel="통계보기로 돌아가기"
+            onPress={() => router.back()}
+          />
         </View>
-
-        <Animated.View
-          style={[styles.analyticsPane, analyticsEmphasisStyle]}
-          testID="analytics-pane">
-          <ScrollView
-            bounces
-            contentContainerStyle={styles.analyticsContent}
-            directionalLockEnabled
-            nestedScrollEnabled
-            onScroll={onAnalyticsScroll}
-            ref={analyticsScrollRef}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={false}
-            style={styles.analyticsScroll}
-            testID="analytics-scroll-view">
-            {analytics ? (
-              <>
-                <NumberProfile
-                  analytics={analytics}
-                  onOpenComparison={() => setDetailMode('comparison')}
-                />
-                <View style={styles.filterRow}>
-                  <AnalysisControls
-                    bonusIncluded={analysisState.includeBonus}
-                    compact
-                    firstRound={numberAnalytics.metadata.firstDrawNumber}
-                    latestRound={numberAnalytics.metadata.latestDrawNumber}
-                    onBonusChange={changeBonusIncluded}
-                    onPeriodChange={changeAnalysisPeriod}
-                    period={analysisState.period}
-                    variant="plain"
-                  />
-                </View>
-                <View style={styles.recentSection} testID="recent-analysis-section">
-                  <RecentTimeline
-                    hitCount={recent52Analytics.recent52Count}
-                    values={recent52Analytics.recent52}
-                    onOpenHistory={() => setDetailMode('history')}
-                  />
-                  <FrequencyMetrics analytics={analytics} />
-                </View>
-                <PairSection pairs={analytics.topPairs} onSelectNumber={setSelectedNumber} />
-                <TrioSection
-                  selectedNumber={analytics.number}
-                  trios={analytics.topTrios.slice(0, 3)}
-                  onSelectNumber={setSelectedNumber}
-                />
-              </>
+        <View style={styles.columns} testID={`explore-focus-${interactionFocus.toLowerCase()}`}>
+          <View
+            style={[styles.sliderPane, { width: windowWidth <= 360 ? '30%' : '29%' }]}
+            testID="scrubber-pane">
+            {USE_NUMBER_SCRUBBER_V3 ? (
+              <NumberScrubberV3
+                interactionFocus={interactionFocus}
+                onInteractionEnd={scheduleIdle}
+                onInteractionStart={() => activateFocus('LEFT')}
+                value={selectedNumber}
+                onValueChange={setSelectedNumber}
+              />
             ) : (
-              <Text style={styles.unavailable}>분석 데이터를 불러올 수 없습니다.</Text>
+              <NumberSlider value={selectedNumber} onValueChange={setSelectedNumber} />
             )}
-          </ScrollView>
-          <View pointerEvents="box-none" style={styles.floatingControl}>
-            <CombinationFloatingControl
-              currentNumber={selectedNumber}
-              currentSelected={selectedInDraft}
-              onAnalyze={() => router.push(`/(tabs)/combination?analyze=${Date.now()}`)}
-              onToggle={() => draft.toggleNumber(selectedNumber)}
-              selectedCount={draft.selectedNumbers.length}
-            />
           </View>
-        </Animated.View>
+
+          <Animated.View
+            style={[styles.analyticsPane, analyticsEmphasisStyle]}
+            testID="analytics-pane">
+            <ScrollView
+              bounces
+              contentContainerStyle={styles.analyticsContent}
+              directionalLockEnabled
+              nestedScrollEnabled
+              onScroll={onAnalyticsScroll}
+              ref={analyticsScrollRef}
+              scrollEventThrottle={16}
+              showsVerticalScrollIndicator={false}
+              style={styles.analyticsScroll}
+              testID="analytics-scroll-view">
+              {analytics ? (
+                <>
+                  <NumberProfile
+                    analytics={analytics}
+                    onOpenComparison={() => setDetailMode('comparison')}
+                  />
+                  <View style={styles.filterRow}>
+                    <AnalysisControls
+                      bonusIncluded={analysisState.includeBonus}
+                      compact
+                      firstRound={numberAnalytics.metadata.firstDrawNumber}
+                      latestRound={numberAnalytics.metadata.latestDrawNumber}
+                      onBonusChange={changeBonusIncluded}
+                      onPeriodChange={changeAnalysisPeriod}
+                      period={analysisState.period}
+                      variant="plain"
+                    />
+                  </View>
+                  <View style={styles.recentSection} testID="recent-analysis-section">
+                    <RecentTimeline
+                      hitCount={recent52Analytics.recent52Count}
+                      values={recent52Analytics.recent52}
+                      onOpenHistory={() => setDetailMode('history')}
+                    />
+                    <FrequencyMetrics analytics={analytics} />
+                  </View>
+                  <PairSection pairs={analytics.topPairs} onSelectNumber={setSelectedNumber} />
+                  <TrioSection
+                    selectedNumber={analytics.number}
+                    trios={analytics.topTrios.slice(0, 3)}
+                    onSelectNumber={setSelectedNumber}
+                  />
+                </>
+              ) : (
+                <Text style={styles.unavailable}>분석 데이터를 불러올 수 없습니다.</Text>
+              )}
+            </ScrollView>
+            <View pointerEvents="box-none" style={styles.floatingControl}>
+              <CombinationFloatingControl
+                currentNumber={selectedNumber}
+                currentSelected={selectedInDraft}
+                onAnalyze={() => router.push({
+                  pathname: '/(tabs)/draw/combination',
+                  params: {
+                    analyze: String(Date.now()),
+                    returnTo: 'explore',
+                  },
+                })}
+                onToggle={() => draft.toggleNumber(selectedNumber)}
+                selectedCount={draft.selectedNumbers.length}
+              />
+            </View>
+          </Animated.View>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -295,9 +310,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   columns: {
     flex: 1,
     width: '100%',
-    maxWidth: 500,
     flexDirection: 'row',
     backgroundColor: colors.background,
+  },
+  exploreContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 500,
+    backgroundColor: colors.background,
+  },
+  subHeader: {
+    minHeight: 54,
+    paddingHorizontal: spacing.md,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
   },
   sliderPane: {
     paddingLeft: spacing.xs,

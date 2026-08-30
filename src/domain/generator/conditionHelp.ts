@@ -1,6 +1,7 @@
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 
 import {
+  buildGeneratorRangePresets,
   calculateCombinationMetrics,
   CONSECUTIVE_LABELS,
   SAME_ENDING_LABELS,
@@ -75,9 +76,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
 
   const topNumber = mostFrequent(history.flatMap((draw) => draw.numbers));
   const sameEnding = mostFrequent(metrics.map((metric) => metric.sameEndingPattern));
-  const standardDeviation = mostFrequent(metrics.map((metric) => Math.floor(metric.standardDeviation)));
-  const sum = mostFrequent(metrics.map((metric) => Math.floor(metric.sum / 10) * 10));
-  const lastDigitSum = mostFrequent(metrics.map((metric) => Math.floor(metric.lastDigitSum / 5) * 5));
+  const rangePresets = buildGeneratorRangePresets(history);
   const odd = mostFrequent(metrics.map((metric) => metric.oddCount));
   const low = mostFrequent(metrics.map((metric) => metric.lowCount));
   const acValue = mostFrequent(metrics.map((metric) => metric.acValue));
@@ -183,22 +182,22 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       title: '표준편차',
       description: '6개 번호가 평균에서 얼마나 퍼져 있는지를 모집단 표준편차로 계산합니다. 값이 작으면 번호가 모여 있고, 크면 넓게 퍼져 있어요.',
       example: '예: 10.0~15.0을 선택하면 원래 계산값이 양끝을 포함해 이 범위인 조합만 허용합니다.',
-      historicalLabel: standardDeviation ? `${standardDeviation[0]}.0~${standardDeviation[0]}.9` : '데이터 없음',
-      historicalCount: standardDeviation?.[1] ?? 0,
+      historicalLabel: history.length ? `${rangePresets.standardDeviation.min.toFixed(1)}~${rangePresets.standardDeviation.max.toFixed(1)}` : '데이터 없음',
+      historicalCount: rangePresets.standardDeviation.count,
     }),
     sum: item({
       title: '번호 총합',
       description: '선택된 6개 번호를 모두 더한 값입니다. 설정한 최솟값과 최댓값을 모두 포함해 판정해요.',
       example: '예: 3, 7, 12, 19, 34, 45의 번호 총합은 120입니다.',
-      historicalLabel: sum ? `${sum[0]}~${sum[0] + 9}` : '데이터 없음',
-      historicalCount: sum?.[1] ?? 0,
+      historicalLabel: history.length ? `${rangePresets.sum.min}~${rangePresets.sum.max}` : '데이터 없음',
+      historicalCount: rangePresets.sum.count,
     }),
     lastDigitSum: item({
       title: '끝수 총합',
       description: '각 번호의 일의자리만 더한 값입니다. 10, 20, 30, 40의 끝수는 모두 0으로 계산해요.',
       example: '예: 3, 7, 12, 19, 34, 45 → 3+7+2+9+4+5 = 30',
-      historicalLabel: lastDigitSum ? `${lastDigitSum[0]}~${lastDigitSum[0] + 4}` : '데이터 없음',
-      historicalCount: lastDigitSum?.[1] ?? 0,
+      historicalLabel: history.length ? `${rangePresets.lastDigitSum.min}~${rangePresets.lastDigitSum.max}` : '데이터 없음',
+      historicalCount: rangePresets.lastDigitSum.count,
     }),
     oddEven: item({
       title: '홀짝 비율',

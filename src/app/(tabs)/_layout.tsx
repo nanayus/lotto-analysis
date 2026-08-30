@@ -1,56 +1,34 @@
 import { useState } from 'react';
 import { Tabs } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
-import { ColorValue, Platform, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ColorValue, Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
-const TAB_BAR_CONTENT_HEIGHT = 60;
+const TAB_BAR_CONTENT_HEIGHT = 56;
 
 type TabIconProps = {
   color: ColorValue;
   focused: boolean;
-  kind: 'explore' | 'combination' | 'generator' | 'settings';
+  kind: 'draw' | 'library' | 'statistics' | 'settings';
 };
 
 function TabIcon({ color, focused, kind }: TabIconProps) {
   const styles = useThemedStyles(createStyles);
-
-  if (kind === 'explore') {
-    return (
-      <View style={[styles.compass, { borderColor: color }]}>
-        <View style={[styles.compassNeedle, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-
-  if (kind === 'combination') return (
-    <View style={[styles.hexagon, { borderColor: color }]}>
-      <Text style={[styles.hexagonText, { color }]}>{focused ? '✦' : '·'}</Text>
-    </View>
-  );
-
-  if (kind === 'generator') return (
-    <View style={styles.generatorIcon}>
-      <View style={[styles.generatorDot, { backgroundColor: color }]} />
-      <View style={[styles.generatorDot, styles.generatorDotMiddle, { backgroundColor: color }]} />
-      <View style={[styles.generatorDot, { backgroundColor: color }]} />
-    </View>
-  );
+  const iconName = kind === 'draw'
+    ? focused ? 'sparkles' : 'sparkles-outline'
+    : kind === 'library'
+      ? focused ? 'ticket' : 'ticket-outline'
+      : kind === 'statistics'
+        ? focused ? 'stats-chart' : 'stats-chart-outline'
+        : focused ? 'options' : 'options-outline';
 
   return (
-    <View style={styles.settingsIcon}>
-      <View style={[styles.settingsLine, { backgroundColor: color }]}>
-        <View style={[styles.settingsKnob, styles.settingsKnobLeft, { borderColor: color }]} />
-      </View>
-      <View style={[styles.settingsLine, { backgroundColor: color }]}>
-        <View style={[styles.settingsKnob, styles.settingsKnobRight, { borderColor: color }]} />
-      </View>
-      <View style={[styles.settingsLine, { backgroundColor: color }]}>
-        <View style={[styles.settingsKnob, styles.settingsKnobMiddle, { borderColor: color }]} />
-      </View>
+    <View style={[styles.iconShell, focused && styles.iconShellFocused]}>
+      <Ionicons color={color} name={iconName} size={20} />
     </View>
   );
 }
@@ -102,32 +80,32 @@ export default function TabsLayout() {
         tabBarButton: (props) => <TabBarButton {...props} />,
       }}>
       <Tabs.Screen
-        name="combination-generator"
+        name="draw"
         options={{
-          title: 'AI조합',
-          tabBarAccessibilityLabel: 'AI조합 탭',
+          title: '번호뽑기',
+          tabBarAccessibilityLabel: '번호뽑기 탭',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon color={color} focused={focused} kind="generator" />
+            <TabIcon color={color} focused={focused} kind="draw" />
           ),
         }}
       />
       <Tabs.Screen
-        name="combination"
+        name="my-numbers"
         options={{
-          title: '랜덤조합',
-          tabBarAccessibilityLabel: '랜덤조합 탭',
+          title: '내번호보기',
+          tabBarAccessibilityLabel: '내번호보기 탭',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon color={color} focused={focused} kind="combination" />
+            <TabIcon color={color} focused={focused} kind="library" />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="statistics"
         options={{
-          title: '번호분석',
-          tabBarAccessibilityLabel: '번호분석 탭',
+          title: '통계보기',
+          tabBarAccessibilityLabel: '통계보기 탭',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon color={color} focused={focused} kind="explore" />
+            <TabIcon color={color} focused={focused} kind="statistics" />
           ),
         }}
       />
@@ -141,14 +119,18 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="overall-statistics" options={{ href: null }} />
     </Tabs>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.background,
-    borderTopWidth: 0,
+    backgroundColor: colors.surface,
+    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    boxShadow: 'none',
     elevation: 0,
   },
   tabBarWeb: {
@@ -161,83 +143,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   tabButtonFocused: {
     borderRadius: 8,
-    boxShadow: `inset 0 0 0 1px ${colors.accentPrimary}`,
+    boxShadow: `inset 0 0 0 2px ${colors.accentBorder}`,
   },
   tabLabel: {
     fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
+    fontWeight: typography.weights.regular,
     lineHeight: 16,
   },
-  compass: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '-35deg' }],
-  },
-  compassNeedle: {
-    width: 3,
-    height: 11,
-    borderRadius: 2,
-  },
-  hexagon: {
-    width: 22,
-    height: 20,
-    borderRadius: 7,
-    borderWidth: 1.5,
+  iconShell: {
+    width: 36,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hexagonText: {
-    fontSize: 13,
-    lineHeight: 16,
-  },
-  generatorIcon: {
-    width: 24,
-    height: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  generatorDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  generatorDotMiddle: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  settingsIcon: {
-    width: 23,
-    height: 20,
-    justifyContent: 'space-between',
-    paddingVertical: 2,
-  },
-  settingsLine: {
-    width: 23,
-    height: 1.5,
-    borderRadius: 1,
-  },
-  settingsKnob: {
-    position: 'absolute',
-    top: -2.5,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    borderWidth: 1.5,
-    backgroundColor: colors.background,
-  },
-  settingsKnobLeft: {
-    left: 3,
-  },
-  settingsKnobRight: {
-    right: 3,
-  },
-  settingsKnobMiddle: {
-    left: 9,
+  iconShellFocused: {
+    backgroundColor: 'transparent',
   },
 });

@@ -7,6 +7,7 @@ import type {
   GenerationOptions,
   GenerationOutcome,
   GeneratorConditions,
+  GeneratorSectionKey,
   NumberBandKey,
   PastPrizeRank,
   SameEndingPattern,
@@ -25,6 +26,18 @@ type PrizeIndex = {
 
 const prizeIndexCache = new WeakMap<readonly LottoHistoryDraw[], PrizeIndex>();
 const latestDrawCache = new WeakMap<readonly LottoHistoryDraw[], LottoHistoryDraw | null>();
+const rangePresetCache = new WeakMap<readonly LottoHistoryDraw[], GeneratorRangePresets>();
+
+export type GeneratorRangePreset = {
+  count: number;
+  max: number;
+  min: number;
+};
+
+export type GeneratorRangePresets = Record<
+  'lastDigitSum' | 'standardDeviation' | 'sum',
+  GeneratorRangePreset
+>;
 
 export const SAME_ENDING_LABELS: Record<SameEndingPattern, string> = {
   none: '없음',
@@ -61,6 +74,7 @@ export const DEFAULT_GENERATOR_CONDITIONS: GeneratorConditions = {
   consecutivePatterns: [],
   excludedNumbers: [],
   excludedPastRanks: [],
+  enabledSections: {},
   fixedNumbers: [],
   highLowCounts: [],
   lastDigitSum: { enabled: false, min: 2, max: 52 },
@@ -74,6 +88,107 @@ export const DEFAULT_GENERATOR_CONDITIONS: GeneratorConditions = {
   sum: { enabled: false, min: 21, max: 255 },
 };
 
+const BAND_SECTION_KEYS: Record<NumberBandKey, GeneratorSectionKey> = {
+  '1-9': 'band1To9',
+  '10-19': 'band10To19',
+  '20-29': 'band20To29',
+  '30-39': 'band30To39',
+  '40-45': 'band40To45',
+};
+
+export function generatorSectionEnabled(
+  conditions: GeneratorConditions,
+  key: GeneratorSectionKey,
+) {
+  const explicit = conditions.enabledSections?.[key];
+  if (explicit !== undefined) return explicit;
+
+  switch (key) {
+    case 'fixedExcluded': return conditions.fixedNumbers.length > 0 || conditions.excludedNumbers.length > 0;
+    case 'sameEnding': return conditions.sameEndingPatterns.length > 0;
+    case 'oddEven': return conditions.oddCounts.length > 0;
+    case 'lowHigh': return conditions.highLowCounts.length > 0;
+    case 'acValue': return conditions.acValues.length > 0;
+    case 'primeCount': return conditions.primeCounts.length > 0;
+    case 'squareCount': return conditions.squareCounts.length > 0;
+    case 'compositeCount': return conditions.compositeCounts.length > 0;
+    case 'multiple3': return conditions.multipleCounts[3].length > 0;
+    case 'multiple4': return conditions.multipleCounts[4].length > 0;
+    case 'multiple5': return conditions.multipleCounts[5].length > 0;
+    case 'carryCount': return conditions.carry.allowed.length > 0;
+    case 'neighborCount': return conditions.neighbor.allowed.length > 0;
+    case 'consecutivePattern': return conditions.consecutivePatterns.length > 0;
+    case 'band1To9': return conditions.bandCounts['1-9'].length > 0;
+    case 'band10To19': return conditions.bandCounts['10-19'].length > 0;
+    case 'band20To29': return conditions.bandCounts['20-29'].length > 0;
+    case 'band30To39': return conditions.bandCounts['30-39'].length > 0;
+    case 'band40To45': return conditions.bandCounts['40-45'].length > 0;
+    case 'pastRanks': return conditions.excludedPastRanks.length > 0;
+  }
+}
+
+function mostFrequentBucket(values: readonly number[], bucketSize: number) {
+  const counts = new Map<number, number>();
+  values.forEach((value) => {
+    const bucket = Math.floor(value / bucketSize) * bucketSize;
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  });
+  return [...counts.entries()].sort((left, right) => right[1] - left[1] || left[0] - right[0])[0];
+}
+
+export function buildGeneratorRangePresets(
+  history: readonly LottoHistoryDraw[],
+): GeneratorRangePresets {
+  const cached = rangePresetCache.get(history);
+  if (cached) return cached;
+
+  if (!history.length) {
+    return {
+      lastDigitSum: { count: 0, min: DEFAULT_GENERATOR_CONDITIONS.lastDigitSum.min, max: DEFAULT_GENERATOR_CONDITIONS.lastDigitSum.max },
+      standardDeviation: { count: 0, min: DEFAULT_GENERATOR_CONDITIONS.standardDeviation.min, max: DEFAULT_GENERATOR_CONDITIONS.standardDeviation.max },
+      sum: { count: 0, min: DEFAULT_GENERATOR_CONDITIONS.sum.min, max: DEFAULT_GENERATOR_CONDITIONS.sum.max },
+    };
+  }
+
+  const metrics = history.map((draw) => calculateCombinationMetrics(draw.numbers, history, undefined, false));
+  const standardDeviation = mostFrequentBucket(metrics.map((metric) => metric.standardDeviation), 1)!;
+  const sum = mostFrequentBucket(metrics.map((metric) => metric.sum), 10)!;
+  const lastDigitSum = mostFrequentBucket(metrics.map((metric) => metric.lastDigitSum), 5)!;
+  const presets = {
+    standardDeviation: { count: standardDeviation[1], min: standardDeviation[0], max: standardDeviation[0] + 0.9 },
+    sum: { count: sum[1], min: sum[0], max: sum[0] + 9 },
+    lastDigitSum: { count: lastDigitSum[1], min: lastDigitSum[0], max: lastDigitSum[0] + 4 },
+  };
+  rangePresetCache.set(history, presets);
+  return presets;
+}
+
+export function buildGeneratorConditionDefaults(history: readonly LottoHistoryDraw[]) {
+  const defaults = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
+  const presets = buildGeneratorRangePresets(history);
+  defaults.standardDeviation = { enabled: false, min: presets.standardDeviation.min, max: presets.standardDeviation.max };
+  defaults.sum = { enabled: false, min: presets.sum.min, max: presets.sum.max };
+  defaults.lastDigitSum = { enabled: false, min: presets.lastDigitSum.min, max: presets.lastDigitSum.max };
+  return defaults;
+}
+
+export function buildBalancedGeneratorPreset(history: readonly LottoHistoryDraw[]) {
+  const preset = buildGeneratorConditionDefaults(history);
+  preset.standardDeviation = { enabled: true, min: 8, max: 16 };
+  preset.sum = { enabled: true, min: 100, max: 180 };
+  preset.oddCounts = [2, 3, 4];
+  preset.highLowCounts = [2, 3, 4];
+  preset.acValues = [7, 8, 9, 10];
+  preset.consecutivePatterns = ['none', '2', '2+2', '2+2+2'];
+  preset.enabledSections = {
+    oddEven: true,
+    lowHigh: true,
+    acValue: true,
+    consecutivePattern: true,
+  };
+  return preset;
+}
+
 export function cloneGeneratorConditions(conditions: GeneratorConditions): GeneratorConditions {
   return {
     ...conditions,
@@ -86,6 +201,7 @@ export function cloneGeneratorConditions(conditions: GeneratorConditions): Gener
     consecutivePatterns: [...conditions.consecutivePatterns],
     excludedNumbers: [...conditions.excludedNumbers],
     excludedPastRanks: [...conditions.excludedPastRanks],
+    enabledSections: { ...conditions.enabledSections },
     fixedNumbers: [...conditions.fixedNumbers],
     highLowCounts: [...conditions.highLowCounts],
     lastDigitSum: { ...conditions.lastDigitSum },
@@ -266,14 +382,20 @@ export function evaluateCombination(
     numbers,
     history,
     conditions,
-    conditions.excludedPastRanks.length > 0,
+    generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length > 0,
   );
   const violations: ConditionViolation[] = [];
   const add = (key: string, label: string, actual: string, expected: string, distance: number) => {
     violations.push({ key, label, actual, expected, distance });
   };
-  const checkCount = (key: string, label: string, actual: number, allowed: readonly number[]) => {
-    if (allowed.length && !allowed.includes(actual)) {
+  const checkCount = (
+    key: string,
+    label: string,
+    actual: number,
+    allowed: readonly number[],
+    enabled: boolean,
+  ) => {
+    if (enabled && allowed.length && !allowed.includes(actual)) {
       add(key, label, `${actual}개`, `${allowedText(allowed)}개`, countDistance(actual, allowed));
     }
   };
@@ -296,7 +418,8 @@ export function evaluateCombination(
     }
   };
 
-  if (conditions.sameEndingPatterns.length
+  if (generatorSectionEnabled(conditions, 'sameEnding')
+    && conditions.sameEndingPatterns.length
     && !conditions.sameEndingPatterns.includes(metrics.sameEndingPattern)) {
     add(
       'sameEnding',
@@ -309,17 +432,19 @@ export function evaluateCombination(
   checkRange('standardDeviation', '표준편차', metrics.standardDeviation, conditions.standardDeviation, 19.4, 1);
   checkRange('sum', '총합', metrics.sum, conditions.sum, 234);
   checkRange('lastDigitSum', '끝수 총합', metrics.lastDigitSum, conditions.lastDigitSum, 50);
-  checkCount('odd', '홀짝 비율', metrics.oddCount, conditions.oddCounts);
-  checkCount('highLow', '저고 비율', metrics.lowCount, conditions.highLowCounts);
-  if (conditions.acValues.length && !conditions.acValues.includes(metrics.acValue)) {
+  checkCount('odd', '홀짝 비율', metrics.oddCount, conditions.oddCounts, generatorSectionEnabled(conditions, 'oddEven'));
+  checkCount('highLow', '저고 비율', metrics.lowCount, conditions.highLowCounts, generatorSectionEnabled(conditions, 'lowHigh'));
+  if (generatorSectionEnabled(conditions, 'acValue')
+    && conditions.acValues.length && !conditions.acValues.includes(metrics.acValue)) {
     add('ac', 'A/C 값', String(metrics.acValue), allowedText(conditions.acValues), countDistance(metrics.acValue, conditions.acValues));
   }
-  checkCount('prime', '소수', metrics.primeCount, conditions.primeCounts);
-  checkCount('square', '완전제곱수', metrics.squareCount, conditions.squareCounts);
-  checkCount('composite', '합성수', metrics.compositeCount, conditions.compositeCounts);
-  checkCount('carry', '이월수', metrics.carryCount, conditions.carry.allowed);
-  checkCount('neighbor', '이웃수', metrics.neighborCount, conditions.neighbor.allowed);
-  if (conditions.consecutivePatterns.length
+  checkCount('prime', '소수', metrics.primeCount, conditions.primeCounts, generatorSectionEnabled(conditions, 'primeCount'));
+  checkCount('square', '완전제곱수', metrics.squareCount, conditions.squareCounts, generatorSectionEnabled(conditions, 'squareCount'));
+  checkCount('composite', '합성수', metrics.compositeCount, conditions.compositeCounts, generatorSectionEnabled(conditions, 'compositeCount'));
+  checkCount('carry', '이월수', metrics.carryCount, conditions.carry.allowed, generatorSectionEnabled(conditions, 'carryCount'));
+  checkCount('neighbor', '이웃수', metrics.neighborCount, conditions.neighbor.allowed, generatorSectionEnabled(conditions, 'neighborCount'));
+  if (generatorSectionEnabled(conditions, 'consecutivePattern')
+    && conditions.consecutivePatterns.length
     && !conditions.consecutivePatterns.includes(metrics.consecutivePattern)) {
     add(
       'consecutive',
@@ -329,14 +454,23 @@ export function evaluateCombination(
       1,
     );
   }
-  BAND_KEYS.forEach((key) => checkCount(`band:${key}`, `${key} 번호대`, metrics.bandCounts[key], conditions.bandCounts[key]));
+  BAND_KEYS.forEach((key) => checkCount(
+    `band:${key}`,
+    `${key} 번호대`,
+    metrics.bandCounts[key],
+    conditions.bandCounts[key],
+    generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]),
+  ));
   ([3, 4, 5] as const).forEach((multiple) => checkCount(
     `multiple:${multiple}`,
     `${multiple}의 배수`,
     metrics.multipleCounts[multiple],
     conditions.multipleCounts[multiple],
+    generatorSectionEnabled(conditions, `multiple${multiple}`),
   ));
-  const blockedRanks = metrics.pastPrizeRanks.filter((rank) => conditions.excludedPastRanks.includes(rank));
+  const blockedRanks = generatorSectionEnabled(conditions, 'pastRanks')
+    ? metrics.pastPrizeRanks.filter((rank) => conditions.excludedPastRanks.includes(rank))
+    : [];
   if (blockedRanks.length) {
     add('pastRank', '과거 등수', `${blockedRanks.join(', ')}등 상당`, '선택 등수 제외', 1);
   }
@@ -413,16 +547,18 @@ function partialCanSatisfy(
   };
   if (!rangeCanMatch(conditions.sum, (number) => number)) return false;
   if (!rangeCanMatch(conditions.lastDigitSum, (number) => number % 10)) return false;
-  if (!countCanMatch(conditions.oddCounts, (number) => number % 2 !== 0)) return false;
-  if (!countCanMatch(conditions.highLowCounts, (number) => number <= 22)) return false;
-  if (!countCanMatch(conditions.primeCounts, (number) => PRIME_NUMBERS.has(number))) return false;
-  if (!countCanMatch(conditions.squareCounts, (number) => SQUARE_NUMBERS.has(number))) return false;
-  if (!countCanMatch(conditions.compositeCounts, (number) => number > 1 && !PRIME_NUMBERS.has(number))) return false;
+  if (generatorSectionEnabled(conditions, 'oddEven') && !countCanMatch(conditions.oddCounts, (number) => number % 2 !== 0)) return false;
+  if (generatorSectionEnabled(conditions, 'lowHigh') && !countCanMatch(conditions.highLowCounts, (number) => number <= 22)) return false;
+  if (generatorSectionEnabled(conditions, 'primeCount') && !countCanMatch(conditions.primeCounts, (number) => PRIME_NUMBERS.has(number))) return false;
+  if (generatorSectionEnabled(conditions, 'squareCount') && !countCanMatch(conditions.squareCounts, (number) => SQUARE_NUMBERS.has(number))) return false;
+  if (generatorSectionEnabled(conditions, 'compositeCount') && !countCanMatch(conditions.compositeCounts, (number) => number > 1 && !PRIME_NUMBERS.has(number))) return false;
   for (const band of BAND_KEYS) {
-    if (!countCanMatch(conditions.bandCounts[band], (number) => bandFor(number) === band)) return false;
+    if (generatorSectionEnabled(conditions, BAND_SECTION_KEYS[band])
+      && !countCanMatch(conditions.bandCounts[band], (number) => bandFor(number) === band)) return false;
   }
   for (const multiple of [3, 4, 5] as const) {
-    if (!countCanMatch(conditions.multipleCounts[multiple], (number) => number % multiple === 0)) return false;
+    if (generatorSectionEnabled(conditions, `multiple${multiple}`)
+      && !countCanMatch(conditions.multipleCounts[multiple], (number) => number % multiple === 0)) return false;
   }
   return true;
 }
@@ -441,8 +577,9 @@ export async function generateCombination(
 ): Promise<GenerationOutcome> {
   const random = options.random ?? Math.random;
   const yieldEvery = Math.max(128, options.yieldEvery ?? 4096);
-  const fixed = normalizeHardNumbers(conditions.fixedNumbers);
-  const excluded = new Set(normalizeHardNumbers(conditions.excludedNumbers));
+  const hardNumbersEnabled = generatorSectionEnabled(conditions, 'fixedExcluded');
+  const fixed = hardNumbersEnabled ? normalizeHardNumbers(conditions.fixedNumbers) : [];
+  const excluded = new Set(hardNumbersEnabled ? normalizeHardNumbers(conditions.excludedNumbers) : []);
   if (fixed.length > 6) throw new Error('고정수는 최대 6개까지 선택할 수 있어요.');
   if (fixed.some((number) => excluded.has(number))) {
     throw new Error('같은 번호를 고정수와 제외수로 함께 선택할 수 없어요.');
@@ -528,24 +665,24 @@ export async function generateCombination(
 
 export function activeConditionCount(conditions: GeneratorConditions) {
   return [
-    conditions.fixedNumbers.length > 0,
-    conditions.excludedNumbers.length > 0,
-    conditions.sameEndingPatterns.length > 0,
+    generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.fixedNumbers.length > 0,
+    generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.excludedNumbers.length > 0,
+    generatorSectionEnabled(conditions, 'sameEnding') && conditions.sameEndingPatterns.length > 0,
     conditions.standardDeviation.enabled,
     conditions.sum.enabled,
     conditions.lastDigitSum.enabled,
-    conditions.oddCounts.length > 0,
-    conditions.highLowCounts.length > 0,
-    conditions.acValues.length > 0,
-    conditions.primeCounts.length > 0,
-    conditions.squareCounts.length > 0,
-    conditions.compositeCounts.length > 0,
-    conditions.carry.allowed.length > 0,
-    conditions.neighbor.allowed.length > 0,
-    conditions.consecutivePatterns.length > 0,
-    ...BAND_KEYS.map((key) => conditions.bandCounts[key].length > 0),
-    ...([3, 4, 5] as const).map((multiple) => conditions.multipleCounts[multiple].length > 0),
-    conditions.excludedPastRanks.length > 0,
+    generatorSectionEnabled(conditions, 'oddEven') && conditions.oddCounts.length > 0,
+    generatorSectionEnabled(conditions, 'lowHigh') && conditions.highLowCounts.length > 0,
+    generatorSectionEnabled(conditions, 'acValue') && conditions.acValues.length > 0,
+    generatorSectionEnabled(conditions, 'primeCount') && conditions.primeCounts.length > 0,
+    generatorSectionEnabled(conditions, 'squareCount') && conditions.squareCounts.length > 0,
+    generatorSectionEnabled(conditions, 'compositeCount') && conditions.compositeCounts.length > 0,
+    generatorSectionEnabled(conditions, 'carryCount') && conditions.carry.allowed.length > 0,
+    generatorSectionEnabled(conditions, 'neighborCount') && conditions.neighbor.allowed.length > 0,
+    generatorSectionEnabled(conditions, 'consecutivePattern') && conditions.consecutivePatterns.length > 0,
+    ...BAND_KEYS.map((key) => generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]) && conditions.bandCounts[key].length > 0),
+    ...([3, 4, 5] as const).map((multiple) => generatorSectionEnabled(conditions, `multiple${multiple}`) && conditions.multipleCounts[multiple].length > 0),
+    generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length > 0,
   ].filter(Boolean).length;
 }
 
@@ -554,38 +691,43 @@ export function conditionDerivedExclusions(conditions: GeneratorConditions, hist
   const addWhenZeroOnly = (allowed: readonly number[], predicate: (number: number) => boolean) => {
     if (allowed.length === 1 && allowed[0] === 0) ALL_NUMBERS.filter(predicate).forEach((number) => derived.add(number));
   };
-  addWhenZeroOnly(conditions.primeCounts, (number) => PRIME_NUMBERS.has(number));
-  addWhenZeroOnly(conditions.squareCounts, (number) => SQUARE_NUMBERS.has(number));
-  addWhenZeroOnly(conditions.compositeCounts, (number) => number > 1 && !PRIME_NUMBERS.has(number));
+  if (generatorSectionEnabled(conditions, 'primeCount')) addWhenZeroOnly(conditions.primeCounts, (number) => PRIME_NUMBERS.has(number));
+  if (generatorSectionEnabled(conditions, 'squareCount')) addWhenZeroOnly(conditions.squareCounts, (number) => SQUARE_NUMBERS.has(number));
+  if (generatorSectionEnabled(conditions, 'compositeCount')) addWhenZeroOnly(conditions.compositeCounts, (number) => number > 1 && !PRIME_NUMBERS.has(number));
   ([3, 4, 5] as const).forEach((multiple) => addWhenZeroOnly(
-    conditions.multipleCounts[multiple],
+    generatorSectionEnabled(conditions, `multiple${multiple}`) ? conditions.multipleCounts[multiple] : [],
     (number) => number % multiple === 0,
   ));
-  BAND_KEYS.forEach((key) => addWhenZeroOnly(conditions.bandCounts[key], (number) => bandFor(number) === key));
-  if (conditions.oddCounts.length === 1 && conditions.oddCounts[0] === 0) {
+  BAND_KEYS.forEach((key) => addWhenZeroOnly(
+    generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]) ? conditions.bandCounts[key] : [],
+    (number) => bandFor(number) === key,
+  ));
+  if (generatorSectionEnabled(conditions, 'oddEven') && conditions.oddCounts.length === 1 && conditions.oddCounts[0] === 0) {
     ALL_NUMBERS.filter((number) => number % 2 !== 0).forEach((number) => derived.add(number));
   }
-  if (conditions.oddCounts.length === 1 && conditions.oddCounts[0] === 6) {
+  if (generatorSectionEnabled(conditions, 'oddEven') && conditions.oddCounts.length === 1 && conditions.oddCounts[0] === 6) {
     ALL_NUMBERS.filter((number) => number % 2 === 0).forEach((number) => derived.add(number));
   }
-  if (conditions.highLowCounts.length === 1 && conditions.highLowCounts[0] === 0) {
+  if (generatorSectionEnabled(conditions, 'lowHigh') && conditions.highLowCounts.length === 1 && conditions.highLowCounts[0] === 0) {
     ALL_NUMBERS.filter((number) => number <= 22).forEach((number) => derived.add(number));
   }
-  if (conditions.highLowCounts.length === 1 && conditions.highLowCounts[0] === 6) {
+  if (generatorSectionEnabled(conditions, 'lowHigh') && conditions.highLowCounts.length === 1 && conditions.highLowCounts[0] === 6) {
     ALL_NUMBERS.filter((number) => number >= 23).forEach((number) => derived.add(number));
   }
   const latest = latestDraw(history);
   if (latest) {
     const carry = new Set([...latest.numbers, ...(conditions.carry.includeBonus ? [latest.bonus] : [])]);
-    addWhenZeroOnly(conditions.carry.allowed, (number) => carry.has(number));
+    addWhenZeroOnly(generatorSectionEnabled(conditions, 'carryCount') ? conditions.carry.allowed : [], (number) => carry.has(number));
     const neighbor = new Set<number>();
     [...latest.numbers, ...(conditions.neighbor.includeBonus ? [latest.bonus] : [])].forEach((number) => {
       if (number > 1) neighbor.add(number - 1);
       if (number < 45) neighbor.add(number + 1);
     });
-    addWhenZeroOnly(conditions.neighbor.allowed, (number) => neighbor.has(number));
+    addWhenZeroOnly(generatorSectionEnabled(conditions, 'neighborCount') ? conditions.neighbor.allowed : [], (number) => neighbor.has(number));
   }
-  conditions.excludedNumbers.forEach((number) => derived.delete(number));
+  if (generatorSectionEnabled(conditions, 'fixedExcluded')) {
+    conditions.excludedNumbers.forEach((number) => derived.delete(number));
+  }
   return [...derived].sort((left, right) => left - right);
 }
 

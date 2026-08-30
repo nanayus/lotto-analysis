@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,12 +18,16 @@ import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import {
   activeConditionCount,
-  cloneGeneratorConditions,
-  DEFAULT_GENERATOR_CONDITIONS,
+  buildGeneratorConditionDefaults,
   generateCombination,
+  generatorSectionEnabled,
 } from '@/domain/generator/combinationGenerator';
 import type { GenerationOutcome, GeneratorConditions } from '@/domain/generator/types';
+import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
+import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppCard } from '@/components/ui/AppCard';
 import {
   type ThemeColors,
   radius,
@@ -33,6 +38,7 @@ import {
 } from '@/theme';
 
 import { ConditionSheet } from './components/ConditionSheet';
+import { useGeneratorDraft } from './GeneratorDraftContext';
 
 const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 
@@ -42,28 +48,43 @@ function formatNumber(number: number) {
 
 function conditionSummary(conditions: GeneratorConditions) {
   const labels: string[] = [];
-  if (conditions.fixedNumbers.length) labels.push(`고정 ${conditions.fixedNumbers.join('·')}`);
-  if (conditions.excludedNumbers.length) labels.push(`제외 ${conditions.excludedNumbers.length}개`);
+  if (generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.fixedNumbers.length) labels.push(`고정 ${conditions.fixedNumbers.join('·')}`);
+  if (generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.excludedNumbers.length) labels.push(`제외 ${conditions.excludedNumbers.length}개`);
   if (conditions.standardDeviation.enabled) labels.push(`표준편차 ${conditions.standardDeviation.min}~${conditions.standardDeviation.max}`);
   if (conditions.sum.enabled) labels.push(`합계 ${conditions.sum.min}~${conditions.sum.max}`);
-  if (conditions.oddCounts.length) labels.push('홀짝');
-  if (conditions.highLowCounts.length) labels.push('저고');
-  if (conditions.acValues.length) labels.push(`A/C ${conditions.acValues.join('·')}`);
-  if (conditions.carry.allowed.length) labels.push('이월수');
-  if (conditions.neighbor.allowed.length) labels.push('이웃수');
-  if (conditions.consecutivePatterns.length) labels.push('연번');
+  if (generatorSectionEnabled(conditions, 'oddEven') && conditions.oddCounts.length) labels.push('홀짝');
+  if (generatorSectionEnabled(conditions, 'lowHigh') && conditions.highLowCounts.length) labels.push('저고');
+  if (generatorSectionEnabled(conditions, 'acValue') && conditions.acValues.length) labels.push(`A/C ${conditions.acValues.join('·')}`);
+  if (generatorSectionEnabled(conditions, 'carryCount') && conditions.carry.allowed.length) labels.push('이월수');
+  if (generatorSectionEnabled(conditions, 'neighborCount') && conditions.neighbor.allowed.length) labels.push('이웃수');
+  if (generatorSectionEnabled(conditions, 'consecutivePattern') && conditions.consecutivePatterns.length) labels.push('연번');
   const count = activeConditionCount(conditions);
   if (labels.length < count) labels.push(`외 ${count - labels.length}개`);
   return labels;
 }
 
-export function CombinationGeneratorScreen() {
+export function CombinationGeneratorScreen({
+  autoOpenConditions = false,
+  conditionOnly = false,
+  gameCount = 1,
+  sessionToken,
+}: {
+  autoOpenConditions?: boolean;
+  conditionOnly?: boolean;
+  gameCount?: 1 | 3 | 5;
+  sessionToken?: string;
+}) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const { setNumbers } = useCombinationDraft();
-  const [conditions, setConditions] = useState(() => cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS));
-  const [outcome, setOutcome] = useState<GenerationOutcome | null>(null);
-  const [sheetVisible, setSheetVisible] = useState(false);
+  const { addCombination } = useNumberLibrary();
+  const { restoreConditions, saveConditions } = useGeneratorDraft();
+  const [conditions, setConditions] = useState(
+    () => restoreConditions(sessionToken) ?? buildGeneratorConditionDefaults(lottoHistory),
+  );
+  const [outcomes, setOutcomes] = useState<GenerationOutcome[]>([]);
+  const outcome = outcomes[0] ?? null;
+  const [sheetVisible, setSheetVisible] = useState(autoOpenConditions);
   const [generating, setGenerating] = useState(false);
   const [searchedCandidates, setSearchedCandidates] = useState(0);
   const [nearestNoticeVisible, setNearestNoticeVisible] = useState(false);
@@ -80,6 +101,35 @@ export function CombinationGeneratorScreen() {
     setSearchedCandidates(0);
   }, []);
 
+  const leaveDirectConditionSelection = useCallback(() => {
+    cancelGeneration();
+    router.back();
+  }, [cancelGeneration]);
+
+  const generateOutcomes = useCallback(async (
+    nextConditions: GeneratorConditions,
+    token: number,
+  ) => {
+    const nextOutcomes: GenerationOutcome[] = [];
+    for (let index = 0; index < gameCount; index += 1) {
+      const previousSearched = nextOutcomes.reduce(
+        (total, item) => total + item.searchedCandidates,
+        0,
+      );
+      const nextOutcome = await generateCombination(nextConditions, {
+        history: lottoHistory,
+        isCancelled: () => generationToken.current !== token,
+        onProgress: (count) => {
+          if (generationToken.current === token) {
+            setSearchedCandidates(previousSearched + count);
+          }
+        },
+      });
+      nextOutcomes.push(nextOutcome);
+    }
+    return nextOutcomes;
+  }, [gameCount]);
+
   const handleGenerate = useCallback(async () => {
     generationToken.current += 1;
     const token = generationToken.current;
@@ -87,16 +137,12 @@ export function CombinationGeneratorScreen() {
     setSearchedCandidates(0);
     setErrorMessage(null);
     try {
-      const nextOutcome = await generateCombination(conditions, {
-        history: lottoHistory,
-        isCancelled: () => generationToken.current !== token,
-        onProgress: (count) => {
-          if (generationToken.current === token) setSearchedCandidates(count);
-        },
-      });
+      const nextOutcomes = await generateOutcomes(conditions, token);
       if (generationToken.current !== token) return;
-      setOutcome(nextOutcome);
-      if (nextOutcome.mode === 'nearest') setNearestNoticeVisible(true);
+      setOutcomes(nextOutcomes);
+      const generationConditions = describeGeneratorConditions(conditions);
+      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', { generationConditions }));
+      if (nextOutcomes.some((item) => item.mode === 'nearest')) setNearestNoticeVisible(true);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       if (generationToken.current !== token || (error as Error).message === 'GENERATION_CANCELLED') return;
@@ -108,25 +154,124 @@ export function CombinationGeneratorScreen() {
         setSearchedCandidates(0);
       }
     }
-  }, [conditions]);
+  }, [addCombination, conditions, generateOutcomes]);
 
-  const applyConditions = useCallback((next: GeneratorConditions) => {
+  const applyConditions = useCallback(async (next: GeneratorConditions) => {
     generationToken.current += 1;
+    const token = generationToken.current;
     setConditions(next);
-    setOutcome(null);
+    saveConditions(sessionToken, next);
+    setOutcomes([]);
     setErrorMessage(null);
     setSheetVisible(false);
+    setGenerating(true);
+    setSearchedCandidates(0);
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
-  }, []);
+    try {
+      const nextOutcomes = await generateOutcomes(next, token);
+      if (generationToken.current !== token) return;
 
-  const analyzeOutcome = useCallback(() => {
-    if (!outcome) return;
-    setNumbers(outcome.numbers);
+      setOutcomes(nextOutcomes);
+      const generationConditions = describeGeneratorConditions(next);
+      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', { generationConditions }));
+      if (nextOutcomes.some((item) => item.mode === 'nearest')) {
+        setNearestNoticeVisible(true);
+      }
+
+      const firstOutcome = nextOutcomes[0];
+      if (!firstOutcome) return;
+      setNumbers(firstOutcome.numbers);
+      if (Platform.OS !== 'web') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      const destination = {
+        pathname: '/(tabs)/draw/combination',
+        params: {
+          analyze: `generator-conditions-${Date.now()}`,
+          returnCount: String(gameCount),
+          returnSession: sessionToken ?? 'generator',
+          returnTo: conditionOnly ? 'combination-generator' : 'draw',
+          returnToken: String(Date.now()),
+        },
+      } as const;
+      if (conditionOnly) {
+        router.replace(destination);
+      } else {
+        router.navigate(destination);
+      }
+    } catch (error) {
+      if (generationToken.current !== token || (error as Error).message === 'GENERATION_CANCELLED') return;
+      setErrorMessage((error as Error).message);
+      if (Platform.OS !== 'web') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } finally {
+      if (generationToken.current === token) {
+        setGenerating(false);
+        setSearchedCandidates(0);
+      }
+    }
+  }, [addCombination, conditionOnly, gameCount, generateOutcomes, saveConditions, sessionToken, setNumbers]);
+
+  const analyzeOutcome = useCallback((selectedOutcome: GenerationOutcome | null) => {
+    if (!selectedOutcome) return;
+    setNumbers(selectedOutcome.numbers);
     router.navigate({
-      pathname: '/(tabs)/combination',
-      params: { analyze: `generator-${Date.now()}` },
+      pathname: '/(tabs)/draw/combination',
+      params: {
+        analyze: `generator-${Date.now()}`,
+        returnTo: 'draw',
+      },
     });
-  }, [outcome, setNumbers]);
+  }, [setNumbers]);
+
+  if (conditionOnly) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+        <View style={styles.directConditionState}>
+          {generating ? (
+            <>
+              <ActivityIndicator color={colors.accentPrimary} size="large" />
+              <Text style={styles.directConditionTitle}>조합을 만들고 있어요</Text>
+              <Text style={styles.directConditionDescription}>
+                선택한 조건 안에서 {gameCount}개 조합을 확인하고 있습니다.
+              </Text>
+              {searchedCandidates ? (
+                <Text style={styles.directConditionProgress}>
+                  {searchedCandidates.toLocaleString()}개 조합 확인
+                </Text>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={leaveDirectConditionSelection}
+                style={styles.directConditionCancel}>
+                <Text style={styles.directConditionCancelText}>취소</Text>
+              </Pressable>
+            </>
+          ) : errorMessage ? (
+            <>
+              <Text accessibilityRole="alert" style={styles.directConditionTitle}>
+                조합을 만들지 못했어요
+              </Text>
+              <Text style={styles.directConditionDescription}>{errorMessage}</Text>
+              <AppButton label="조건 다시 선택" onPress={() => setSheetVisible(true)} />
+              <AppButton label="번호뽑기로 돌아가기" onPress={leaveDirectConditionSelection} variant="secondary" />
+            </>
+          ) : null}
+        </View>
+
+        {sheetVisible ? (
+          <ConditionSheet
+            conditions={conditions}
+            history={lottoHistory}
+            onApply={applyConditions}
+            onClose={leaveDirectConditionSelection}
+            visible
+          />
+        ) : null}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -135,7 +280,7 @@ export function CombinationGeneratorScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.eyebrow}>CONDITION RANDOMIZER</Text>
-              <Text style={styles.title}>AI조합</Text>
+              <Text style={styles.title}>AI 뽑기</Text>
             </View>
             <View style={[styles.conditionBadge, conditionCount > 0 && styles.conditionBadgeActive]}>
               <Text style={[styles.conditionBadgeText, conditionCount > 0 && styles.conditionBadgeTextActive]}>
@@ -145,12 +290,12 @@ export function CombinationGeneratorScreen() {
           </View>
 
           <Text style={styles.intro}>
-            원하는 기준을 고르면 그 조건 안에서 한 조합을 무작위로 만들어요.
+            원하는 기준을 고르면 그 조건 안에서 {gameCount}개 조합을 무작위로 만들어요.
           </Text>
 
-          <View style={[styles.heroCard, outcome && styles.heroCardReady]}>
+          <AppCard style={[styles.heroCard, outcome && styles.heroCardReady]}>
             <View style={styles.heroTopRow}>
-              <Text style={styles.heroLabel}>{outcome ? '생성된 번호' : 'YOUR NUMBERS'}</Text>
+              <Text style={styles.heroLabel}>{outcome ? `생성된 번호${gameCount > 1 ? ` · ${gameCount}게임` : ''}` : 'YOUR NUMBERS'}</Text>
               {outcome?.mode === 'nearest' ? <Text style={styles.nearestBadge}>가까운 조합</Text> : null}
             </View>
             <View accessibilityLabel={outcome ? `생성 번호 ${outcome.numbers.join(', ')}` : '생성 번호 없음'} style={styles.numberRow}>
@@ -165,22 +310,65 @@ export function CombinationGeneratorScreen() {
                 );
               })}
             </View>
-            <View style={styles.heroDivider} />
             {outcome ? (
-              <View style={styles.metricRow}>
-                <View style={styles.metric}><Text style={styles.metricLabel}>총합</Text><Text style={styles.metricValue}>{outcome.metrics.sum}</Text></View>
-                <View style={styles.metric}><Text style={styles.metricLabel}>표준편차</Text><Text style={styles.metricValue}>{outcome.metrics.standardDeviation.toFixed(1)}</Text></View>
-                <View style={styles.metric}><Text style={styles.metricLabel}>A/C</Text><Text style={styles.metricValue}>{outcome.metrics.acValue}</Text></View>
-              </View>
+              <>
+                <View style={styles.heroDivider} />
+                <View style={styles.metricRow}>
+                  <View style={styles.metric}><Text style={styles.metricLabel}>총합</Text><Text style={styles.metricValue}>{outcome.metrics.sum}</Text></View>
+                  <View style={styles.metric}><Text style={styles.metricLabel}>표준편차</Text><Text style={styles.metricValue}>{outcome.metrics.standardDeviation.toFixed(1)}</Text></View>
+                  <View style={[styles.metric, styles.metricLast]}><Text style={styles.metricLabel}>A/C</Text><Text style={styles.metricValue}>{outcome.metrics.acValue}</Text></View>
+                </View>
+                <AppButton
+                  disabled={generating}
+                  iconAfter={<Ionicons color="#FFFFFF" name="arrow-forward" size={18} />}
+                  label="조합 분석하기"
+                  onPress={() => analyzeOutcome(outcome)}
+                  style={styles.analysisButton}
+                />
+              </>
             ) : (
-              <Text style={styles.emptyHint}>조건 없이 바로 만들거나, 세부 기준을 먼저 선택할 수 있어요.</Text>
+              <View style={styles.emptyAction}>
+                <Text style={styles.emptyHint}>조건 없이 바로 만들거나, 세부 기준을 먼저 선택할 수 있어요.</Text>
+                <AppButton
+                  disabled={generating}
+                  iconAfter={generating ? <ActivityIndicator color="#FFFFFF" size="small" /> : undefined}
+                  label={generating ? '조합을 만들고 있어요' : '조합 만들기'}
+                  onPress={handleGenerate}
+                  style={styles.heroCreateButton}
+                />
+              </View>
             )}
-          </View>
+          </AppCard>
+
+          {outcomes.length > 1 ? (
+            <View style={styles.additionalResults}>
+              {outcomes.slice(1).map((item, index) => (
+                <Pressable
+                  accessibilityLabel={`${index + 2}게임 ${item.numbers.join(', ')}, 분석하기`}
+                  accessibilityRole="button"
+                  key={`${item.numbers.join('-')}-${index}`}
+                  onPress={() => analyzeOutcome(item)}
+                  style={({ pressed }) => [styles.additionalResult, pressed && styles.pressed]}>
+                  <Text style={styles.additionalIndex}>{String(index + 2).padStart(2, '0')}</Text>
+                  <View style={styles.additionalNumberRow}>
+                    {item.numbers.map((number) => (
+                      <View key={number} style={styles.additionalNumber}><Text style={styles.additionalNumberText}>{formatNumber(number)}</Text></View>
+                    ))}
+                  </View>
+                  <Ionicons color={colors.accentPrimary} name="chevron-forward" size={18} />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.conditionSection}>
             <View style={styles.conditionHeading}>
               <Text style={styles.sectionTitle}>적용 조건</Text>
-              <Pressable accessibilityRole="button" onPress={() => setSheetVisible(true)} hitSlop={8}>
+              <Pressable
+                accessibilityLabel="조건 선택하기"
+                accessibilityRole="button"
+                onPress={() => setSheetVisible(true)}
+                hitSlop={8}>
                 <Text style={styles.editLink}>{conditionCount ? '수정하기' : '선택하기'} ›</Text>
               </Pressable>
             </View>
@@ -206,36 +394,26 @@ export function CombinationGeneratorScreen() {
           ) : null}
           {errorMessage ? <Text accessibilityRole="alert" style={styles.errorText}>{errorMessage}</Text> : null}
 
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={generating}
-              onPress={handleGenerate}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, generating && styles.buttonDisabled]}>
+          {outcome ? (
+            <View style={styles.actions}>
+              <AppButton
+                disabled={generating}
+                iconAfter={generating ? <ActivityIndicator color={colors.textPrimary} size="small" /> : undefined}
+                label={generating ? '다시 만들고 있어요' : '다시 만들기'}
+                onPress={handleGenerate}
+                variant="secondary"
+              />
               {generating ? (
-                <View style={styles.generatingRow}>
-                  <ActivityIndicator color={colors.background} size="small" />
-                  <Text style={styles.primaryText}>조건을 확인하고 있어요</Text>
-                </View>
-              ) : (
-                <Text style={styles.primaryText}>{outcome ? '다시 만들기' : '번호 만들기'}</Text>
-              )}
+                <Pressable accessibilityRole="button" onPress={cancelGeneration} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>취소{searchedCandidates ? ` · ${searchedCandidates.toLocaleString()}개 확인` : ''}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : generating ? (
+            <Pressable accessibilityRole="button" onPress={cancelGeneration} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>취소{searchedCandidates ? ` · ${searchedCandidates.toLocaleString()}개 확인` : ''}</Text>
             </Pressable>
-            {generating ? (
-              <Pressable accessibilityRole="button" onPress={cancelGeneration} style={styles.secondaryButton}>
-                <Text style={styles.secondaryText}>취소{searchedCandidates ? ` · ${searchedCandidates.toLocaleString()}개 확인` : ''}</Text>
-              </Pressable>
-            ) : (
-              <Pressable accessibilityRole="button" onPress={() => setSheetVisible(true)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryText}>조건 선택하기</Text>
-              </Pressable>
-            )}
-            {outcome && !generating ? (
-              <Pressable accessibilityRole="button" onPress={analyzeOutcome} style={styles.analysisButton}>
-                <Text style={styles.analysisText}>이 조합 분석하기 →</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          ) : null}
           <Text style={styles.disclaimer}>번호 생성은 과거 통계에 따른 예측이나 당첨 추천이 아닙니다.</Text>
         </ScrollView>
       </View>
@@ -252,14 +430,14 @@ export function CombinationGeneratorScreen() {
 
       <Modal animationType="fade" onRequestClose={() => setNearestNoticeVisible(false)} transparent visible={nearestNoticeVisible}>
         <View style={styles.noticeBackdrop}>
-          <View accessibilityRole="alert" style={styles.noticeCard}>
+          <AppCard style={styles.noticeCard}>
             <View style={styles.noticeIcon}><Text style={styles.noticeIconText}>!</Text></View>
             <Text style={styles.noticeTitle}>가까운 조합을 만들었어요</Text>
             <Text style={styles.noticeBody}>조건에 맞는 조합이 없어 가장 가까운 조합을 제시했어요.</Text>
             <Pressable onPress={() => setNearestNoticeVisible(false)} style={styles.noticeButton}>
               <Text style={styles.noticeButtonText}>확인</Text>
             </Pressable>
-          </View>
+          </AppCard>
         </View>
       </Modal>
     </SafeAreaView>
@@ -269,6 +447,12 @@ export function CombinationGeneratorScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
+  directConditionState: { flex: 1, width: '100%', maxWidth: 500, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl, gap: spacing.md },
+  directConditionTitle: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.semibold, textAlign: 'center' },
+  directConditionDescription: { color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, textAlign: 'center' },
+  directConditionProgress: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontVariant: ['tabular-nums'] },
+  directConditionCancel: { minHeight: 44, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'center' },
+  directConditionCancelText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
   header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   eyebrow: { color: colors.textSecondary, fontSize: 9, letterSpacing: 1.6, marginBottom: spacing.sm },
@@ -289,9 +473,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberSlotText: { color: colors.textSecondary, fontSize: typography.sizes.small },
   numberSlotTextFilled: { color: colors.highlight, fontSize: typography.sizes.body, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   heroDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.divider, marginVertical: spacing.lg },
+  emptyAction: { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   emptyHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'center' },
+  heroCreateButton: { marginTop: spacing.lg },
+  additionalResults: { marginTop: spacing.md, overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
+  additionalResult: { minHeight: 60, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+  additionalIndex: { width: 28, color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.bold },
+  additionalNumberRow: { flex: 1, flexDirection: 'row', gap: 4 },
+  additionalNumber: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent },
+  additionalNumberText: { color: colors.highlight, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   metricRow: { flexDirection: 'row' },
   metric: { flex: 1, alignItems: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.divider },
+  metricLast: { borderRightWidth: 0 },
   metricLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   metricValue: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.semibold, marginTop: spacing.xs },
   conditionSection: { marginTop: spacing.xxl, paddingTop: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
@@ -315,8 +508,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   generatingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   secondaryButton: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  analysisButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  analysisText: { color: colors.accentSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  analysisButton: { marginTop: spacing.lg },
+  analysisText: { color: colors.background, fontSize: typography.sizes.body, fontWeight: typography.weights.bold },
+  analysisArrow: { color: colors.background, fontSize: typography.sizes.section, fontWeight: typography.weights.medium },
+  cancelButton: { minHeight: 44, marginTop: spacing.md, alignItems: 'center', justifyContent: 'center' },
+  cancelText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
   disclaimer: { color: colors.textSecondary, fontSize: typography.sizes.caption, textAlign: 'center', lineHeight: 17, marginTop: spacing.lg },
   noticeBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl, backgroundColor: colors.backdropStrong },

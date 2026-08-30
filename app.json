@@ -8,7 +8,13 @@
     "scheme": "lotto",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/ios-app-icon.png",
+      "bundleIdentifier": "net.wondly.lottoinsight",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +45,8 @@
         {
           "backgroundColor": "#080A12"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

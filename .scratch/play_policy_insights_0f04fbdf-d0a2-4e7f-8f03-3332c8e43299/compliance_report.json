@@ -1,0 +1,13 @@
+{
+    "data_safety_mismatches": [],
+    "findings": [],
+    "manual_review": [],
+    "metadata": {
+        "app_id": "lotto",
+        "overall_compliance": "Compliant",
+        "scan_date": "2026-08-25T23:06:14.782957"
+    },
+    "suggested_declaration": {
+        "collected_data": []
+    }
+}

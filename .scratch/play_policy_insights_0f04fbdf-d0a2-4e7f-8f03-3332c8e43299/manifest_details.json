@@ -1,0 +1,8 @@
+{
+    "app_dir": "/Users/yuna/Documents/ChatGPT/lotto",
+    "app_label": null,
+    "foreground_services": [],
+    "package_name": "lotto",
+    "permissions": [],
+    "target_sdk": null
+}

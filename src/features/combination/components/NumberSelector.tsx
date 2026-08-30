@@ -1,16 +1,21 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AppButton } from '@/components/ui/AppButton';
+import { AppCard } from '@/components/ui/AppCard';
+import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberSelectorProps = {
   excludedNumbers: number[];
   onAnalyze: () => void;
+  onBack?: () => void;
   onRandomFill: () => void;
   onToggleNumber: (number: number) => void;
   selectedNumbers: number[];
 };
 
 const NUMBERS = Array.from({ length: 45 }, (_, index) => index + 1);
+const NOOP = () => undefined;
 
 function formatNumber(number: number) {
   return String(number).padStart(2, '0');
@@ -19,6 +24,7 @@ function formatNumber(number: number) {
 export function NumberSelector({
   excludedNumbers,
   onAnalyze,
+  onBack = NOOP,
   onRandomFill,
   onToggleNumber,
   selectedNumbers,
@@ -32,7 +38,8 @@ export function NumberSelector({
       showsVerticalScrollIndicator={false}
       testID="combination-selector-scroll">
       <View style={styles.header}>
-        <View>
+        <SubScreenBackButton accessibilityLabel="이전 화면으로 돌아가기" onPress={onBack} />
+        <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>LOTTO DATA EXPLORER</Text>
           <Text style={styles.title}>랜덤조합</Text>
         </View>
@@ -43,90 +50,86 @@ export function NumberSelector({
         </View>
       </View>
 
-      <View style={styles.instructionRow}>
-        <Text style={styles.instruction}>분석할 번호 6개를 선택하세요.</Text>
-        {!ready ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={onRandomFill}
-            style={({ pressed }) => [styles.randomButton, pressed && styles.numberButtonPressed]}>
-            <Text style={styles.randomText}>랜덤 채우기</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View accessibilityRole="list" style={styles.numberGrid} testID="combination-number-grid">
-        {NUMBERS.map((number) => {
-          const selected = selectedNumbers.includes(number);
-          const excluded = excludedNumbers.includes(number) && !selected;
-          const unavailable = selectedNumbers.length === 6 && !selected && !excluded;
-          return (
+      <AppCard style={styles.ticketCard}>
+        <View style={styles.instructionRow}>
+          <Text style={styles.instruction}>1–45 번호판</Text>
+          {!ready ? (
             <Pressable
-              accessibilityLabel={`${number}번${selected ? ', 선택됨' : excluded ? ', 제외됨' : ''}`}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: selected, disabled: unavailable }}
-              disabled={unavailable}
-              key={number}
-              onPress={() => onToggleNumber(number)}
-              style={({ pressed }) => [
-                styles.numberButton,
-                selected && styles.numberButtonSelected,
-                excluded && styles.numberButtonExcluded,
-                unavailable && styles.numberButtonUnavailable,
-                pressed && styles.numberButtonPressed,
-              ]}
-              testID={`combination-number-${number}`}>
-              <Text style={[
-                styles.numberText,
-                selected && styles.numberTextSelected,
-                excluded && styles.numberTextExcluded,
-              ]}>
-                {number}
-              </Text>
+              accessibilityRole="button"
+              onPress={onRandomFill}
+              style={({ pressed }) => [styles.randomButton, pressed && styles.numberButtonPressed]}>
+              <Text style={styles.randomText}>랜덤 채우기</Text>
             </Pressable>
-          );
-        })}
-        {Array.from({ length: 4 }, (_, index) => (
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            key={`placeholder-${index}`}
-            style={styles.numberPlaceholder}
-          />
-        ))}
-      </View>
-
-      {!ready ? (
-        <View style={styles.selectionSection}>
-          <Text style={styles.sectionLabel}>선택한 번호</Text>
-          <View style={styles.selectionRow}>
-            {Array.from({ length: 6 }, (_, index) => {
-              const number = selectedNumbers[index];
-              return (
-                <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
-                  <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
-                    {number ? formatNumber(number) : ''}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+          ) : <Text style={styles.readyLabel}>선택 완료</Text>}
         </View>
-      ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !ready }}
+        <View accessibilityRole="list" style={styles.numberGrid} testID="combination-number-grid">
+          {NUMBERS.map((number) => {
+            const selected = selectedNumbers.includes(number);
+            const excluded = excludedNumbers.includes(number) && !selected;
+            const unavailable = selectedNumbers.length === 6 && !selected && !excluded;
+            return (
+              <Pressable
+                accessibilityLabel={`${number}번${selected ? ', 선택됨' : excluded ? ', 제외됨' : ''}`}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected, disabled: unavailable }}
+                disabled={unavailable}
+                key={number}
+                onPress={() => onToggleNumber(number)}
+                style={({ pressed }) => [
+                  styles.numberButton,
+                  selected && styles.numberButtonSelected,
+                  excluded && styles.numberButtonExcluded,
+                  unavailable && styles.numberButtonUnavailable,
+                  pressed && styles.numberButtonPressed,
+                ]}
+                testID={`combination-number-${number}`}>
+                <Text style={[
+                  styles.numberText,
+                  selected && styles.numberTextSelected,
+                  excluded && styles.numberTextExcluded,
+                ]}>
+                  {number}
+                </Text>
+              </Pressable>
+            );
+          })}
+          {Array.from({ length: 4 }, (_, index) => (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              key={`placeholder-${index}`}
+              style={styles.numberPlaceholder}
+            />
+          ))}
+        </View>
+
+        {!ready ? (
+          <View style={styles.selectionSection}>
+            <Text style={styles.sectionLabel}>선택한 번호</Text>
+            <View style={styles.selectionRow}>
+              {Array.from({ length: 6 }, (_, index) => {
+                const number = selectedNumbers[index];
+                return (
+                  <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
+                    <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
+                      {number ? formatNumber(number) : ''}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+      </AppCard>
+
+      <AppButton
         disabled={!ready}
+        label="분석하기"
         onPress={onAnalyze}
-        style={({ pressed }) => [
-          styles.analyzeButton,
-          ready && styles.analyzeButtonReady,
-          pressed && ready && styles.analyzeButtonPressed,
-        ]}
-        testID="analyze-combination-button">
-        <Text style={[styles.analyzeText, ready && styles.analyzeTextReady]}>분석하기</Text>
-      </Pressable>
+        style={styles.analyzeButton}
+        testID="analyze-combination-button"
+      />
       <Text style={styles.disclaimer}>선택한 번호를 과거 당첨 데이터와 비교합니다.</Text>
     </ScrollView>
   );
@@ -140,8 +143,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerCopy: {
+    flex: 1,
+    marginLeft: spacing.md,
   },
   eyebrow: {
     color: colors.textSecondary,
@@ -170,13 +177,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.semibold,
   },
   instruction: {
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  ticketCard: {
     marginTop: spacing.xxl,
+    padding: spacing.lg,
   },
   instructionRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: spacing.xxl, marginBottom: spacing.lg,
+    marginBottom: spacing.lg,
   },
   randomButton: {
     minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.md,
@@ -184,6 +195,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   randomText: {
     color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold,
+  },
+  readyLabel: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
   },
   numberGrid: {
     flexDirection: 'row',
@@ -230,7 +246,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.medium,
   },
   numberTextSelected: {
-    color: colors.background,
+    color: '#FFFFFF',
     fontWeight: typography.weights.bold,
   },
   numberTextExcluded: {
@@ -272,33 +288,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.small,
   },
   selectionTextFilled: {
-    color: colors.highlight,
+    color: colors.accentPrimary,
     fontWeight: typography.weights.semibold,
   },
   analyzeButton: {
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
     marginTop: spacing.xl,
-  },
-  analyzeButtonReady: {
-    borderColor: colors.accentPrimary,
-    backgroundColor: colors.accentPrimary,
-  },
-  analyzeButtonPressed: {
-    opacity: 0.82,
-  },
-  analyzeText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
-  },
-  analyzeTextReady: {
-    color: colors.background,
   },
   disclaimer: {
     color: colors.textSecondary,

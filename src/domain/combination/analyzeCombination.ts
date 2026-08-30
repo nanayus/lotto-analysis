@@ -1,4 +1,5 @@
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
+import { calculateCombinationMetrics } from '@/domain/generator/combinationGenerator';
 
 import type {
   CombinationAnalysis,
@@ -243,6 +244,14 @@ export function analyzeCombination(
 
   const result: CombinationAnalysis = {
     activeDrawCount: draws.length,
+    conditionMetrics: calculateCombinationMetrics(
+      numbers,
+      chronologicalHistory,
+      {
+        carry: { allowed: [], includeBonus: normalizedFilters.includeBonus },
+        neighbor: { allowed: [], includeBonus: normalizedFilters.includeBonus },
+      },
+    ),
     filters: normalizedFilters,
     groupFrequency: {
       differencePct: Number(differencePct.toFixed(1)),

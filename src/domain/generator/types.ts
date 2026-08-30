@@ -18,6 +18,28 @@ export type ConsecutivePattern = SameEndingPattern | '6';
 export type NumberBandKey = '1-9' | '10-19' | '20-29' | '30-39' | '40-45';
 export type PastPrizeRank = 1 | 2 | 3;
 
+export type GeneratorSectionKey =
+  | 'fixedExcluded'
+  | 'sameEnding'
+  | 'oddEven'
+  | 'lowHigh'
+  | 'acValue'
+  | 'primeCount'
+  | 'squareCount'
+  | 'compositeCount'
+  | 'multiple3'
+  | 'multiple4'
+  | 'multiple5'
+  | 'carryCount'
+  | 'neighborCount'
+  | 'consecutivePattern'
+  | 'band1To9'
+  | 'band10To19'
+  | 'band20To29'
+  | 'band30To39'
+  | 'band40To45'
+  | 'pastRanks';
+
 export type NumericRangeCondition = {
   enabled: boolean;
   max: number;
@@ -37,6 +59,7 @@ export type GeneratorConditions = {
   consecutivePatterns: ConsecutivePattern[];
   excludedNumbers: number[];
   excludedPastRanks: PastPrizeRank[];
+  enabledSections?: Partial<Record<GeneratorSectionKey, boolean>>;
   fixedNumbers: number[];
   highLowCounts: CountValue[];
   lastDigitSum: NumericRangeCondition;

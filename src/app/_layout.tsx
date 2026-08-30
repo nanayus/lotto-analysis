@@ -5,14 +5,36 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { TamaguiProvider } from '@tamagui/core';
 
 import { BrandSplash } from '@/components/BrandSplash';
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
+import { GeneratorDraftProvider } from '@/features/generator/GeneratorDraftContext';
+import { NumberLibraryProvider } from '@/features/library/NumberLibraryContext';
 import { AppThemeProvider, useAppTheme } from '@/theme';
+import { tamaguiConfig } from '../../tamagui.config';
 
 void SplashScreen.preventAutoHideAsync();
 
 const SITE_URL = 'https://lotto-analysis.vercel.app';
+
+const drawMetadata = {
+  title: '로또 번호뽑기 | Lotto Insight',
+  description: '조건 기반 AI 뽑기와 무작위 조합으로 로또 6/45 번호를 만들고 과거 데이터를 분석합니다.',
+  path: '/draw',
+};
+
+const libraryMetadata = {
+  title: '내번호보기 | Lotto Insight',
+  description: '뽑았던 로또 조합과 구매번호, 즐겨찾기 조합을 한곳에서 확인합니다.',
+  path: '/my-numbers',
+};
+
+const statisticsMetadata = {
+  title: '로또 통계보기 | Lotto Insight',
+  description: '번호별 통계와 로또 6/45 과거 당첨데이터 종합 통계를 탐색합니다.',
+  path: '/statistics',
+};
 
 const exploreMetadata = {
   title: '로또 6/45 번호분석 | Lotto Insight',
@@ -25,14 +47,20 @@ const combinationMetadata = {
   title: '로또 랜덤조합 | Lotto Insight',
   description:
     '직접 선택한 로또 6/45 번호 6개의 과거 일치 기록, 출현 빈도, 조합 형태와 부분 조합 통계를 분석합니다.',
-  path: '/combination',
+  path: '/draw/combination',
 };
 
 const generatorMetadata = {
-  title: '로또 AI조합 | Lotto Insight',
+  title: '로또 조합 선택하기 | Lotto Insight',
   description:
-    '고정수, 제외수, 번호 분포와 수학적 형태 조건을 직접 선택해 로또 6/45 번호 한 조합을 무작위로 만듭니다.',
-  path: '/combination-generator',
+    '고정수, 제외수, 번호 분포와 수학적 형태 조건을 직접 선택해 로또 6/45 번호 조합을 만들고 분석합니다.',
+  path: '/draw/combination-generator',
+};
+
+const randomDrawMetadata = {
+  title: '로또 랜덤조합 | Lotto Insight',
+  description: '조건 없이 무작위로 로또 6/45 번호 조합을 만들고 과거 당첨 데이터와 비교합니다.',
+  path: '/draw/random-draw',
 };
 
 const settingsMetadata = {
@@ -43,13 +71,21 @@ const settingsMetadata = {
 
 function AppMetadata() {
   const pathname = usePathname();
-  const metadata = pathname === combinationMetadata.path
-    ? combinationMetadata
-    : pathname === generatorMetadata.path
-      ? generatorMetadata
-      : pathname === settingsMetadata.path
-        ? settingsMetadata
-        : exploreMetadata;
+  const metadata = pathname === drawMetadata.path
+    ? drawMetadata
+    : pathname === libraryMetadata.path
+      ? libraryMetadata
+      : pathname === statisticsMetadata.path || pathname === '/overall-statistics'
+        ? statisticsMetadata
+        : pathname === combinationMetadata.path
+          ? combinationMetadata
+          : pathname === generatorMetadata.path
+            ? generatorMetadata
+            : pathname === randomDrawMetadata.path
+              ? randomDrawMetadata
+              : pathname === settingsMetadata.path
+                ? settingsMetadata
+                : exploreMetadata;
   const canonicalUrl = `${SITE_URL}${metadata.path}`;
 
   return (
@@ -95,13 +131,19 @@ function ThemedApp() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <AppMetadata />
-      <CombinationDraftProvider>
-        <ThemeProvider value={navigationTheme}>
-          <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-          <Stack screenOptions={{ animation: 'fade', headerShown: false }} />
-          <BrandSplash />
-        </ThemeProvider>
-      </CombinationDraftProvider>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme}>
+        <NumberLibraryProvider>
+          <GeneratorDraftProvider>
+            <CombinationDraftProvider>
+              <ThemeProvider value={navigationTheme}>
+                <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+                <Stack screenOptions={{ animation: 'fade', headerShown: false }} />
+                <BrandSplash />
+              </ThemeProvider>
+            </CombinationDraftProvider>
+          </GeneratorDraftProvider>
+        </NumberLibraryProvider>
+      </TamaguiProvider>
     </GestureHandlerRootView>
   );
 }

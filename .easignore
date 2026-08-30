@@ -1,0 +1,24 @@
+# Dependencies and local caches
+node_modules/
+.expo/
+.git/
+.scratch/
+
+# Generated build output
+dist/
+web-build/
+ios/
+android/
+*.tsbuildinfo
+
+# Documentation, screenshots, and the separately deployed website
+design-review/
+docs/
+wondly-web/
+
+# Local-only files
+.DS_Store
+.env*.local
+npm-debug.*
+yarn-debug.*
+yarn-error.*

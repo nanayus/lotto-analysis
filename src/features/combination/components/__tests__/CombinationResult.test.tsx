@@ -8,6 +8,25 @@ import { CombinationResult } from '../CombinationResult';
 
 const analysis: CombinationAnalysis = {
   activeDrawCount: 10,
+  conditionMetrics: {
+    acValue: 7,
+    bandCounts: { '1-9': 2, '10-19': 2, '20-29': 2, '30-39': 0, '40-45': 0 },
+    carryCount: 1,
+    compositeCount: 3,
+    consecutivePattern: '2',
+    highCount: 2,
+    lastDigitSum: 25,
+    lowCount: 4,
+    multipleCounts: { 3: 2, 4: 3, 5: 2 },
+    neighborCount: 2,
+    oddCount: 3,
+    pastPrizeRanks: [],
+    primeCount: 2,
+    sameEndingPattern: '2',
+    squareCount: 1,
+    standardDeviation: 8.5,
+    sum: 85,
+  },
   filters: {
     includeBonus: false,
     period: { kind: 'preset', label: '전체' },
@@ -150,8 +169,8 @@ describe('CombinationResult', () => {
     expect(queryByText('분석 조건')).toBeNull();
     expect(queryByText('내 번호')).toBeNull();
     expect(queryByText('과거 최고 일치')).toBeNull();
-    expect(queryByText('선택 번호 출현 빈도')).toBeNull();
-    expect(queryByText('전체 회차 일치 분포')).toBeNull();
+    expect(getByText('선택 번호 출현 빈도')).toBeTruthy();
+    expect(getByText('전체 회차 일치 분포')).toBeTruthy();
     expect(queryByText('과거 당첨번호와 비교한 등급 상당 기록입니다.')).toBeNull();
 
     await act(async () => {
@@ -163,6 +182,78 @@ describe('CombinationResult', () => {
 
     expect(onCompare).toHaveBeenCalledTimes(1);
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
+
+  test('restores match distribution and group frequency before condition statistics', async () => {
+    const { getAllByTestId, getByTestId, getByText } = await render(
+      <CombinationResult
+        analysis={analysis}
+        bonusIncluded={false}
+        firstRound={1}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onCompare={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+      />,
+    );
+
+    expect(getAllByTestId(/^result-section-/).map((section) => section.props.testID))
+      .toEqual([
+        'result-section-prize',
+        'result-section-match-distribution',
+        'result-section-group-frequency',
+        'result-section-condition-statistics',
+      ]);
+    expect(getByTestId('match-distribution-row-2').props.accessibilityLabel)
+      .toBe('2개 일치, 4회, 40.0%');
+    expect(StyleSheet.flatten(getByTestId('match-distribution-bar-2').props.style).width)
+      .toBe('100%');
+    expect(StyleSheet.flatten(getByTestId('match-distribution-bar-0').props.style).width)
+      .toBe('50%');
+    expect(getByText('4.6회')).toBeTruthy();
+    expect(getByText('4.5회')).toBeTruthy();
+    expect(getByText('전체 평균 대비 +1.2%')).toBeTruthy();
+  });
+
+  test('shows zero percentages and zero-width bars when the active period has no draws', async () => {
+    const emptyAnalysis: CombinationAnalysis = {
+      ...analysis,
+      activeDrawCount: 0,
+      groupFrequency: {
+        differencePct: 0,
+        overallAverage: 0,
+        selectedAverage: 0,
+      },
+      matchDistribution: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+    };
+    const { getByTestId, getByText } = await render(
+      <CombinationResult
+        analysis={emptyAnalysis}
+        bonusIncluded={false}
+        firstRound={1}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onCompare={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+      />,
+    );
+
+    ([6, 5, 4, 3, 2, 1, 0] as const).forEach((count) => {
+      expect(getByTestId(`match-distribution-row-${count}`).props.accessibilityLabel)
+        .toBe(`${count}개 일치, 0회, 0.0%`);
+      expect(StyleSheet.flatten(
+        getByTestId(`match-distribution-bar-${count}`).props.style,
+      ).width).toBe('0%');
+    });
+    expect(getByText('전체 평균 대비 +0.0%')).toBeTruthy();
   });
 
   test('expands combinations inline and resets expansion when tabs change', async () => {
@@ -221,5 +312,50 @@ describe('CombinationResult', () => {
 
     expect(queryByText('20 · 26')).toBeNull();
     expect(getByText('+ 2개 더보기')).toBeTruthy();
+  });
+
+  test('shows statistics using the combination-selection condition groups', async () => {
+    const { getByRole, getByTestId, getByText, queryByText } = await render(
+      <CombinationResult
+        analysis={analysis}
+        bonusIncluded={false}
+        firstRound={1}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onCompare={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+      />,
+    );
+
+    expect(getByText('조건별 통계')).toBeTruthy();
+    expect(getByText('동끝수 형태')).toBeTruthy();
+    expect(getByText('표준편차')).toBeTruthy();
+    expect(getByText('2수 1쌍')).toBeTruthy();
+    expect(queryByText('소수 개수')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByRole('tab', { name: '수 성격 통계' }));
+    });
+    expect(getByTestId('condition-stat-tab-수 성격').props.accessibilityState.selected).toBe(true);
+    expect(getByText('A/C 값')).toBeTruthy();
+    expect(getByText('소수 개수')).toBeTruthy();
+    expect(queryByText('동끝수 형태')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByRole('tab', { name: '직전·연번 통계' }));
+    });
+    expect(getByText('이월수 개수')).toBeTruthy();
+    expect(getByText('이웃수 개수')).toBeTruthy();
+    expect(getByText('이월수·이웃수는 100회와 보너스 번호 제외 기준입니다.')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByRole('tab', { name: '번호대·과거 통계' }));
+    });
+    expect(getByText('40-45 번호대')).toBeTruthy();
+    expect(getByText('과거 1–3등 동일 이력')).toBeTruthy();
   });
 });

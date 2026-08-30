@@ -41,6 +41,29 @@ describe('analyzeCombination', () => {
     expect(withBonus.individualNumbers.find((item) => item.number === 6)?.appearanceCount).toBeGreaterThan(
       withoutBonus.individualNumbers.find((item) => item.number === 6)!.appearanceCount,
     );
+    expect(withoutBonus.conditionMetrics.carryCount).toBe(0);
+    expect(withBonus.conditionMetrics.carryCount).toBe(1);
+    expect(withoutBonus.conditionMetrics.neighborCount).toBe(1);
+    expect(withBonus.conditionMetrics.neighborCount).toBe(2);
+  });
+
+  it('calculates every metric family exposed by the combination condition screen', () => {
+    const result = analyzeCombination(history, [1, 2, 3, 4, 5, 6], allMainOnly);
+
+    expect(result.conditionMetrics).toMatchObject({
+      bandCounts: { '1-9': 6, '10-19': 0, '20-29': 0, '30-39': 0, '40-45': 0 },
+      compositeCount: 2,
+      consecutivePattern: '6',
+      highCount: 0,
+      lastDigitSum: 21,
+      lowCount: 6,
+      multipleCounts: { 3: 2, 4: 1, 5: 1 },
+      oddCount: 3,
+      primeCount: 3,
+      sameEndingPattern: 'none',
+      squareCount: 1,
+      sum: 21,
+    });
   });
 
   it('creates every unordered sub-combination and applies period filtering', () => {

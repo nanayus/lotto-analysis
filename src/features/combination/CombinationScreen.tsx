@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -16,6 +16,11 @@ import { NumberSelector } from './components/NumberSelector';
 import { useCombinationDraft } from './CombinationDraftContext';
 import { fillCombinationRandomly } from './randomFill';
 import { CombinationComparison } from './components/CombinationComparison';
+import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+import {
+  buildCombinationReturnDestination,
+  type CombinationReturnTarget,
+} from './combinationNavigation';
 
 const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 const firstRound = Math.min(...lottoHistory.map((draw) => draw.round));
@@ -38,10 +43,27 @@ type ScreenMode =
   | { kind: 'compareSelect' }
   | { kind: 'comparison' };
 
+function latestParam(value?: string | string[]) {
+  return Array.isArray(value) ? value.at(-1) : value;
+}
+
 export function CombinationScreen() {
   const styles = useThemedStyles(createStyles);
-  const { analyze } = useLocalSearchParams<{ analyze?: string | string[] }>();
+  const {
+    analyze,
+    returnCount,
+    returnSession,
+    returnTo,
+    returnToken,
+  } = useLocalSearchParams<{
+    analyze?: string | string[];
+    returnCount?: string | string[];
+    returnSession?: string | string[];
+    returnTo?: string | string[];
+    returnToken?: string | string[];
+  }>();
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
+  const { addCombination } = useNumberLibrary();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
   const activeExcludedNumbers = excludedNumbers.filter(
     (number) => !selectedNumbers.includes(number),
@@ -80,10 +102,27 @@ export function CombinationScreen() {
     setAnalysisState(nextState);
     if (mode.kind === 'compareSelect' && comparisonA) {
       setComparisonB(snapshot); setMode({ kind: 'comparison' });
-    } else setMode({ kind: 'result' });
-  }, [analysisState, comparisonA, mode.kind, selectedNumbers]);
+    } else {
+      addCombination(selectedNumbers, 'random');
+      setMode({ kind: 'result' });
+    }
+  }, [addCombination, analysisState, comparisonA, mode.kind, selectedNumbers]);
 
-  const analyzeToken = Array.isArray(analyze) ? analyze.at(-1) : analyze;
+  const analyzeToken = latestParam(analyze);
+  const returnTarget = latestParam(returnTo) as CombinationReturnTarget | undefined;
+  const returnGameCount = latestParam(returnCount);
+  const returnSessionToken = latestParam(returnSession);
+  const returnDrawToken = latestParam(returnToken);
+
+  const leaveCombination = useCallback(() => {
+    router.replace(buildCombinationReturnDestination({
+      gameCount: returnGameCount,
+      sessionToken: returnSessionToken,
+      target: returnTarget,
+      token: returnDrawToken,
+    }));
+  }, [returnDrawToken, returnGameCount, returnSessionToken, returnTarget]);
+
   useEffect(() => {
     if (
       !analyzeToken
@@ -133,8 +172,8 @@ export function CombinationScreen() {
     setAnalysisState(null);
     clear();
     setExcludedNumbers([]);
-    setMode({ kind: 'select' });
     setComparisonA(null); setComparisonB(null);
+    router.replace('/(tabs)/draw');
   }, [clear]);
 
   return (
@@ -144,6 +183,13 @@ export function CombinationScreen() {
           <>{mode.kind === 'compareSelect' && comparisonA ? <View style={styles.compareBasis}><Text style={styles.compareLabel}>비교 기준 A</Text><Text style={styles.compareNumbers}>{comparisonA.numbers.map((n)=>String(n).padStart(2,'0')).join(' · ')}</Text></View> : null}
           <NumberSelector
             onAnalyze={startAnalysis}
+            onBack={mode.kind === 'compareSelect' && comparisonA
+              ? () => {
+                setNumbers(comparisonA.numbers);
+                setComparisonB(null);
+                setMode({ kind: 'result' });
+              }
+              : leaveCombination}
             excludedNumbers={activeExcludedNumbers}
             onRandomFill={() => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
             onToggleNumber={handleToggleNumber}
@@ -159,6 +205,7 @@ export function CombinationScreen() {
               bonusIncluded={analysisState.includeBonus}
               firstRound={firstRound}
               latestRound={latestRound}
+              onBack={leaveCombination}
               onBonusChange={changeBonus}
               onOpenHistory={() => setMode({ kind: 'history' })}
               onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}

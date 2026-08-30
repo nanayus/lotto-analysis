@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   PanResponder,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -13,9 +12,11 @@ import type { NumericRangeCondition } from '@/domain/generator/types';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 import { ConditionInfoButton } from './ConditionInfoButton';
+import { ConditionToggle } from './ConditionToggle';
 
 type RangeControlProps = {
   decimals?: number;
+  historicalPreset?: { max: number; min: number };
   limits: { max: number; min: number };
   onChange: (value: NumericRangeCondition) => void;
   onHelpPress?: () => void;
@@ -139,6 +140,7 @@ function SliderThumb({
 
 export function RangeControl({
   decimals = 0,
+  historicalPreset,
   limits,
   onChange,
   onHelpPress,
@@ -169,15 +171,21 @@ export function RangeControl({
           <Text style={styles.title}>{title}</Text>
           {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
         </View>
-        <Pressable
-          accessibilityLabel={`${title} 조건`}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: value.enabled }}
-          onPress={() => onChange({ ...value, enabled: !value.enabled })}
-          style={[styles.switch, value.enabled && styles.switchOn]}>
-          <View style={[styles.switchKnob, value.enabled && styles.switchKnobOn]} />
-        </Pressable>
+        <ConditionToggle
+          enabled={value.enabled}
+          onChange={(enabled) => onChange({ ...value, enabled })}
+          title={title}
+        />
       </View>
+      {historicalPreset ? (
+        <View
+          accessibilityLabel={`전체 과거 본번호 기준 과거 최다 구간 ${format(historicalPreset.min)}에서 ${format(historicalPreset.max)}`}
+          style={styles.presetRow}>
+          <Text style={styles.presetBadge}>과거 최다</Text>
+          <Text style={styles.presetValue}>{format(historicalPreset.min)}~{format(historicalPreset.max)}</Text>
+          <Text style={styles.presetSource}>전체 과거 본번호 기준</Text>
+        </View>
+      ) : null}
       <View style={!value.enabled && styles.disabled}>
         <View onLayout={onTrackLayout} style={styles.track} testID={`range-track-${title}`}>
           <View
@@ -250,13 +258,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   title: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  switch: {
-    width: 42, height: 24, padding: 2, borderRadius: radius.round,
-    backgroundColor: colors.divider, justifyContent: 'center',
+  presetRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm },
+  presetBadge: {
+    color: colors.accentSecondary, fontSize: 10, fontWeight: typography.weights.semibold,
+    borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentSecondary,
+    backgroundColor: colors.surfaceSuccess, paddingHorizontal: spacing.sm, paddingVertical: 3,
   },
-  switchOn: { backgroundColor: colors.accentPrimary },
-  switchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.neutral },
-  switchKnobOn: { alignSelf: 'flex-end', backgroundColor: colors.background },
+  presetValue: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  presetSource: { color: colors.textSecondary, fontSize: 10 },
   disabled: { opacity: 0.38, pointerEvents: 'none' },
   track: { height: 36, marginHorizontal: 10, marginTop: spacing.md, justifyContent: 'center' },
   activeTrack: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: colors.accentPrimary },
