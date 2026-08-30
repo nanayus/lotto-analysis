@@ -7,7 +7,10 @@ import { Pressable } from 'react-native';
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
 import type { ConsecutivePattern } from '@/domain/generator/types';
 
-import { CombinationGeneratorScreen } from '../CombinationGeneratorScreen';
+import {
+  CombinationGeneratorScreen,
+  CONDITION_APPLY_MINIMUM_LOADING_MS,
+} from '../CombinationGeneratorScreen';
 import { patternGroups } from '../components/ConditionSheet';
 import { GeneratorDraftProvider } from '../GeneratorDraftContext';
 
@@ -71,6 +74,10 @@ describe('CombinationGeneratorScreen', () => {
     expect(patternGroups(pattern)).toEqual(expected);
   });
 
+  test('keeps the condition-apply loading screen visible for about three seconds', () => {
+    expect(CONDITION_APPLY_MINIMUM_LOADING_MS).toBe(3000);
+  });
+
   test('starts with active range defaults and applies a fixed number from the condition sheet', async () => {
     mockPush.mockClear();
     const screen = await renderScreen();
@@ -90,8 +97,8 @@ describe('CombinationGeneratorScreen', () => {
         returnSession: 'generator',
         returnToken: expect.any(String),
       },
-    }));
-  });
+    }), { timeout: 4500 });
+  }, 7000);
 
   test('closes the direct condition selector while opening analysis and restores it on return', async () => {
     mockPush.mockClear();
@@ -105,6 +112,8 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('4개 조건 적용'));
     });
+    expect(screen.getByText('조합을 만들고 있어요')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith({
       pathname: '/combination-analysis',
@@ -115,7 +124,7 @@ describe('CombinationGeneratorScreen', () => {
         returnTo: 'combination-generator',
         returnToken: expect.any(String),
       },
-    }));
+    }), { timeout: 4500 });
     expect(screen.queryByTestId('condition-editor')).toBeNull();
 
     await act(async () => {
@@ -125,7 +134,7 @@ describe('CombinationGeneratorScreen', () => {
 
     await act(async () => { fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
-  });
+  }, 7000);
 
   test('pops the direct condition selector from the draw stack', async () => {
     mockBack.mockClear();

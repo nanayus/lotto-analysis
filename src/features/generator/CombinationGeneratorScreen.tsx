@@ -42,6 +42,11 @@ import { ConditionSheet } from './components/ConditionSheet';
 import { useGeneratorDraft } from './GeneratorDraftContext';
 
 const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
+export const CONDITION_APPLY_MINIMUM_LOADING_MS = 3000;
+
+function waitFor(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
 
 function formatNumber(number: number) {
   return String(number).padStart(2, '0');
@@ -174,8 +179,13 @@ export function CombinationGeneratorScreen({
     setGenerating(true);
     setSearchedCandidates(0);
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
+    await waitFor(0);
+    if (generationToken.current !== token) return;
+    const minimumLoading = waitFor(CONDITION_APPLY_MINIMUM_LOADING_MS);
     try {
       const nextOutcomes = await generateOutcomes(next, token);
+      if (generationToken.current !== token) return;
+      await minimumLoading;
       if (generationToken.current !== token) return;
 
       setOutcomes(nextOutcomes);
@@ -204,6 +214,8 @@ export function CombinationGeneratorScreen({
       router.push(destination);
     } catch (error) {
       if (generationToken.current !== token || (error as Error).message === 'GENERATION_CANCELLED') return;
+      await minimumLoading;
+      if (generationToken.current !== token) return;
       setErrorMessage((error as Error).message);
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
