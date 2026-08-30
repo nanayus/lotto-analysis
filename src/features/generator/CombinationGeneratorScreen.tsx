@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -95,6 +95,12 @@ export function CombinationGeneratorScreen({
   const conditionCount = activeConditionCount(conditions);
 
   useEffect(() => () => { generationToken.current += 1; }, []);
+
+  useFocusEffect(useCallback(() => {
+    if (!conditionOnly) return undefined;
+    setSheetVisible(true);
+    return () => setSheetVisible(false);
+  }, [conditionOnly]));
 
   const cancelGeneration = useCallback(() => {
     generationToken.current += 1;
@@ -195,7 +201,6 @@ export function CombinationGeneratorScreen({
           returnToken: String(Date.now()),
         },
       } as const;
-      if (conditionOnly) setSheetVisible(true);
       router.push(destination);
     } catch (error) {
       if (generationToken.current !== token || (error as Error).message === 'GENERATION_CANCELLED') return;

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { describe, expect, jest, test } from '@jest/globals';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useState } from 'react';
 import { Pressable } from 'react-native';
 
@@ -13,11 +13,17 @@ import { GeneratorDraftProvider } from '../GeneratorDraftContext';
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), navigate: jest.fn(), push: jest.fn(), replace: jest.fn() },
+  useFocusEffect: jest.fn(),
 }));
 
 const mockPush = router.push as jest.Mock;
 const mockReplace = router.replace as jest.Mock;
 const mockBack = router.back as jest.Mock;
+const mockUseFocusEffect = useFocusEffect as jest.Mock;
+let latestFocusCallback: (() => void | (() => void)) | null = null;
+mockUseFocusEffect.mockImplementation((callback) => {
+  latestFocusCallback = callback;
+});
 
 function renderScreen() {
   return render(
@@ -87,7 +93,7 @@ describe('CombinationGeneratorScreen', () => {
     }));
   });
 
-  test('keeps the direct condition selector in history while opening analysis', async () => {
+  test('closes the direct condition selector while opening analysis and restores it on return', async () => {
     mockPush.mockClear();
     const screen = await render(<DirectSessionHarness />);
 
@@ -110,6 +116,11 @@ describe('CombinationGeneratorScreen', () => {
         returnToken: expect.any(String),
       },
     }));
+    expect(screen.queryByTestId('condition-editor')).toBeNull();
+
+    await act(async () => {
+      latestFocusCallback?.();
+    });
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
     await act(async () => { fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
