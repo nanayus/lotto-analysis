@@ -220,7 +220,7 @@ export function RangeControl({
             value={value.max}
           />
         </View>
-        <View style={styles.inputs}>
+        <View style={styles.inputs} testID={`range-inputs-${title}`}>
           <TextInput
             accessibilityLabel={`${title} 최솟값`}
             defaultValue={format(value.min)}
@@ -277,11 +277,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 20, height: 20, borderRadius: 10, borderWidth: 2,
     borderColor: colors.highlight, backgroundColor: colors.accentPrimary,
   },
-  inputs: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  inputs: {
+    width: '100%', minWidth: 0,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+  },
   input: {
-    flex: 1, height: 40, borderRadius: radius.sm, borderWidth: 1,
+    flex: 1, flexBasis: 0, minWidth: 0, height: 40,
+    borderRadius: radius.sm, borderWidth: 1,
     borderColor: colors.divider, backgroundColor: colors.surface,
     color: colors.textPrimary, textAlign: 'center', fontSize: typography.sizes.small,
+    paddingHorizontal: spacing.sm,
   },
-  separator: { color: colors.textSecondary },
+  separator: { flexShrink: 0, color: colors.textSecondary },
 });

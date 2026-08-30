@@ -48,4 +48,23 @@ describe('RangeControl', () => {
     expect(rangeValueFromDrag({ ...common, deltaX: -500 })).toBe(1.7);
     expect(rangeValueFromDrag({ ...common, deltaX: 500 })).toBe(21.1);
   });
+
+  test('allows both number inputs to shrink inside a narrow condition card', async () => {
+    const screen = await render(
+      <RangeControl
+        limits={{ min: 21, max: 255 }}
+        onChange={jest.fn()}
+        title="번호 총합"
+        value={{ enabled: true, min: 130, max: 139 }}
+      />,
+    );
+
+    const rowStyle = StyleSheet.flatten(screen.getByTestId('range-inputs-번호 총합').props.style);
+    const minInputStyle = StyleSheet.flatten(screen.getByLabelText('번호 총합 최솟값').props.style);
+    const maxInputStyle = StyleSheet.flatten(screen.getByLabelText('번호 총합 최댓값').props.style);
+
+    expect(rowStyle).toEqual(expect.objectContaining({ minWidth: 0, width: '100%' }));
+    expect(minInputStyle).toEqual(expect.objectContaining({ flexBasis: 0, minWidth: 0 }));
+    expect(maxInputStyle).toEqual(expect.objectContaining({ flexBasis: 0, minWidth: 0 }));
+  });
 });
