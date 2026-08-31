@@ -1,12 +1,10 @@
 import {
   GoogleAuthProvider,
   linkWithPopup,
-  linkWithRedirect,
   OAuthProvider,
   OAuthCredential,
   reauthenticateWithPopup,
   signInWithPopup,
-  signInWithRedirect,
   type Auth,
   type User,
 } from 'firebase/auth';
@@ -24,25 +22,13 @@ function buildProvider(provider: AuthProviderId) {
   return apple;
 }
 
-function shouldRedirect() {
-  return typeof window !== 'undefined' && window.innerWidth < 768;
-}
-
 export async function signInOnWeb(auth: Auth, provider: AuthProviderId) {
   const authProvider = buildProvider(provider);
-  if (shouldRedirect()) {
-    await signInWithRedirect(auth, authProvider);
-    return;
-  }
   await signInWithPopup(auth, authProvider);
 }
 
 export async function linkOnWeb(user: User, provider: AuthProviderId) {
   const authProvider = buildProvider(provider);
-  if (shouldRedirect()) {
-    await linkWithRedirect(user, authProvider);
-    return;
-  }
   await linkWithPopup(user, authProvider);
 }
 

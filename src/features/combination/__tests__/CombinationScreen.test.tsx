@@ -10,6 +10,23 @@ import {
 } from '../CombinationDraftContext';
 
 const mockOpenLogin = jest.fn();
+const mockOpenPaywall = jest.fn();
+let mockIsPro = true;
+let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'AUTHORIZED_WEEKLY' | 'REWARD_OR_PRO_REQUIRED' = 'AUTHORIZED_PRO';
+const mockAuthorizeAnalysis = jest.fn(async () => ({
+  accessState: {
+    bonusAnalysisCredits: 3,
+    inviteCode: 'ABCDEF12',
+    isPro: mockIsPro,
+    nextWeeklyResetAt: '2026-09-06T15:00:00.000Z',
+    proExpiresAt: '2026-12-31T00:00:00.000Z',
+    rewardedUnlocksLimit: 3,
+    rewardedUnlocksUsedThisWeek: 0,
+    weeklyFreeAvailable: true,
+  },
+  combinationKey: '1-7-12-19-34-45',
+  decision: mockAuthorizationDecision,
+}));
 let mockAuthStatus: 'authenticated' | 'guest' = 'authenticated';
 
 jest.mock('expo-router', () => ({
@@ -43,6 +60,26 @@ jest.mock('@/features/auth/AuthContext', () => ({
   }),
 }));
 
+jest.mock('@/features/monetization/MonetizationContext', () => ({
+  useMonetization: () => ({
+    authorizeAnalysis: mockAuthorizeAnalysis,
+    openPaywall: mockOpenPaywall,
+    state: {
+      status: 'ready',
+      access: {
+        bonusAnalysisCredits: 3,
+        inviteCode: 'ABCDEF12',
+        isPro: mockIsPro,
+        nextWeeklyResetAt: '2026-09-06T15:00:00.000Z',
+        proExpiresAt: '2026-12-31T00:00:00.000Z',
+        rewardedUnlocksLimit: 3,
+        rewardedUnlocksUsedThisWeek: 0,
+        weeklyFreeAvailable: true,
+      },
+    },
+  }),
+}));
+
 const mockReplace = router.replace as jest.Mock;
 const mockBack = router.back as jest.Mock;
 const mockCanGoBack = router.canGoBack as jest.Mock;
@@ -67,6 +104,10 @@ describe('CombinationScreen', () => {
     });
     mockAuthStatus = 'authenticated';
     mockOpenLogin.mockClear();
+    mockOpenPaywall.mockClear();
+    mockAuthorizeAnalysis.mockClear();
+    mockIsPro = true;
+    mockAuthorizationDecision = 'AUTHORIZED_PRO';
   });
 
   test('requires login before opening a requested analysis', async () => {
@@ -94,6 +135,33 @@ describe('CombinationScreen', () => {
     });
 
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/draw');
+  });
+
+  test('shows the access choices without calculating when free analysis is exhausted', async () => {
+    mockIsPro = false;
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('이번 주 무료 분석을 모두 사용했어요')).toBeTruthy());
+    expect(screen.queryByText('조합 분석')).toBeNull();
+  });
+
+  test('opens Pro when a free user requests combination comparison', async () => {
+    mockIsPro = false;
+    mockAuthorizationDecision = 'AUTHORIZED_WEEKLY';
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('조합 분석')).toBeTruthy());
+    fireEvent.press(screen.getByRole('button', { name: '비교할 조합 추가' }));
+    expect(mockOpenPaywall).toHaveBeenCalledWith('combination-comparison');
   });
 
   test('returns to the originating tab through history when the shared detail was pushed', async () => {

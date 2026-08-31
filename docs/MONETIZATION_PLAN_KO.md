@@ -356,14 +356,14 @@ PRO
 
 ### 9.1 권장 구성
 
-- 인증·DB·서버 함수: Supabase Auth, Postgres, Edge Functions 기준
+- 인증·DB·서버 함수: 기존 Firebase Auth, Firestore, Cloud Functions
 - 네이티브 구독: RevenueCat + App Store In-App Purchase + Google Play Billing
 - 광고: Google AdMob Rewarded Ads + SSV
 - 앱: 기존 Expo Router·React Native 구조 유지
 - 분석 계산: 현재 순수 도메인 로직 유지
 - 권한과 사용량 판단: 서버가 최종 권위 보유
 
-공급자는 기술 검증 과정에서 변경할 수 있지만, 클라이언트가 분석권과 Pro 권한의 원장이 되어서는 안 된다.
+현재 저장소에 구현된 Firebase 인증·동기화 구조를 확장한다. 클라이언트가 분석권과 Pro 권한의 원장이 되어서는 안 된다.
 
 ### 9.2 최소 데이터 모델
 

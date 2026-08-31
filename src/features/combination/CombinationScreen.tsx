@@ -19,6 +19,9 @@ import { fillCombinationRandomly } from './randomFill';
 import { CombinationComparison } from './components/CombinationComparison';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useAuth } from '@/features/auth/AuthContext';
+import { AnalysisAccessModal } from '@/features/monetization/AnalysisAccessModal';
+import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { isAnalysisAuthorized } from '@/features/monetization/types';
 import {
   buildCombinationReturnDestination,
   type CombinationReturnTarget,
@@ -27,6 +30,7 @@ import {
 const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 const firstRound = Math.min(...lottoHistory.map((draw) => draw.round));
 const latestRound = Math.max(...lottoHistory.map((draw) => draw.round));
+const DATA_VERSION = `lotto-${latestRound}`;
 
 const DEFAULT_FILTERS: AnalysisFilters = {
   includeBonus: false,
@@ -79,6 +83,11 @@ export function CombinationScreen() {
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
   const { consumePendingIntent, openLogin, state: authState } = useAuth();
+  const {
+    authorizeAnalysis,
+    openPaywall,
+    state: monetizationState,
+  } = useMonetization();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
   const activeExcludedNumbers = excludedNumbers.filter(
     (number) => !selectedNumbers.includes(number),
@@ -87,6 +96,9 @@ export function CombinationScreen() {
   const [analysisState, setAnalysisState] = useState<AnalysisState | null>(null);
   const [comparisonA, setComparisonA] = useState<CombinationAnalysis | null>(null);
   const [comparisonB, setComparisonB] = useState<CombinationAnalysis | null>(null);
+  const [accessGateVisible, setAccessGateVisible] = useState(false);
+  const [accessMessage, setAccessMessage] = useState<string | null>(null);
+  const [isAuthorizing, setAuthorizing] = useState(false);
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
 
@@ -123,15 +135,33 @@ export function CombinationScreen() {
     }
   }, [addCombination, analysisState, comparisonA, mode.kind, selectedNumbers]);
 
+  const authorizeAndExecute = useCallback(async () => {
+    if (selectedNumbers.length !== 6 || isAuthorizing) return;
+    setAuthorizing(true);
+    setAccessMessage(null);
+    try {
+      const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
+      if (!isAnalysisAuthorized(authorization.decision)) {
+        setAccessGateVisible(true);
+        return;
+      }
+      executeAnalysis();
+    } catch (error) {
+      setAccessMessage((error as Error).message || '분석 이용 정보를 확인하지 못했어요.');
+    } finally {
+      setAuthorizing(false);
+    }
+  }, [authorizeAnalysis, executeAnalysis, isAuthorizing, selectedNumbers]);
+
   const startAnalysis = useCallback(() => {
     if (authState.status === 'authenticated') {
-      executeAnalysis();
+      void authorizeAndExecute();
       return;
     }
     if (authState.status === 'guest') {
-      openLogin('combination-analysis', executeAnalysis);
+      openLogin('combination-analysis');
     }
-  }, [authState.status, executeAnalysis, openLogin]);
+  }, [authState.status, authorizeAndExecute, openLogin]);
 
   const analyzeToken = latestParam(analyze);
   const returnTarget = latestParam(returnTo) as CombinationReturnTarget | undefined;
@@ -168,17 +198,8 @@ export function CombinationScreen() {
     consumePendingIntent('combination-analysis');
 
     handledAnalyzeTokenRef.current = analyzeToken;
-    const snapshot = analyzeCombination(lottoHistory, selectedNumbers, DEFAULT_FILTERS);
-    const nextState = { ...DEFAULT_FILTERS, snapshot };
-    analysisStateRef.current = nextState;
-    queueMicrotask(() => {
-      setAnalysisState(nextState);
-      setComparisonA(null);
-      setComparisonB(null);
-      setExcludedNumbers([]);
-      setMode({ kind: 'result' });
-    });
-  }, [analyzeToken, authState.status, consumePendingIntent, openLogin, selectedNumbers]);
+    queueMicrotask(() => void authorizeAndExecute());
+  }, [analyzeToken, authState.status, authorizeAndExecute, consumePendingIntent, openLogin, selectedNumbers]);
 
   useEffect(() => {
     if (
@@ -187,8 +208,8 @@ export function CombinationScreen() {
       || !consumePendingIntent('combination-analysis')
     ) return;
     if (analyzeToken) return;
-    queueMicrotask(executeAnalysis);
-  }, [analyzeToken, authState.status, consumePendingIntent, executeAnalysis, selectedNumbers.length]);
+    queueMicrotask(() => void authorizeAndExecute());
+  }, [analyzeToken, authState.status, authorizeAndExecute, consumePendingIntent, selectedNumbers.length]);
 
   const commitFilters = useCallback((filters: AnalysisFilters) => {
     if (selectedNumbers.length !== 6) return;
@@ -205,10 +226,14 @@ export function CombinationScreen() {
   }, [comparisonA, comparisonB, mode.kind, selectedNumbers]);
 
   const changePeriod = useCallback((period: AnalysisPeriod) => {
+    if (period.kind === 'custom' && !(monetizationState.status === 'ready' && monetizationState.access.isPro)) {
+      openPaywall('custom-period');
+      return;
+    }
     const current = analysisStateRef.current;
     if (!current) return;
     commitFilters({ includeBonus: current.includeBonus, period });
-  }, [commitFilters]);
+  }, [commitFilters, monetizationState, openPaywall]);
 
   const changeBonus = useCallback((includeBonus: boolean) => {
     const current = analysisStateRef.current;
@@ -225,12 +250,39 @@ export function CombinationScreen() {
     router.replace('/(tabs)/draw');
   }, [clear]);
 
+  const startComparison = useCallback(() => {
+    if (!(monetizationState.status === 'ready' && monetizationState.access.isPro)) {
+      openPaywall('combination-comparison');
+      return;
+    }
+    if (!analysisState) return;
+    setComparisonA(analysisState.snapshot);
+    setComparisonB(null);
+    clear();
+    setExcludedNumbers([]);
+    setMode({ kind: 'compareSelect' });
+  }, [analysisState, clear, monetizationState, openPaywall]);
+
+  const analysisAvailabilityLabel = monetizationState.status === 'ready'
+    ? monetizationState.access.isPro
+      ? 'Pro · 무제한'
+      : monetizationState.access.weeklyFreeAvailable
+        ? '이번 주 무료 1회'
+        : monetizationState.access.bonusAnalysisCredits > 0
+          ? `분석권 ${monetizationState.access.bonusAnalysisCredits}회`
+          : '사용 가능한 분석 없음'
+    : authState.status === 'guest'
+      ? '로그인 후 웰컴 3회'
+      : monetizationState.status === 'loading' ? '이용 정보 확인 중' : undefined;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
       <View style={styles.container}>
         {mode.kind === 'select' || mode.kind === 'compareSelect' ? (
           <>{mode.kind === 'compareSelect' && comparisonA ? <View style={styles.compareBasis}><Text style={styles.compareLabel}>비교 기준 A</Text><Text style={styles.compareNumbers}>{comparisonA.numbers.map((n)=>String(n).padStart(2,'0')).join(' · ')}</Text></View> : null}
           <NumberSelector
+            analysisAvailabilityLabel={analysisAvailabilityLabel}
+            analysisMessage={accessMessage}
             onAnalyze={startAnalysis}
             onBack={mode.kind === 'compareSelect' && comparisonA
               ? () => {
@@ -240,6 +292,7 @@ export function CombinationScreen() {
               }
               : leaveCombination}
             excludedNumbers={activeExcludedNumbers}
+            isAnalyzing={isAuthorizing}
             onRandomFill={() => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
             onToggleNumber={handleToggleNumber}
             selectedNumbers={selectedNumbers}
@@ -261,7 +314,7 @@ export function CombinationScreen() {
                 onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
                 onPeriodChange={changePeriod}
                 onStartOver={startOver}
-                onCompare={() => { setComparisonA(analysisState.snapshot); setComparisonB(null); clear(); setExcludedNumbers([]); setMode({kind:'compareSelect'}); }}
+                onCompare={startComparison}
                 period={analysisState.period}
               />
             </Animated.View>
@@ -273,6 +326,11 @@ export function CombinationScreen() {
             />
           ) : null
         ) : null}
+        <AnalysisAccessModal
+          onClose={() => setAccessGateVisible(false)}
+          onOpenPro={() => openPaywall('analysis-limit')}
+          visible={accessGateVisible}
+        />
       </View>
     </SafeAreaView>
   );

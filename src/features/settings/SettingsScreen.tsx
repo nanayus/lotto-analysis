@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { AccountSettingsSection } from './AccountSettingsSection';
+import { MonetizationSettingsSection } from '@/features/monetization/MonetizationSettingsSection';
 
 import {
   type ThemeColors,
@@ -52,6 +53,8 @@ export function SettingsScreen() {
           </View>
 
           <AccountSettingsSection />
+
+          <MonetizationSettingsSection />
 
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>화면</Text>

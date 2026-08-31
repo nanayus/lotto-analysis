@@ -13,6 +13,7 @@ import { getArticleBySlug } from '@/features/content/articles';
 import { GeneratorDraftProvider } from '@/features/generator/GeneratorDraftContext';
 import { NumberLibraryProvider } from '@/features/library/NumberLibraryContext';
 import { AuthProvider } from '@/features/auth/AuthContext';
+import { MonetizationProvider } from '@/features/monetization/MonetizationContext';
 import { AppThemeProvider, useAppTheme } from '@/theme';
 import { tamaguiConfig } from '../../tamagui.config';
 
@@ -177,23 +178,25 @@ function ThemedApp() {
       <AppMetadata />
       <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme}>
         <AuthProvider>
-          <NumberLibraryProvider>
-            <GeneratorDraftProvider>
-              <CombinationDraftProvider>
-                <ThemeProvider value={navigationTheme}>
-                  <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-                  <Stack
-                    screenOptions={{
-                      animation: STACK_ANIMATION,
-                      animationDuration: STACK_ANIMATION_DURATION_MS,
-                      headerShown: false,
-                    }}
-                  />
-                  <BrandSplash />
-                </ThemeProvider>
-              </CombinationDraftProvider>
-            </GeneratorDraftProvider>
-          </NumberLibraryProvider>
+          <MonetizationProvider>
+            <NumberLibraryProvider>
+              <GeneratorDraftProvider>
+                <CombinationDraftProvider>
+                  <ThemeProvider value={navigationTheme}>
+                    <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+                    <Stack
+                      screenOptions={{
+                        animation: STACK_ANIMATION,
+                        animationDuration: STACK_ANIMATION_DURATION_MS,
+                        headerShown: false,
+                      }}
+                    />
+                    <BrandSplash />
+                  </ThemeProvider>
+                </CombinationDraftProvider>
+              </GeneratorDraftProvider>
+            </NumberLibraryProvider>
+          </MonetizationProvider>
         </AuthProvider>
       </TamaguiProvider>
     </GestureHandlerRootView>

@@ -25,7 +25,7 @@ const mockBack = router.back as jest.Mock;
 const mockUseFocusEffect = useFocusEffect as jest.Mock;
 let latestFocusCallback: (() => void | (() => void)) | null = null;
 mockUseFocusEffect.mockImplementation((callback) => {
-  latestFocusCallback = callback;
+  latestFocusCallback = callback as () => void | (() => void);
 });
 
 function renderScreen() {

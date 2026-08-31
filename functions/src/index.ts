@@ -5,6 +5,12 @@ import { defineSecret } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { importPKCS8, SignJWT } from 'jose';
 
+export {
+  applyReferralCode,
+  authorizeCombinationAnalysis,
+  getMonetizationAccessState,
+} from './monetization.js';
+
 initializeApp();
 
 const appleKeyId = defineSecret('APPLE_KEY_ID');
@@ -81,7 +87,17 @@ export const deleteAccount = onCall({
   }
 
   const database = getFirestore();
+  const monetization = await database.doc(`users/${uid}/monetization/access`).get();
+  const inviteCode = monetization.data()?.inviteCode;
   await database.recursiveDelete(database.doc(`users/${uid}`));
+  if (typeof inviteCode === 'string') {
+    await database.doc(`inviteCodes/${inviteCode}`).delete().catch(() => undefined);
+  }
+  await database.doc(`referrals/${uid}`).delete().catch(() => undefined);
+  const invitedReferrals = await database.collection('referrals')
+    .where('inviterUid', '==', uid)
+    .get();
+  await Promise.all(invitedReferrals.docs.map((item) => item.ref.delete()));
   await getAuth().deleteUser(uid).catch((error: { code?: string }) => {
     if (error.code !== 'auth/user-not-found') throw error;
   });

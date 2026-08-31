@@ -2,7 +2,6 @@ import { createContext, type PropsWithChildren, useCallback, useContext, useEffe
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  getRedirectResult,
   onAuthStateChanged,
   revokeAccessToken,
   signOut as firebaseSignOut,
@@ -86,12 +85,6 @@ function messageForError(error: unknown) {
   return '로그인 중 문제가 발생했어요.';
 }
 
-function writePendingIntent(intent?: string) {
-  if (Platform.OS === 'web' && intent && typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(PENDING_INTENT_KEY, intent);
-  }
-}
-
 export function AuthProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<AuthState>(auth ? { status: 'loading' } : { status: 'guest' });
   const [isLoginVisible, setLoginVisible] = useState(false);
@@ -102,9 +95,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!auth) return;
-    if (Platform.OS === 'web') {
-      void getRedirectResult(auth).catch((redirectError) => setError(messageForError(redirectError)));
-    }
     return onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
         setState({ status: 'guest' });
@@ -124,7 +114,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       const callback = successCallback.current;
       successCallback.current = null;
-      pendingIntent.current = undefined;
+      if (callback) {
+        pendingIntent.current = undefined;
+        if (Platform.OS === 'web' && typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem(PENDING_INTENT_KEY);
+        }
+      }
       callback?.();
     });
   }, []);
@@ -145,6 +140,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     pendingIntent.current = intent;
     successCallback.current = onSuccess ?? null;
+    if (Platform.OS === 'web' && typeof sessionStorage !== 'undefined' && intent) {
+      sessionStorage.setItem(PENDING_INTENT_KEY, intent);
+    }
     setError(firebaseConfigurationError);
     setLoginVisible(true);
   }, [state.status]);
@@ -157,9 +155,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setWorking(true);
     setError(null);
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.innerWidth < 768) {
-        writePendingIntent(pendingIntent.current);
-      }
       await authenticate(auth, provider);
     } catch (signInError) {
       setError(messageForError(signInError));
@@ -226,6 +221,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const consumePendingIntent = useCallback((intent: string) => {
+    if (pendingIntent.current === intent) {
+      pendingIntent.current = undefined;
+      if (Platform.OS === 'web' && typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(PENDING_INTENT_KEY);
+      }
+      return true;
+    }
     if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return false;
     if (sessionStorage.getItem(PENDING_INTENT_KEY) !== intent) return false;
     sessionStorage.removeItem(PENDING_INTENT_KEY);

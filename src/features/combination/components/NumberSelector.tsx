@@ -6,7 +6,10 @@ import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberSelectorProps = {
+  analysisAvailabilityLabel?: string;
+  analysisMessage?: string | null;
   excludedNumbers: number[];
+  isAnalyzing?: boolean;
   onAnalyze: () => void;
   onBack?: () => void;
   onRandomFill: () => void;
@@ -22,7 +25,10 @@ function formatNumber(number: number) {
 }
 
 export function NumberSelector({
+  analysisAvailabilityLabel,
+  analysisMessage,
   excludedNumbers,
+  isAnalyzing = false,
   onAnalyze,
   onBack = NOOP,
   onRandomFill,
@@ -123,13 +129,22 @@ export function NumberSelector({
         ) : null}
       </AppCard>
 
+      {analysisAvailabilityLabel ? (
+        <View style={styles.accessSummary}>
+          <Text style={styles.accessSummaryLabel}>분석 이용</Text>
+          <Text style={styles.accessSummaryValue}>{analysisAvailabilityLabel}</Text>
+        </View>
+      ) : null}
       <AppButton
-        disabled={!ready}
-        label="분석하기"
+        disabled={!ready || isAnalyzing}
+        label={isAnalyzing ? '분석 확인 중…' : '분석하기'}
         onPress={onAnalyze}
         style={styles.analyzeButton}
         testID="analyze-combination-button"
       />
+      {analysisMessage ? (
+        <Text accessibilityLiveRegion="polite" style={styles.analysisMessage}>{analysisMessage}</Text>
+      ) : null}
       <Text style={styles.disclaimer}>선택한 번호를 과거 당첨 데이터와 비교합니다.</Text>
     </ScrollView>
   );
@@ -292,7 +307,33 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.semibold,
   },
   analyzeButton: {
+    marginTop: spacing.md,
+  },
+  accessSummary: {
+    minHeight: 42,
     marginTop: spacing.xl,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+  },
+  accessSummaryLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+  },
+  accessSummaryValue: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+  },
+  analysisMessage: {
+    marginTop: spacing.sm,
+    color: colors.hot,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   disclaimer: {
     color: colors.textSecondary,
