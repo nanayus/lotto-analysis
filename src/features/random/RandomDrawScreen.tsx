@@ -16,13 +16,12 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import NumberFlow from 'rn-number-flow';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedNumberBall } from '@/components/ui/AnimatedNumberBall';
 import { AppButton } from '@/components/ui/AppButton';
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
@@ -42,12 +41,6 @@ import {
 const SHUFFLE_FRAME_MS = 72;
 const SHUFFLE_DURATION_MS = 1_950;
 const REVEAL_INTERVAL_MS = 600;
-const BALL_REVEAL_SPRING = {
-  damping: 9,
-  mass: 0.55,
-  stiffness: 230,
-} as const;
-
 function createUniqueResults(gameCount: 1 | 3 | 5) {
   const results: number[][] = [];
   const keys = new Set<string>();
@@ -60,59 +53,6 @@ function createUniqueResults(gameCount: 1 | 3 | 5) {
     }
   }
   return results;
-}
-
-function formatNumber(number: number) {
-  return String(number).padStart(2, '0');
-}
-
-function AnimatedNumberBall({
-  number,
-  revealed,
-  styles,
-}: {
-  number: number;
-  revealed: boolean;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const revealScale = useSharedValue(1);
-
-  useEffect(() => {
-    if (!revealed) {
-      revealScale.set(1);
-      return;
-    }
-    revealScale.set(0.7);
-    revealScale.set(withSpring(1, BALL_REVEAL_SPRING));
-  }, [revealScale, revealed]);
-
-  const revealStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: revealScale.value }],
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.numberBall,
-        revealed && styles.numberBallReady,
-        revealStyle,
-      ]}>
-      <NumberFlow
-        animationConfig={{
-          animateOnMount: false,
-          damping: 15,
-          digitDelay: 18,
-          mass: 0.55,
-          stiffness: 180,
-        }}
-        style={StyleSheet.flatten([
-          styles.numberText,
-          revealed && styles.numberTextReady,
-        ])}
-        value={formatNumber(number)}
-      />
-    </Animated.View>
-  );
 }
 
 export function RandomDrawScreen({
@@ -265,7 +205,10 @@ export function RandomDrawScreen({
                   key={index}
                   number={number}
                   revealed={revealedCount > index}
-                  styles={styles}
+                  revealedStyle={styles.numberBallReady}
+                  revealedTextStyle={styles.numberTextReady}
+                  style={styles.numberBall}
+                  textStyle={styles.numberText}
                 />
               ))}
             </Animated.View>

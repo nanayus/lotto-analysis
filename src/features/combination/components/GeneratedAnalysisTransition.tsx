@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -9,6 +10,28 @@ import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '
 import { CombinationNumberPills } from './CombinationNumberPills';
 
 export type GeneratedAnalysisPhase = 'access' | 'error' | 'loading' | 'login';
+
+const BALL_REVEAL_INTERVAL_MS = 90;
+
+function RevealingCombinationNumberPills({ numbers }: { numbers: readonly number[] }) {
+  const [revealedCount, setRevealedCount] = useState(0);
+
+  useEffect(() => {
+    const timers = numbers.map((_, index) => setTimeout(
+      () => setRevealedCount(index + 1),
+      (index + 1) * BALL_REVEAL_INTERVAL_MS,
+    ));
+    return () => timers.forEach(clearTimeout);
+  }, [numbers]);
+
+  return (
+    <CombinationNumberPills
+      accessibilityLabel={`분석할 번호 ${numbers.join(', ')}`}
+      numbers={numbers}
+      revealedCount={revealedCount}
+    />
+  );
+}
 
 type GeneratedAnalysisTransitionProps = {
   errorMessage?: string | null;
@@ -79,10 +102,14 @@ export function GeneratedAnalysisTransition({
         <Text style={styles.description}>{errorMessage || copy.description}</Text>
 
         <AppCard style={styles.numberCard}>
-          <CombinationNumberPills
-            accessibilityLabel={`분석할 번호 ${numbers.join(', ')}`}
-            numbers={numbers}
-          />
+          {phase === 'loading' ? (
+            <RevealingCombinationNumberPills numbers={numbers} />
+          ) : (
+            <CombinationNumberPills
+              accessibilityLabel={`분석할 번호 ${numbers.join(', ')}`}
+              numbers={numbers}
+            />
+          )}
         </AppCard>
 
         {phase === 'access' ? (

@@ -32,6 +32,7 @@ const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 const firstRound = Math.min(...lottoHistory.map((draw) => draw.round));
 const latestRound = Math.max(...lottoHistory.map((draw) => draw.round));
 const DATA_VERSION = `lotto-${latestRound}`;
+const GENERATED_ANALYSIS_MIN_TRANSITION_MS = 650;
 
 const DEFAULT_FILTERS: AnalysisFilters = {
   includeBonus: false,
@@ -64,6 +65,11 @@ function shouldPreserveOrigin(target?: CombinationReturnTarget) {
     || target === 'my-numbers'
     || target === 'random-draw'
     || target === 'statistics';
+}
+
+async function waitForGeneratedTransition(startedAt: number) {
+  const remaining = GENERATED_ANALYSIS_MIN_TRANSITION_MS - (Date.now() - startedAt);
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
 export function CombinationScreen() {
@@ -140,11 +146,13 @@ export function CombinationScreen() {
 
   const authorizeAndExecute = useCallback(async () => {
     if (selectedNumbers.length !== 6 || isAuthorizing) return;
+    const transitionStartedAt = Date.now();
     setAuthorizing(true);
     setAnalysisAccessRequired(false);
     setAccessMessage(null);
     try {
       const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
+      if (analyzeToken) await waitForGeneratedTransition(transitionStartedAt);
       if (!isAnalysisAuthorized(authorization.decision)) {
         setAnalysisAccessRequired(true);
         if (!analyzeToken) setAccessGateVisible(true);

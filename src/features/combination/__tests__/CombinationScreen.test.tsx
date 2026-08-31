@@ -131,6 +131,7 @@ describe('CombinationScreen', () => {
 
     await waitFor(() => expect(mockAuthorizeAnalysis).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
+    expect(screen.getAllByTestId(/animated-combination-number-/)).toHaveLength(6);
     expect(screen.queryByTestId('combination-number-grid')).toBeNull();
     await screen.unmount();
   });
@@ -155,7 +156,7 @@ describe('CombinationScreen', () => {
       </CombinationDraftProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('조합 분석')).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: '새 조합 분석' })).toBeTruthy());
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: '새 조합 분석' }));
     });
@@ -212,8 +213,8 @@ describe('CombinationScreen', () => {
       </CombinationDraftProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('조합 분석')).toBeTruthy());
-    fireEvent.press(screen.getByRole('button', { name: '비교할 조합 추가' }));
+    const compareButton = await waitFor(() => screen.getByRole('button', { name: '비교할 조합 추가' }));
+    fireEvent.press(compareButton);
     expect(mockOpenPaywall).toHaveBeenCalledWith('combination-comparison');
   });
 
