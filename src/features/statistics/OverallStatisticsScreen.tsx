@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
@@ -97,36 +98,133 @@ function SelectedDetail({ item }: { item: OverallDistributionItem | undefined })
   );
 }
 
+type ChartDatum = {
+  key: string;
+  label: string;
+  percentage: number;
+  rawCount: number;
+  tooltipLabel: string;
+  value: number;
+};
+
+const CHART_TOOLTIP_WIDTH = 104;
+
+function tooltipShift(index: number, itemCount: number, width: number) {
+  if (!width || !itemCount) return 0;
+  const slotWidth = width / itemCount;
+  const centeredLeft = ((index + 0.5) * slotWidth) - (CHART_TOOLTIP_WIDTH / 2);
+  const clampedLeft = Math.max(4, Math.min(centeredLeft, width - CHART_TOOLTIP_WIDTH - 4));
+  return centeredLeft - clampedLeft;
+}
+
+function ChartAxisLabel({ label, selected, slotWidth }: { label: string; selected: boolean; slotWidth: number }) {
+  const styles = useThemedStyles(createStyles);
+  if (!label) return null;
+  return (
+    <View style={[styles.giftedAxisLabelSlot, { transform: [{ translateX: -((40 - slotWidth) / 2) }] }]}>
+      <Text style={[styles.giftedAxisLabel, selected && styles.giftedAxisLabelSelected]}>{label}</Text>
+    </View>
+  );
+}
+
+function ChartTooltip({ item }: { item: ChartDatum }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View pointerEvents="none" style={styles.chartTooltip}>
+      <Text numberOfLines={1} style={styles.chartTooltipLabel}>{item.tooltipLabel}</Text>
+      <Text numberOfLines={1} style={styles.chartTooltipValue}>
+        {item.rawCount.toLocaleString()}회 · {item.percentage.toFixed(1)}%
+      </Text>
+    </View>
+  );
+}
+
+function useChartWidth() {
+  const [width, setWidth] = useState(0);
+  const onLayout = (event: LayoutChangeEvent) => {
+    const nextWidth = Math.floor(event.nativeEvent.layout.width);
+    if (nextWidth > 0 && nextWidth !== width) setWidth(nextWidth);
+  };
+  return { onLayout, width };
+}
+
 function VerticalChart({ items }: { items: readonly OverallDistributionItem[] }) {
   const styles = useThemedStyles(createStyles);
   const maxCount = Math.max(1, ...items.map((item) => item.count));
   const top = topItem(items);
   const [selectedKey, setSelectedKey] = useState<string | undefined>(top?.key);
   const selected = items.find((item) => item.key === selectedKey) ?? top;
+  const selectedIndex = Math.max(0, items.findIndex((item) => item.key === selected?.key));
   const labelEvery = items.length > 14 ? Math.ceil(items.length / 6) : 1;
+  const { onLayout, width } = useChartWidth();
+  const data = items.map(
+    (item, index): ChartDatum & {
+      frontColor: string;
+      labelComponent: () => React.ReactNode;
+      leftShiftForTooltip: number;
+      onPress: () => void;
+    } => {
+      const highlighted = item.key === selected?.key;
+      const axisLabel = labelEvery === 1 || index % labelEvery === 0 || index === items.length - 1 || item.key === top?.key
+        ? compactAxisLabel(item.label)
+        : '';
+      return {
+        key: item.key,
+        label: '',
+        labelComponent: () => <ChartAxisLabel label={axisLabel} selected={highlighted} slotWidth={width / items.length} />,
+        leftShiftForTooltip: tooltipShift(index, items.length, width),
+        percentage: item.percentage,
+        rawCount: item.count,
+        tooltipLabel: item.label,
+        value: item.count,
+        frontColor: highlighted ? styles.chartAccent.color : styles.chartBar.color,
+        onPress: () => setSelectedKey(item.key),
+      };
+    },
+  );
   return (
     <>
-      <View style={styles.verticalChart}>
-        {items.map((item, index) => {
-          const highlighted = item.key === selected?.key;
-          const showLabel = labelEvery === 1 || index % labelEvery === 0 || index === items.length - 1 || item.key === top?.key;
-          return (
-            <Pressable
-              accessibilityLabel={`${item.label}, ${item.count}회, ${item.percentage.toFixed(1)}%`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: highlighted }}
-              hitSlop={3}
-              key={item.key}
-              onPress={() => setSelectedKey(item.key)}
-              style={styles.verticalColumn}>
-              <View style={styles.verticalBarArea}>
-                {highlighted ? <Text style={styles.verticalCount}>{item.count}</Text> : null}
-                <View style={[styles.verticalBar, { height: `${Math.max(item.count ? 5 : 0, (item.count / maxCount) * 100)}%` }, highlighted && styles.verticalBarTop]} />
-              </View>
-              <Text style={[styles.verticalLabel, highlighted && styles.verticalLabelTop]}>{showLabel ? compactAxisLabel(item.label) : ''}</Text>
-            </Pressable>
-          );
-        })}
+      <View
+        accessibilityLabel={`${selected?.label ?? ''}, ${selected?.count ?? 0}회 선택됨. 막대를 누르면 상세 수치가 표시됩니다.`}
+        onLayout={onLayout}
+        style={styles.giftedChartFrame}>
+        {width > 0 ? (
+          <BarChart
+            adjustToWidth
+            animationDuration={420}
+            autoCenterTooltip
+            backgroundColor="transparent"
+            barBorderTopLeftRadius={4}
+            barBorderTopRightRadius={4}
+            data={data}
+            disableScroll
+            endSpacing={0}
+            focusBarOnPress
+            focusedBarConfig={{ color: styles.chartAccent.color }}
+            focusedBarIndex={selectedIndex}
+            frontColor={styles.chartBar.color}
+            height={150}
+            hideRules
+            hideYAxisText
+            initialSpacing={0}
+            isAnimated
+            labelsDistanceFromXaxis={6}
+            labelsExtraHeight={24}
+            lowlightOpacity={0.76}
+            maxValue={maxCount * 1.08}
+            noOfSections={4}
+            overflowTop={56}
+            parentWidth={width}
+            renderTooltip={(item: ChartDatum) => <ChartTooltip item={item} />}
+            width={width}
+            xAxisColor={styles.chartAxis.color}
+            xAxisLabelTextStyle={styles.giftedAxisLabel}
+            xAxisTextNumberOfLines={1}
+            xAxisThickness={StyleSheet.hairlineWidth}
+            yAxisLabelWidth={0}
+            yAxisThickness={0}
+          />
+        ) : null}
       </View>
       <SelectedDetail item={selected} />
     </>
@@ -248,6 +346,38 @@ function NumberFrequency({ statistics }: { statistics: OverallStatistics }) {
   const [selectedNumber, setSelectedNumber] = useState(topNumber);
   const selectedFrequency = statistics.numberFrequencies.find((item) => item.number === selectedNumber)
     ?? statistics.topNumbers[0];
+  const selectedIndex = Math.max(0, statistics.numberFrequencies.findIndex((item) => item.number === selectedFrequency?.number));
+  const { onLayout, width } = useChartWidth();
+  const yAxisOffset = Math.max(0, minCount - Math.max(8, Math.ceil(visibleRange * 0.18)));
+  const data = statistics.numberFrequencies.map(
+    (item, index): ChartDatum & {
+      frontColor: string;
+      labelComponent: () => React.ReactNode;
+      leftShiftForTooltip: number;
+      onPress: () => void;
+    } => {
+      const highlighted = item.number === selectedFrequency?.number;
+      const axisLabel = item.number === 1 || item.number % 5 === 0 ? String(item.number) : '';
+      return {
+        key: String(item.number),
+        label: '',
+        labelComponent: () => (
+          <ChartAxisLabel
+            label={axisLabel}
+            selected={highlighted}
+            slotWidth={width / statistics.numberFrequencies.length}
+          />
+        ),
+        leftShiftForTooltip: tooltipShift(index, statistics.numberFrequencies.length, width),
+        percentage: item.percentage,
+        rawCount: item.count,
+        tooltipLabel: `${item.number}번`,
+        value: item.count,
+        frontColor: highlighted ? styles.chartAccent.color : styles.chartBar.color,
+        onPress: () => setSelectedNumber(item.number),
+      };
+    },
+  );
   return (
     <>
       <StatCard>
@@ -267,32 +397,58 @@ function NumberFrequency({ statistics }: { statistics: OverallStatistics }) {
           <Text style={styles.numberRangeLabel}>출현 차이 확대</Text>
           <Text style={styles.numberRangeValue}>최저 {minCount.toLocaleString()}회 · 최고 {maxCount.toLocaleString()}회</Text>
         </View>
-        <View style={styles.numberChart}>
-          {statistics.numberFrequencies.map((item) => {
-            const highlighted = item.number === selectedFrequency?.number;
-            const normalizedHeight = 18 + (((item.count - minCount) / visibleRange) * 82);
-            return (
-              <Pressable
-                accessibilityLabel={`${item.number}번, ${item.count}회, ${item.percentage.toFixed(1)}%`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: highlighted }}
-                hitSlop={3}
-                key={item.number}
-                onPress={() => setSelectedNumber(item.number)}
-                style={styles.numberColumn}>
-                <View style={styles.numberBarArea}>
-                  <View style={[styles.numberBar, { height: `${normalizedHeight}%` }, highlighted && styles.numberBarTop]} />
-                </View>
-                <Text style={[styles.numberAxisLabel, highlighted && styles.numberAxisLabelTop]}>
-                  {item.number === 1 || item.number % 5 === 0 ? item.number : ''}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View
+          accessibilityLabel={`${selectedFrequency?.number ?? ''}번, ${selectedFrequency?.count ?? 0}회 선택됨. 막대를 누르면 상세 수치가 표시됩니다.`}
+          onLayout={onLayout}
+          style={styles.numberGiftedChartFrame}>
+          {width > 0 ? (
+            <BarChart
+              adjustToWidth
+              animationDuration={460}
+              autoCenterTooltip
+              backgroundColor="transparent"
+              barBorderTopLeftRadius={3}
+              barBorderTopRightRadius={3}
+              data={data}
+              disableScroll
+              endSpacing={0}
+              focusBarOnPress
+              focusedBarConfig={{ color: styles.chartAccent.color }}
+              focusedBarIndex={selectedIndex}
+              frontColor={styles.chartBar.color}
+              height={174}
+              hideRules
+              hideYAxisText
+              initialSpacing={0}
+              isAnimated
+              labelsDistanceFromXaxis={6}
+              labelsExtraHeight={24}
+              lowlightOpacity={0.76}
+              maxValue={(maxCount - yAxisOffset) * 1.04}
+              noOfSections={4}
+              overflowTop={56}
+              parentWidth={width}
+              renderTooltip={(item: ChartDatum) => <ChartTooltip item={item} />}
+              width={width}
+              xAxisColor={styles.chartAxis.color}
+              xAxisLabelTextStyle={styles.giftedAxisLabel}
+              xAxisTextNumberOfLines={1}
+              xAxisThickness={StyleSheet.hairlineWidth}
+              yAxisLabelWidth={0}
+              yAxisOffset={yAxisOffset}
+              yAxisThickness={0}
+            />
+          ) : null}
         </View>
         {selectedFrequency ? (
-          <View accessibilityLiveRegion="polite" style={styles.selectedDetail}>
-            <Text style={styles.selectedDetailLabel}>{selectedFrequency.number}번</Text>
+          <View accessibilityLiveRegion="polite" style={styles.numberSelectedDetail}>
+            <View style={styles.selectedNumberCircle}>
+              <Text style={styles.selectedNumberCircleText}>{selectedFrequency.number}</Text>
+            </View>
+            <View style={styles.selectedNumberCopy}>
+              <Text style={styles.selectedDetailLabel}>{selectedFrequency.number}번</Text>
+              <Text style={styles.selectedNumberCaption}>선택한 막대의 상세 수치</Text>
+            </View>
             <Text style={styles.selectedDetailValue}>{selectedFrequency.count.toLocaleString()}회 · {selectedFrequency.percentage.toFixed(1)}%</Text>
           </View>
         ) : null}
@@ -548,14 +704,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   choiceSelected: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentBorder },
   choiceText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
   choiceTextSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
-  verticalChart: { height: 190, marginTop: spacing.xl, flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-  verticalColumn: { flex: 1, height: '100%', alignItems: 'center' },
-  verticalBarArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
-  verticalBar: { width: '62%', minWidth: 3, maxWidth: 24, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: colors.textTertiary },
-  verticalBarTop: { backgroundColor: colors.accentPrimary },
-  verticalCount: { position: 'absolute', top: 0, color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
-  verticalLabel: { width: 48, minHeight: 12, marginTop: spacing.sm, color: colors.textTertiary, fontSize: 8, textAlign: 'center', fontVariant: ['tabular-nums'] },
-  verticalLabelTop: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
+  chartBar: { color: colors.textTertiary },
+  chartAccent: { color: colors.accentPrimary },
+  chartAxis: { color: colors.borderStrong },
+  giftedChartFrame: { minHeight: 280, marginTop: spacing.lg, overflow: 'visible' },
+  numberGiftedChartFrame: { minHeight: 280, marginTop: spacing.xs, marginBottom: -52, overflow: 'visible' },
+  giftedAxisLabelSlot: { width: 40, alignItems: 'center', overflow: 'visible' },
+  giftedAxisLabel: { width: 40, color: colors.textTertiary, fontSize: 8, lineHeight: 11, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  giftedAxisLabelSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
+  chartTooltip: { width: CHART_TOOLTIP_WIDTH, paddingHorizontal: spacing.sm, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surfaceElevated, boxShadow: colors.cardShadow, elevation: 5 },
+  chartTooltipLabel: { color: colors.textPrimary, fontSize: 10, fontWeight: typography.weights.bold, textAlign: 'center' },
+  chartTooltipValue: { marginTop: 2, color: colors.textSecondary, fontSize: 9, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'] },
   horizontalChart: { marginTop: spacing.xl, gap: spacing.md },
   horizontalRow: { gap: 5 },
   horizontalLabels: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
@@ -568,6 +727,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   selectedDetail: { minHeight: 42, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
   selectedDetailLabel: { flex: 1, color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   selectedDetailValue: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  numberSelectedDetail: { minHeight: 56, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
+  selectedNumberCircle: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.accentPrimary },
+  selectedNumberCircleText: { color: '#FFFFFF', fontSize: 11, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  selectedNumberCopy: { flex: 1, gap: 2 },
+  selectedNumberCaption: { color: colors.textTertiary, fontSize: 9 },
   patternChart: { marginTop: spacing.xl, gap: spacing.xl },
   patternRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   patternIdentity: { width: 150, gap: spacing.sm },
@@ -587,13 +751,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberRangeRow: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   numberRangeLabel: { color: colors.accentPrimary, fontSize: 10, fontWeight: typography.weights.bold },
   numberRangeValue: { color: colors.textTertiary, fontSize: 10, fontVariant: ['tabular-nums'] },
-  numberChart: { height: 190, marginTop: spacing.md, flexDirection: 'row', alignItems: 'flex-end', gap: 1 },
-  numberColumn: { flex: 1, height: '100%', alignItems: 'center' },
-  numberBarArea: { flex: 1, width: '100%', justifyContent: 'flex-end', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
-  numberBar: { width: '100%', minHeight: 2, borderTopLeftRadius: 2, borderTopRightRadius: 2, backgroundColor: colors.textTertiary },
-  numberBarTop: { backgroundColor: colors.accentPrimary },
-  numberAxisLabel: { width: 18, marginTop: spacing.sm, color: colors.textTertiary, fontSize: 8, textAlign: 'center', fontVariant: ['tabular-nums'] },
-  numberAxisLabelTop: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
   topNumberGrid: { marginTop: spacing.lg, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   topNumberItem: { width: '31.5%', minHeight: 138, padding: spacing.sm, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
   topNumberItemFirst: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentBorder },
