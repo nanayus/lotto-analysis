@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getPublishedArticles, type LottoArticle } from './articles';
 
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 function ArticleCard({ article, featured = false }: { article: LottoArticle; featured?: boolean }) {
@@ -50,6 +51,7 @@ function ArticleCard({ article, featured = false }: { article: LottoArticle; fea
 
 export function ContentHomeScreen() {
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
   const articles = getPublishedArticles();
   const featuredArticle = articles.find((article) => article.featured) ?? articles[0];
   const remainingArticles = articles.filter((article) => article.slug !== featuredArticle?.slug);
@@ -57,7 +59,10 @@ export function ContentHomeScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <Text style={styles.eyebrow}>LOTTO JOURNAL</Text>
           <Text aria-level={1} role="heading" style={styles.title}>콘텐츠</Text>
           <Text style={styles.description}>로또 데이터와 번호를 더 재미있게 읽는 이야기를 전합니다.</Text>

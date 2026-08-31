@@ -1,15 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
-import { ColorValue, Platform, StyleSheet, View, ViewStyle } from 'react-native';
+import { Animated, ColorValue, Easing, Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
+import {
+  TabBarVisibilityProvider,
+  useTabBarVisibility,
+} from '@/navigation/tabBarVisibility';
 
 const TAB_BAR_CONTENT_HEIGHT = 56;
 const TAB_TRANSITION_DURATION_MS = 180;
+const TAB_BAR_VISIBILITY_DURATION_MS = 200;
 
 type TabIconProps = {
   color: ColorValue;
@@ -62,22 +67,48 @@ function TabBarButton({ children, style, ...props }: BottomTabBarButtonProps) {
   );
 }
 
-export default function TabsLayout() {
+function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const { hidden, show } = useTabBarVisibility();
+  const [hiddenProgress] = useState(() => new Animated.Value(0));
+  const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + insets.bottom;
+
+  useEffect(() => {
+    Animated.timing(hiddenProgress, {
+      duration: TAB_BAR_VISIBILITY_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      toValue: hidden ? 1 : 0,
+      useNativeDriver: false,
+    }).start();
+  }, [hidden, hiddenProgress]);
 
   return (
     <Tabs
+      screenListeners={{
+        focus: show,
+        state: show,
+      }}
       screenOptions={{
         animation: 'fade',
+        sceneStyle: { backgroundColor: colors.background },
         headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.neutral,
         tabBarLabelStyle: styles.tabLabel,
         tabBarStyle: [
           styles.tabBar,
-          { height: TAB_BAR_CONTENT_HEIGHT + insets.bottom },
+          {
+            height: hiddenProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [tabBarHeight, 0],
+            }),
+            opacity: hiddenProgress.interpolate({
+              inputRange: [0, 0.75, 1],
+              outputRange: [1, 0, 0],
+            }),
+          },
           Platform.OS === 'web' && styles.tabBarWeb,
         ],
         tabBarItemStyle: styles.tabItem,
@@ -141,6 +172,14 @@ export default function TabsLayout() {
   );
 }
 
+export default function TabsLayout() {
+  return (
+    <TabBarVisibilityProvider>
+      <TabsNavigator />
+    </TabBarVisibilityProvider>
+  );
+}
+
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
     backgroundColor: colors.surface,
@@ -148,6 +187,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     boxShadow: 'none',
     elevation: 0,
+    overflow: 'hidden',
   },
   tabBarWeb: {
     width: '100%',

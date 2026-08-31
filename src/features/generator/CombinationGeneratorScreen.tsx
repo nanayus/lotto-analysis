@@ -28,6 +28,7 @@ import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNa
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import {
@@ -83,6 +84,7 @@ export function CombinationGeneratorScreen({
 }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
   const { state: monetizationState } = useMonetization();
@@ -325,7 +327,10 @@ export function CombinationGeneratorScreen({
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View>
               <Text style={styles.eyebrow}>CONDITION RANDOMIZER</Text>

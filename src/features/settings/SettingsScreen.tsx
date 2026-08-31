@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { AccountSettingsSection } from './AccountSettingsSection';
 import { MonetizationSettingsSection } from '@/features/monetization/MonetizationSettingsSection';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 
 import {
   type ThemeColors,
@@ -33,6 +34,7 @@ function openExternalUrl(url: string) {
 export function SettingsScreen() {
   const { mode, setMode } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
   const [displaySheetVisible, setDisplaySheetVisible] = useState(false);
   const activeDisplayLabel = DISPLAY_OPTIONS.find((option) => option.value === mode)?.label;
   const version = Constants.expoConfig?.version ?? '정보 없음';
@@ -46,7 +48,10 @@ export function SettingsScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.eyebrow}>PREFERENCES</Text>
             <Text style={styles.title}>환경설정</Text>

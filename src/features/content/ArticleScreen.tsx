@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getArticleBySlug } from './articles';
 
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 function firstParam(value: string | string[] | undefined) {
@@ -16,6 +17,7 @@ export function ArticleScreen() {
   const { slug } = useLocalSearchParams<{ slug?: string | string[] }>();
   const article = getArticleBySlug(firstParam(slug));
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
 
   if (!article) {
     return (
@@ -40,7 +42,10 @@ export function ArticleScreen() {
           <Text style={styles.topBarTitle}>콘텐츠</Text>
           <View style={styles.topBarSpacer} />
         </View>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.metaRow}>
             <Text style={styles.category}>{article.category}</Text>
             <Text style={styles.meta}>{article.publishedLabel} · {article.readingMinutes}분</Text>

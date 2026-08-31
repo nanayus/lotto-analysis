@@ -14,6 +14,7 @@ import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNa
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 import { LibraryStatusActions } from './components/LibraryStatusActions';
@@ -37,6 +38,7 @@ function formatSavedDate(value: string) {
 export function MyNumbersScreen() {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
   const { width } = useWindowDimensions();
   const useStackedAnalysisAction = width < 430;
   const { addCombination, combinations, isReady, toggleFavorite, togglePurchased } = useNumberLibrary();
@@ -130,7 +132,10 @@ export function MyNumbersScreen() {
           })}
         </View>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           {!isReady ? (
             <Text style={styles.loading}>저장된 번호를 불러오고 있어요.</Text>
           ) : visibleItems.length ? (

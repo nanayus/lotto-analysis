@@ -4,16 +4,21 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 export function StatisticsHubScreen() {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <Text style={styles.eyebrow}>DATA LIBRARY</Text>
           <Text style={styles.title}>통계보기</Text>
           <Text style={styles.description}>과거 당첨 데이터를 원하는 관점으로 살펴보세요.</Text>

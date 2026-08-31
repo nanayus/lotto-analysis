@@ -29,6 +29,7 @@ import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNa
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { fillCombinationRandomly } from '@/features/combination/randomFill';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import {
   type ThemeColors,
   radius,
@@ -64,6 +65,7 @@ export function RandomDrawScreen({
 }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
   const [displayNumbers, setDisplayNumbers] = useState(() => fillCombinationRandomly([]));
@@ -165,7 +167,10 @@ export function RandomDrawScreen({
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <SubScreenBackButton
               accessibilityLabel="번호뽑기로 돌아가기"

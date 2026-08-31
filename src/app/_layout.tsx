@@ -188,6 +188,7 @@ function ThemedApp() {
                       screenOptions={{
                         animation: STACK_ANIMATION,
                         animationDuration: STACK_ANIMATION_DURATION_MS,
+                        contentStyle: { backgroundColor: colors.background },
                         headerShown: false,
                       }}
                     />

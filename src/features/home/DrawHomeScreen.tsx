@@ -5,12 +5,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 const GAME_COUNTS = [1, 3, 5] as const;
 
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
+  const tabBarScrollProps = useAutoHideTabBar();
   const { state: monetizationState } = useMonetization();
   const [gameCount, setGameCount] = useState<(typeof GAME_COUNTS)[number]>(1);
   const aiAccess = monetizationState.status === 'ready'
@@ -40,7 +42,10 @@ export function DrawHomeScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          {...tabBarScrollProps}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View>
               <Text style={styles.eyebrow}>LOTTO DATA EXPLORER</Text>
