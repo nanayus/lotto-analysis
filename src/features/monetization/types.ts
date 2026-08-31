@@ -1,5 +1,6 @@
 export type MonetizationAccessState = {
   bonusAnalysisCredits: number;
+  canApplyReferralCode: boolean;
   inviteCode: string;
   isPro: boolean;
   nextWeeklyResetAt: string;
@@ -25,4 +26,3 @@ export type AnalysisAuthorization = {
 export function isAnalysisAuthorized(decision: AnalysisAuthorizationDecision) {
   return decision !== 'REWARD_OR_PRO_REQUIRED';
 }
-

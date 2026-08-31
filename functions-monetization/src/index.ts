@@ -32,6 +32,7 @@ type MonetizationProfile = {
 
 type AccessState = {
   bonusAnalysisCredits: number;
+  canApplyReferralCode: boolean;
   inviteCode: string;
   isPro: boolean;
   nextWeeklyResetAt: string;
@@ -130,10 +131,11 @@ function persistProfile(transaction: Transaction, read: ProfileRead, uid: string
   transaction.set(read.inviteReference, { uid }, { merge: true });
 }
 
-function toAccessState(profile: MonetizationProfile, now: Date): AccessState {
+function toAccessState(profile: MonetizationProfile, now: Date, hasReferral: boolean): AccessState {
   const proExpiresAt = profile.proExpiresAt?.toDate() ?? null;
   return {
     bonusAnalysisCredits: profile.bonusCredits,
+    canApplyReferralCode: profile.analysisUnlockCount === 0 && !hasReferral,
     inviteCode: profile.inviteCode,
     isPro: Boolean(proExpiresAt && proExpiresAt.getTime() > now.getTime()),
     nextWeeklyResetAt: kstCycle(now).nextResetAt.toISOString(),
@@ -163,11 +165,15 @@ function normalizedDataVersion(value: unknown) {
 export const getMonetizationAccessState = onCall({ region: REGION }, async (request) => {
   const uid = requireUid(request.auth);
   const database = getFirestore();
+  const referralReference = database.doc(`referrals/${uid}`);
   const now = new Date();
   return database.runTransaction(async (transaction) => {
-    const read = await readProfile(transaction, uid, now);
+    const [read, referralSnapshot] = await Promise.all([
+      readProfile(transaction, uid, now),
+      transaction.get(referralReference),
+    ]);
     persistProfile(transaction, read, uid);
-    return toAccessState(read.profile, now);
+    return toAccessState(read.profile, now, referralSnapshot.exists);
   });
 });
 
@@ -194,13 +200,13 @@ export const authorizeCombinationAnalysis = onCall({ region: REGION }, async (re
     if (unlockSnapshot.exists) {
       persistProfile(transaction, profileRead, uid);
       return {
-        accessState: toAccessState(profileRead.profile, now),
+        accessState: toAccessState(profileRead.profile, now, referralSnapshot.exists),
         combinationKey,
         decision: 'UNLOCKED_EXISTING' as const,
       };
     }
 
-    const isPro = toAccessState(profileRead.profile, now).isPro;
+    const isPro = toAccessState(profileRead.profile, now, referralSnapshot.exists).isPro;
     let source: 'PRO' | 'WEEKLY_FREE' | 'BONUS_CREDIT' | null = null;
     if (isPro) {
       source = 'PRO';
@@ -215,7 +221,7 @@ export const authorizeCombinationAnalysis = onCall({ region: REGION }, async (re
     if (!source) {
       persistProfile(transaction, profileRead, uid);
       return {
-        accessState: toAccessState(profileRead.profile, now),
+        accessState: toAccessState(profileRead.profile, now, referralSnapshot.exists),
         combinationKey,
         decision: 'REWARD_OR_PRO_REQUIRED' as const,
       };
@@ -265,7 +271,7 @@ export const authorizeCombinationAnalysis = onCall({ region: REGION }, async (re
       unlockedAt: Timestamp.fromDate(now),
     });
     return {
-      accessState: toAccessState(profileRead.profile, now),
+      accessState: toAccessState(profileRead.profile, now, referralSnapshot.exists),
       combinationKey,
       decision: source === 'PRO'
         ? 'AUTHORIZED_PRO' as const

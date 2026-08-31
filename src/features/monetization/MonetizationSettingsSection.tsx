@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useMemo, useState } from 'react';
 
 import { useAuth } from '@/features/auth/AuthContext';
@@ -22,10 +22,8 @@ function resetLabel(value: string) {
 export function MonetizationSettingsSection() {
   const styles = useThemedStyles(createStyles);
   const { state: authState } = useAuth();
-  const { applyReferral, openPaywall, refresh, state } = useMonetization();
-  const [referralCode, setReferralCode] = useState('');
+  const { openPaywall, refresh, state } = useMonetization();
   const [referralMessage, setReferralMessage] = useState<string | null>(null);
-  const [isApplying, setApplying] = useState(false);
   const access = state.status === 'ready' ? state.access : null;
   const availableCount = useMemo(() => access
     ? access.bonusAnalysisCredits + (access.weeklyFreeAvailable ? 1 : 0)
@@ -37,21 +35,6 @@ export function MonetizationSettingsSection() {
       message: `Lotto Insight에서 과거 조합을 분석해 보세요. 초대 코드 ${access.inviteCode}\nhttps://lotto.wondly.net/?ref=${access.inviteCode}`,
       title: 'Lotto Insight 친구 초대',
     }).catch(() => setReferralMessage(`초대 코드 ${access.inviteCode}를 친구에게 알려주세요.`));
-  };
-
-  const submitReferral = async () => {
-    if (!referralCode.trim()) return;
-    setApplying(true);
-    setReferralMessage(null);
-    try {
-      await applyReferral(referralCode);
-      setReferralCode('');
-      setReferralMessage('초대 코드가 적용됐어요. 첫 분석을 완료하면 보상이 지급됩니다.');
-    } catch (error) {
-      setReferralMessage((error as Error).message);
-    } finally {
-      setApplying(false);
-    }
   };
 
   return (
@@ -137,29 +120,6 @@ export function MonetizationSettingsSection() {
               <Text style={styles.shareButtonText}>초대하기</Text>
             </Pressable>
           </View>
-          <View style={styles.applyRow}>
-            <TextInput
-              accessibilityLabel="친구 초대 코드"
-              autoCapitalize="characters"
-              maxLength={8}
-              onChangeText={setReferralCode}
-              placeholder="받은 초대 코드"
-              placeholderTextColor={styles.placeholder.color}
-              style={styles.codeInput}
-              value={referralCode}
-            />
-            <Pressable
-              accessibilityRole="button"
-              disabled={isApplying || referralCode.trim().length !== 8}
-              onPress={() => void submitReferral()}
-              style={({ pressed }) => [
-                styles.applyButton,
-                (isApplying || referralCode.trim().length !== 8) && styles.applyButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isApplying ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.applyButtonText}>적용</Text>}
-            </Pressable>
-          </View>
           {referralMessage ? (
             <Text accessibilityLiveRegion="polite" style={styles.referralMessage}>{referralMessage}</Text>
           ) : null}
@@ -202,12 +162,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   codeText: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.bold, letterSpacing: 2 },
   shareButton: { height: 42, paddingHorizontal: spacing.md, borderRadius: radius.round, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.accentPrimary },
   shareButtonText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  applyRow: { marginTop: spacing.sm, flexDirection: 'row', gap: spacing.sm },
-  codeInput: { flex: 1, height: 42, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.md, color: colors.textPrimary, backgroundColor: colors.background },
-  placeholder: { color: colors.textTertiary },
-  applyButton: { width: 62, height: 42, borderRadius: radius.round, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary },
-  applyButtonDisabled: { backgroundColor: colors.accentDisabled },
-  applyButtonText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   referralMessage: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
   pressed: { opacity: 0.72 },
 });

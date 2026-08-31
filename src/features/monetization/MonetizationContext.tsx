@@ -1,11 +1,16 @@
-import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 
 import { useAuth } from '@/features/auth/AuthContext';
 import { functions } from '@/features/auth/firebaseClient';
 
 import { ProPaywallModal } from './ProPaywallModal';
+import { ReferralCodeOnboardingModal } from './ReferralCodeOnboardingModal';
 import type { AnalysisAuthorization, MonetizationAccessState } from './types';
+
+export const REFERRAL_ONBOARDING_SEEN_KEY = 'lotto.referralOnboarding.seen.v1';
+export const REFERRAL_ONBOARDING_PENDING_KEY = 'lotto.referralOnboarding.pending.v1';
 
 type MonetizationState =
   | { status: 'guest' }
@@ -29,6 +34,7 @@ const fallbackValue: MonetizationValue = {
   authorizeAnalysis: async (numbers) => ({
     accessState: {
       bonusAnalysisCredits: 0,
+      canApplyReferralCode: false,
       inviteCode: '',
       isPro: false,
       nextWeeklyResetAt: '',
@@ -66,10 +72,16 @@ function messageForError(error: unknown) {
 }
 
 export function MonetizationProvider({ children }: PropsWithChildren) {
-  const { state: authState } = useAuth();
+  const { openLogin, state: authState } = useAuth();
   const [state, setState] = useState<MonetizationState>({ status: 'guest' });
   const [isPaywallVisible, setPaywallVisible] = useState(false);
   const [paywallSource, setPaywallSource] = useState<string | null>(null);
+  const [isReferralPromptChecked, setReferralPromptChecked] = useState(false);
+  const [hasSeenReferralPrompt, setHasSeenReferralPrompt] = useState(false);
+  const [pendingReferralCode, setPendingReferralCode] = useState('');
+  const [referralPromptError, setReferralPromptError] = useState<string | null>(null);
+  const [isApplyingReferral, setApplyingReferral] = useState(false);
+  const referralApplicationInFlight = useRef(false);
 
   const refresh = useCallback(async () => {
     if (authState.status !== 'authenticated') {
@@ -126,11 +138,112 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     }
   }, [authState.status, refresh]);
 
+  const finishReferralOnboarding = useCallback(async () => {
+    setHasSeenReferralPrompt(true);
+    setPendingReferralCode('');
+    setReferralPromptError(null);
+    await Promise.all([
+      AsyncStorage.setItem(REFERRAL_ONBOARDING_SEEN_KEY, '1'),
+      AsyncStorage.removeItem(REFERRAL_ONBOARDING_PENDING_KEY),
+    ]).catch(() => undefined);
+  }, []);
+
+  const applyOnboardingReferral = useCallback(async (code: string) => {
+    if (referralApplicationInFlight.current) return;
+    referralApplicationInFlight.current = true;
+    setApplyingReferral(true);
+    setReferralPromptError(null);
+    try {
+      await applyReferral(code);
+      await finishReferralOnboarding();
+    } catch (error) {
+      setReferralPromptError((error as Error).message);
+    } finally {
+      referralApplicationInFlight.current = false;
+      setApplyingReferral(false);
+    }
+  }, [applyReferral, finishReferralOnboarding]);
+
+  const submitOnboardingReferral = useCallback((code: string) => {
+    const normalizedCode = code.trim().toUpperCase();
+    setPendingReferralCode(normalizedCode);
+    setReferralPromptError(null);
+    void AsyncStorage.setItem(REFERRAL_ONBOARDING_PENDING_KEY, normalizedCode).catch(() => undefined);
+    if (authState.status !== 'authenticated') {
+      openLogin();
+      return;
+    }
+    void applyOnboardingReferral(normalizedCode);
+  }, [applyOnboardingReferral, authState.status, openLogin]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      AsyncStorage.getItem(REFERRAL_ONBOARDING_SEEN_KEY),
+      AsyncStorage.getItem(REFERRAL_ONBOARDING_PENDING_KEY),
+    ]).then(([seen, pending]) => {
+      if (!active) return;
+      setHasSeenReferralPrompt(seen === '1');
+      setPendingReferralCode(pending ?? '');
+    }).catch(() => undefined).finally(() => {
+      if (active) setReferralPromptChecked(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isReferralPromptChecked || hasSeenReferralPrompt) return;
+    if (authState.status === 'guest') return;
+    if (authState.status !== 'authenticated' || state.status !== 'ready') return;
+    if (state.access.canApplyReferralCode) return;
+    queueMicrotask(() => void finishReferralOnboarding());
+  }, [
+    authState.status,
+    finishReferralOnboarding,
+    hasSeenReferralPrompt,
+    isReferralPromptChecked,
+    state,
+  ]);
+
+  useEffect(() => {
+    if (
+      !pendingReferralCode
+      || hasSeenReferralPrompt
+      || authState.status !== 'authenticated'
+      || state.status !== 'ready'
+    ) return;
+    if (!state.access.canApplyReferralCode) {
+      queueMicrotask(() => void finishReferralOnboarding());
+      return;
+    }
+    queueMicrotask(() => void applyOnboardingReferral(pendingReferralCode));
+  }, [
+    applyOnboardingReferral,
+    authState.status,
+    finishReferralOnboarding,
+    hasSeenReferralPrompt,
+    pendingReferralCode,
+    state,
+  ]);
+
   const openPaywall = useCallback((source?: string) => {
     setPaywallSource(source ?? null);
     setPaywallVisible(true);
   }, []);
   const closePaywall = useCallback(() => setPaywallVisible(false), []);
+  const isReferralPromptVisible = isReferralPromptChecked
+    && !hasSeenReferralPrompt
+    && (
+      authState.status === 'guest'
+      || pendingReferralCode.length > 0
+      || (
+        authState.status === 'authenticated'
+        && state.status === 'ready'
+        && state.access.canApplyReferralCode
+      )
+    );
 
   const value = useMemo<MonetizationValue>(() => ({
     applyReferral,
@@ -147,6 +260,14 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     <MonetizationContext.Provider value={value}>
       {children}
       <ProPaywallModal onClose={closePaywall} visible={isPaywallVisible} />
+      <ReferralCodeOnboardingModal
+        error={referralPromptError}
+        isApplying={isApplyingReferral}
+        onApply={submitOnboardingReferral}
+        onSkip={() => void finishReferralOnboarding()}
+        requiresLogin={authState.status !== 'authenticated'}
+        visible={isReferralPromptVisible}
+      />
     </MonetizationContext.Provider>
   );
 }
