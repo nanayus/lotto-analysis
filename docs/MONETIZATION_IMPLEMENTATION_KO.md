@@ -21,18 +21,20 @@
 
 다음 Functions가 추가됐다.
 
+수익모델 함수는 Apple 비밀키를 사용하는 계정삭제 함수와 독립적으로 배포할 수 있도록 Firebase `monetization` 코드베이스로 분리한다.
+
 ```text
 getMonetizationAccessState
 authorizeCombinationAnalysis
 applyReferralCode
 ```
 
-프로젝트의 Firebase 환경과 Apple 비밀 키를 설정한 뒤 기존 인증 함수와 함께 배포한다.
+수익모델 함수는 Apple 비밀 키 설정 전에도 독립적으로 배포할 수 있다.
 
 ```bash
-npm --prefix functions install
-npm --prefix functions run build
-firebase deploy --only functions,firestore:rules
+npm --prefix functions-monetization install
+npm --prefix functions-monetization run build
+firebase deploy --only functions:monetization
 ```
 
 분석권과 Pro 상태는 다음 서버 문서에서 관리한다.
@@ -99,4 +101,6 @@ npm run lint
 npm test -- --runInBand
 npm --prefix functions run lint
 npm --prefix functions run build
+npm --prefix functions-monetization run lint
+npm --prefix functions-monetization run build
 ```

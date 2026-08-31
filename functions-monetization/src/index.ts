@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
 
+import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp, type Transaction } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+
+initializeApp();
 
 const REGION = 'asia-northeast3';
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
