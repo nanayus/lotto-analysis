@@ -172,9 +172,35 @@ describe('CombinationScreen', () => {
       </CombinationDraftProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('이번 주 무료 분석을 모두 사용했어요')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('분석 이용권이 필요해요')).toBeTruthy());
     expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Pro 살펴보기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '광고 보고 이번 결과 보기, 연결 준비 중' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '다음에 하기' })).toBeTruthy();
+    expect(screen.queryByText('이용 방법 보기')).toBeNull();
+    expect(screen.queryByText('이번 주 무료 분석을 모두 사용했어요')).toBeNull();
     expect(screen.queryByTestId('result-section-prize')).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' }));
+    expect(mockOpenPaywall).toHaveBeenCalledWith('analysis-limit');
+  });
+
+  test('keeps the access modal for a direct manual analysis', async () => {
+    mockSearchParams.mockReturnValue({ returnTo: 'draw' });
+    mockIsPro = false;
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '분석하기' }));
+    });
+
+    await waitFor(() => expect(screen.getByText('이번 주 무료 분석을 모두 사용했어요')).toBeTruthy());
+    expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
   });
 
   test('opens Pro when a free user requests combination comparison', async () => {

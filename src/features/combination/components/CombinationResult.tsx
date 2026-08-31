@@ -12,6 +12,7 @@ import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
+import { CombinationNumberPills } from './CombinationNumberPills';
 
 type CombinationResultProps = {
   analysis: CombinationAnalysis;
@@ -45,19 +46,6 @@ const webTabStyle = Platform.select({
 
 function formatNumber(number: number) {
   return String(number).padStart(2, '0');
-}
-
-function NumberPills({ numbers }: { numbers: number[] }) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <View style={styles.numberPills}>
-      {numbers.map((number) => (
-        <View key={number} style={styles.numberPill}>
-          <Text style={styles.numberPillText}>{formatNumber(number)}</Text>
-        </View>
-      ))}
-    </View>
-  );
 }
 
 function SectionCard({ children, testID, title }: {
@@ -341,7 +329,7 @@ export function CombinationResult({
       </View>
 
       <AppCard style={styles.selectedProfile}>
-        <NumberPills numbers={analysis.numbers} />
+        <CombinationNumberPills numbers={analysis.numbers} />
         <Text style={styles.profileMeta}>
           <Text style={styles.profileMetaMuted}>최근 </Text>
           <Text style={styles.profileMetaStrong}>
@@ -574,28 +562,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.accentPrimary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
-  },
-  numberPills: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    width: '100%',
-  },
-  numberPill: {
-    width: '13%',
-    maxWidth: 48,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.round,
-    borderWidth: 1,
-    borderColor: colors.accentPrimary,
-    backgroundColor: colors.surfaceAccent,
-  },
-  numberPillText: {
-    color: colors.highlight,
-    fontSize: 18,
-    fontWeight: typography.weights.semibold,
   },
   profileMeta: {
     alignSelf: 'stretch',

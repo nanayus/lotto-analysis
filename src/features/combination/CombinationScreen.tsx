@@ -81,6 +81,7 @@ export function CombinationScreen() {
     returnTo?: string | string[];
     returnToken?: string | string[];
   }>();
+  const analyzeToken = latestParam(analyze);
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
   const { consumePendingIntent, openLogin, state: authState } = useAuth();
@@ -146,7 +147,7 @@ export function CombinationScreen() {
       const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
       if (!isAnalysisAuthorized(authorization.decision)) {
         setAnalysisAccessRequired(true);
-        setAccessGateVisible(true);
+        if (!analyzeToken) setAccessGateVisible(true);
         return;
       }
       executeAnalysis();
@@ -155,7 +156,7 @@ export function CombinationScreen() {
     } finally {
       setAuthorizing(false);
     }
-  }, [authorizeAnalysis, executeAnalysis, isAuthorizing, selectedNumbers]);
+  }, [analyzeToken, authorizeAnalysis, executeAnalysis, isAuthorizing, selectedNumbers]);
 
   const startAnalysis = useCallback(() => {
     if (authState.status === 'authenticated') {
@@ -167,7 +168,6 @@ export function CombinationScreen() {
     }
   }, [authState.status, authorizeAndExecute, openLogin]);
 
-  const analyzeToken = latestParam(analyze);
   const returnTarget = latestParam(returnTo) as CombinationReturnTarget | undefined;
   const returnGameCount = latestParam(returnCount);
   const returnSessionToken = latestParam(returnSession);
@@ -291,10 +291,6 @@ export function CombinationScreen() {
       openLogin('combination-analysis');
       return;
     }
-    if (generatedAnalysisPhase === 'access') {
-      setAccessGateVisible(true);
-      return;
-    }
     void authorizeAndExecute();
   }, [authorizeAndExecute, generatedAnalysisPhase, openLogin]);
 
@@ -309,6 +305,8 @@ export function CombinationScreen() {
               numbers={selectedNumbers}
               onBack={leaveCombination}
               onContinue={continueGeneratedAnalysis}
+              onLater={leaveCombination}
+              onOpenPro={() => openPaywall('analysis-limit')}
               phase={generatedAnalysisPhase}
             />
           ) : (
