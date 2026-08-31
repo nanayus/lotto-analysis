@@ -707,7 +707,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   chartBar: { color: colors.textTertiary },
   chartAccent: { color: colors.accentPrimary },
   chartAxis: { color: colors.borderStrong },
-  giftedChartFrame: { minHeight: 280, marginTop: spacing.lg, overflow: 'visible' },
+  giftedChartFrame: { minHeight: 280, marginTop: spacing.lg, marginBottom: -94, overflow: 'visible' },
   numberGiftedChartFrame: { minHeight: 280, marginTop: spacing.xs, marginBottom: -52, overflow: 'visible' },
   giftedAxisLabelSlot: { width: 40, alignItems: 'center', overflow: 'visible' },
   giftedAxisLabel: { width: 40, color: colors.textTertiary, fontSize: 8, lineHeight: 11, textAlign: 'center', fontVariant: ['tabular-nums'] },
