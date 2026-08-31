@@ -1,0 +1,107 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+
+import { AppButton } from '@/components/ui/AppButton';
+import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
+
+export type GeneratedAnalysisPhase = 'access' | 'error' | 'loading' | 'login';
+
+type GeneratedAnalysisTransitionProps = {
+  errorMessage?: string | null;
+  numbers: readonly number[];
+  onBack: () => void;
+  onContinue: () => void;
+  phase: GeneratedAnalysisPhase;
+};
+
+const COPY = {
+  access: {
+    description: '무료 분석 또는 분석권을 확인한 뒤 결과를 열 수 있어요.',
+    title: '분석 이용권이 필요해요',
+  },
+  error: {
+    description: '연결 상태를 확인하고 다시 시도해 주세요.',
+    title: '분석을 시작하지 못했어요',
+  },
+  loading: {
+    description: '로그인과 분석 이용 가능 횟수를 확인한 뒤 결과를 바로 열어요.',
+    title: '분석을 준비하고 있어요',
+  },
+  login: {
+    description: '로그인하면 분석 이용 가능 횟수를 확인하고 결과를 바로 열어요.',
+    title: '로그인이 필요해요',
+  },
+} as const;
+
+export function GeneratedAnalysisTransition({
+  errorMessage,
+  numbers,
+  onBack,
+  onContinue,
+  phase,
+}: GeneratedAnalysisTransitionProps) {
+  const styles = useThemedStyles(createStyles);
+  const copy = COPY[phase];
+  const actionLabel = phase === 'login'
+    ? '로그인하고 계속'
+    : phase === 'access'
+      ? '이용 방법 보기'
+      : '다시 시도';
+
+  return (
+    <View style={styles.root} testID="generated-analysis-transition">
+      <View style={styles.header}>
+        <SubScreenBackButton onPress={onBack} />
+        <Text style={styles.headerTitle}>조합 분석</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.statusIcon}>
+          {phase === 'loading' ? (
+            <ActivityIndicator color={styles.iconColor.color} size="small" />
+          ) : (
+            <Ionicons
+              color={styles.iconColor.color}
+              name={phase === 'error' ? 'alert-circle-outline' : phase === 'login' ? 'person-outline' : 'ticket-outline'}
+              size={25}
+            />
+          )}
+        </View>
+        <Text style={styles.eyebrow}>HISTORICAL ANALYSIS</Text>
+        <Text style={styles.title}>{copy.title}</Text>
+        <Text style={styles.description}>{errorMessage || copy.description}</Text>
+
+        <View accessibilityLabel={`분석할 번호 ${numbers.join(', ')}`} style={styles.numberRow}>
+          {numbers.map((number) => (
+            <View key={number} style={styles.numberChip}>
+              <Text style={styles.numberText}>{String(number).padStart(2, '0')}</Text>
+            </View>
+          ))}
+        </View>
+
+        {phase !== 'loading' ? (
+          <AppButton label={actionLabel} onPress={onContinue} style={styles.action} />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
+  header: { height: 68, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+  headerTitle: { flex: 1, color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, textAlign: 'center' },
+  headerSpacer: { width: 44, height: 44 },
+  content: { flex: 1, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'center', paddingBottom: 72 },
+  statusIcon: { width: 52, height: 52, marginBottom: spacing.lg, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAccent },
+  iconColor: { color: colors.accentPrimary },
+  eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.6 },
+  title: { marginTop: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold, textAlign: 'center' },
+  description: { maxWidth: 330, marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, textAlign: 'center' },
+  numberRow: { width: '100%', marginTop: spacing.xl, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.lg, flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.surface },
+  numberChip: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated },
+  numberText: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  action: { width: '100%', marginTop: spacing.xl },
+});

@@ -121,6 +121,32 @@ describe('CombinationScreen', () => {
     await waitFor(() => expect(mockOpenLogin).toHaveBeenCalledWith('combination-analysis'));
   });
 
+  test('skips the number selector while a generated combination is being authorized', async () => {
+    mockAuthorizeAnalysis.mockImplementationOnce(() => new Promise(() => undefined));
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(mockAuthorizeAnalysis).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
+    expect(screen.queryByTestId('combination-number-grid')).toBeNull();
+    await screen.unmount();
+  });
+
+  test('keeps the number selector for direct manual analysis', async () => {
+    mockSearchParams.mockReturnValue({ returnTo: 'draw' });
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    expect(screen.getByTestId('combination-number-grid')).toBeTruthy();
+    expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
+  });
+
   test('returns New analysis from a result to the Number Draw home', async () => {
     mockReplace.mockClear();
     const screen = await render(
@@ -147,7 +173,8 @@ describe('CombinationScreen', () => {
     );
 
     await waitFor(() => expect(screen.getByText('이번 주 무료 분석을 모두 사용했어요')).toBeTruthy());
-    expect(screen.queryByText('조합 분석')).toBeNull();
+    expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
+    expect(screen.queryByTestId('result-section-prize')).toBeNull();
   });
 
   test('opens Pro when a free user requests combination comparison', async () => {

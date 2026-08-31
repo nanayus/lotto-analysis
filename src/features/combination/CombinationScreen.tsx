@@ -13,6 +13,7 @@ import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { CombinationResult } from './components/CombinationResult';
 import { CombinationDetail } from './components/CombinationDetail';
+import { GeneratedAnalysisTransition, type GeneratedAnalysisPhase } from './components/GeneratedAnalysisTransition';
 import { NumberSelector } from './components/NumberSelector';
 import { useCombinationDraft } from './CombinationDraftContext';
 import { fillCombinationRandomly } from './randomFill';
@@ -97,6 +98,7 @@ export function CombinationScreen() {
   const [comparisonA, setComparisonA] = useState<CombinationAnalysis | null>(null);
   const [comparisonB, setComparisonB] = useState<CombinationAnalysis | null>(null);
   const [accessGateVisible, setAccessGateVisible] = useState(false);
+  const [analysisAccessRequired, setAnalysisAccessRequired] = useState(false);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const [isAuthorizing, setAuthorizing] = useState(false);
   const analysisStateRef = useRef<AnalysisState | null>(null);
@@ -138,10 +140,12 @@ export function CombinationScreen() {
   const authorizeAndExecute = useCallback(async () => {
     if (selectedNumbers.length !== 6 || isAuthorizing) return;
     setAuthorizing(true);
+    setAnalysisAccessRequired(false);
     setAccessMessage(null);
     try {
       const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
       if (!isAnalysisAuthorized(authorization.decision)) {
+        setAnalysisAccessRequired(true);
         setAccessGateVisible(true);
         return;
       }
@@ -274,29 +278,58 @@ export function CombinationScreen() {
     : authState.status === 'guest'
       ? '로그인 후 웰컴 3회'
       : monetizationState.status === 'loading' ? '이용 정보 확인 중' : undefined;
+  const generatedAnalysisPhase: GeneratedAnalysisPhase = accessMessage
+    ? 'error'
+    : analysisAccessRequired
+      ? 'access'
+      : authState.status === 'guest'
+        ? 'login'
+        : 'loading';
+
+  const continueGeneratedAnalysis = useCallback(() => {
+    if (generatedAnalysisPhase === 'login') {
+      openLogin('combination-analysis');
+      return;
+    }
+    if (generatedAnalysisPhase === 'access') {
+      setAccessGateVisible(true);
+      return;
+    }
+    void authorizeAndExecute();
+  }, [authorizeAndExecute, generatedAnalysisPhase, openLogin]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
       <View style={styles.container}>
         {mode.kind === 'select' || mode.kind === 'compareSelect' ? (
           <>{mode.kind === 'compareSelect' && comparisonA ? <View style={styles.compareBasis}><Text style={styles.compareLabel}>비교 기준 A</Text><Text style={styles.compareNumbers}>{comparisonA.numbers.map((n)=>String(n).padStart(2,'0')).join(' · ')}</Text></View> : null}
-          <NumberSelector
-            analysisAvailabilityLabel={analysisAvailabilityLabel}
-            analysisMessage={accessMessage}
-            onAnalyze={startAnalysis}
-            onBack={mode.kind === 'compareSelect' && comparisonA
-              ? () => {
-                setNumbers(comparisonA.numbers);
-                setComparisonB(null);
-                setMode({ kind: 'result' });
-              }
-              : leaveCombination}
-            excludedNumbers={activeExcludedNumbers}
-            isAnalyzing={isAuthorizing}
-            onRandomFill={() => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
-            onToggleNumber={handleToggleNumber}
-            selectedNumbers={selectedNumbers}
-          />
+          {mode.kind === 'select' && analyzeToken ? (
+            <GeneratedAnalysisTransition
+              errorMessage={accessMessage}
+              numbers={selectedNumbers}
+              onBack={leaveCombination}
+              onContinue={continueGeneratedAnalysis}
+              phase={generatedAnalysisPhase}
+            />
+          ) : (
+            <NumberSelector
+              analysisAvailabilityLabel={analysisAvailabilityLabel}
+              analysisMessage={accessMessage}
+              onAnalyze={startAnalysis}
+              onBack={mode.kind === 'compareSelect' && comparisonA
+                ? () => {
+                  setNumbers(comparisonA.numbers);
+                  setComparisonB(null);
+                  setMode({ kind: 'result' });
+                }
+                : leaveCombination}
+              excludedNumbers={activeExcludedNumbers}
+              isAnalyzing={isAuthorizing}
+              onRandomFill={() => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
+              onToggleNumber={handleToggleNumber}
+              selectedNumbers={selectedNumbers}
+            />
+          )}
           </>
         ) : mode.kind === 'comparison' && comparisonA && comparisonB && analysisState ? (
           <CombinationComparison a={comparisonA} b={comparisonB} bonusIncluded={analysisState.includeBonus} firstRound={firstRound} latestRound={latestRound} onBack={() => setMode({kind:'result'})} onBonusChange={changeBonus} onPeriodChange={changePeriod} period={analysisState.period}/>
