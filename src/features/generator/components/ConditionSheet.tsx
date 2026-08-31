@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -41,6 +42,7 @@ import type {
 } from '@/domain/generator/types';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
+import { CollapsibleConditionContent } from './CollapsibleConditionContent';
 import { ConditionInfoButton } from './ConditionInfoButton';
 import { ConditionToggle } from './ConditionToggle';
 import { RangeControl } from './RangeControl';
@@ -87,12 +89,16 @@ const MULTIPLE_SECTION_KEYS = {
   4: 'multiple4',
   5: 'multiple5',
 } as const satisfies Record<3 | 4 | 5, GeneratorSectionKey>;
+const MAX_VISIBLE_CONDITION_LABELS = 6;
 
 type ConditionSheetProps = {
+  applyAccess: 'checking' | 'guest' | 'pro' | 'ticket' | 'ticket-required';
   conditions: GeneratorConditions;
   history: readonly LottoHistoryDraw[];
   onApply: (conditions: GeneratorConditions) => void;
   onClose: () => void;
+  onRecommendationPromptDismiss?: () => void;
+  recommendationPromptVisible?: boolean;
   visible: boolean;
 };
 
@@ -105,6 +111,60 @@ type Option<T extends string | number> = {
 
 function toggleValue<T>(values: readonly T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
+export function activeConditionLabels(conditions: GeneratorConditions) {
+  return [
+    generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.fixedNumbers.length > 0 ? '고정수' : null,
+    generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.excludedNumbers.length > 0 ? '제외수' : null,
+    generatorSectionEnabled(conditions, 'sameEnding') && conditions.sameEndingPatterns.length > 0 ? '동끝수' : null,
+    conditions.standardDeviation.enabled ? '표준편차' : null,
+    conditions.sum.enabled ? '번호 합계' : null,
+    conditions.lastDigitSum.enabled ? '끝수 합계' : null,
+    generatorSectionEnabled(conditions, 'oddEven') && conditions.oddCounts.length > 0 ? '홀짝' : null,
+    generatorSectionEnabled(conditions, 'lowHigh') && conditions.highLowCounts.length > 0 ? '저고' : null,
+    generatorSectionEnabled(conditions, 'acValue') && conditions.acValues.length > 0 ? 'A/C' : null,
+    generatorSectionEnabled(conditions, 'primeCount') && conditions.primeCounts.length > 0 ? '소수' : null,
+    generatorSectionEnabled(conditions, 'squareCount') && conditions.squareCounts.length > 0 ? '완전제곱수' : null,
+    generatorSectionEnabled(conditions, 'compositeCount') && conditions.compositeCounts.length > 0 ? '합성수' : null,
+    generatorSectionEnabled(conditions, 'carryCount') && conditions.carry.allowed.length > 0 ? '이월수' : null,
+    generatorSectionEnabled(conditions, 'neighborCount') && conditions.neighbor.allowed.length > 0 ? '이웃수' : null,
+    generatorSectionEnabled(conditions, 'consecutivePattern') && conditions.consecutivePatterns.length > 0 ? '연번' : null,
+    ...GENERATOR_BAND_KEYS.map((band) => (
+      generatorSectionEnabled(conditions, BAND_SECTION_KEYS[band]) && conditions.bandCounts[band].length > 0
+        ? `${band} 번호대`
+        : null
+    )),
+    ...([3, 4, 5] as const).map((multiple) => (
+      generatorSectionEnabled(conditions, MULTIPLE_SECTION_KEYS[multiple]) && conditions.multipleCounts[multiple].length > 0
+        ? `${multiple}의 배수`
+        : null
+    )),
+    generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length > 0 ? '과거 등수' : null,
+  ].filter((label): label is string => label !== null);
+}
+
+function activeConditionSummary(conditions: GeneratorConditions) {
+  const labels = activeConditionLabels(conditions);
+  if (labels.length === 0) return '선택된 조건 없음';
+
+  const visibleLabels = labels.slice(0, MAX_VISIBLE_CONDITION_LABELS);
+  const hiddenCount = labels.length - visibleLabels.length;
+  return [...visibleLabels, ...(hiddenCount > 0 ? [`외 ${hiddenCount}개`] : [])].join(' · ');
+}
+
+function ConditionGroupHeader({ label }: { label: string }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View
+      accessibilityLabel={label}
+      accessibilityRole="header"
+      accessible
+      style={styles.conditionGroupHeader}>
+      <Text style={styles.conditionGroupTitle}>{label}</Text>
+      <View style={styles.conditionGroupDivider} />
+    </View>
+  );
 }
 
 function Section({
@@ -125,6 +185,7 @@ function Section({
   title: string;
 }) {
   const styles = useThemedStyles(createStyles);
+  const expanded = enabled !== false;
   return (
     <View style={[styles.section, enabled && styles.sectionEnabled]}>
       <View style={styles.sectionHeading}>
@@ -133,7 +194,8 @@ function Section({
             <Text style={styles.sectionTitle}>{title}</Text>
             {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
           </View>
-          {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+          {expanded && hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+          {!expanded ? <Text style={styles.sectionCollapsedHint}>비활성 · 제한 없이 적용</Text> : null}
         </View>
         {headerAction || enabled !== undefined ? (
           <View style={styles.sectionHeaderActions}>
@@ -148,7 +210,9 @@ function Section({
           </View>
         ) : null}
       </View>
-      <View style={enabled === false && styles.conditionDisabled}>{children}</View>
+      <CollapsibleConditionContent expanded={expanded} style={styles.sectionContent}>
+        {children}
+      </CollapsibleConditionContent>
     </View>
   );
 }
@@ -493,6 +557,7 @@ function PreviewNumber({
     <Pressable
       accessibilityLabel={`${number}번${fixed ? ', 고정수' : excluded ? ', 제외수' : conditionExcluded ? ', 조건상 제외' : ''}`}
       accessibilityRole="button"
+      hitSlop={Math.max(0, (44 - size) / 2)}
       onPress={onPress}
       style={[
         styles.numberChip,
@@ -512,22 +577,25 @@ function PreviewNumber({
 }
 
 export function ConditionSheet({
+  applyAccess,
   conditions,
   history,
   onApply,
   onClose,
+  onRecommendationPromptDismiss,
+  recommendationPromptVisible = false,
   visible,
 }: ConditionSheetProps) {
   const styles = useThemedStyles(createStyles);
   const { width: windowWidth } = useWindowDimensions();
   const sheetWidth = Math.min(windowWidth, 500);
-  const gridMaximumSize = sheetWidth >= 460 ? 52 : 47;
+  const gridMaximumSize = 48;
   const gridAvailableWidth = sheetWidth - (spacing.xl * 2);
-  const expandedNumberSize = Math.min(gridMaximumSize, (gridAvailableWidth - (spacing.xs * 6)) / 7);
-  const expandedGridWidth = Math.min(
-    gridAvailableWidth - 2,
-    (expandedNumberSize * 7) + (spacing.sm * 6),
+  const expandedNumberSize = Math.min(
+    gridMaximumSize,
+    ((gridAvailableWidth - 2) - (spacing.sm * 6)) / 7,
   );
+  const expandedGridWidth = (expandedNumberSize * 7) + (spacing.sm * 6);
   const [draft, setDraft] = useState(() => cloneGeneratorConditions(conditions));
   const [numberMode, setNumberMode] = useState<'fixed' | 'excluded'>('fixed');
   const [activeHelp, setActiveHelp] = useState<ConditionHelpKey | null>(null);
@@ -556,6 +624,7 @@ export function ConditionSheet({
     () => JSON.stringify(draft) === JSON.stringify(recommendedPreset),
     [draft, recommendedPreset],
   );
+  const conditionSummary = useMemo(() => activeConditionSummary(draft), [draft]);
   const historicalSameEnding = SAME_ENDING_OPTIONS.find(([, label]) => label === conditionHelp.sameEnding.historicalLabel)?.[0];
   const historicalConsecutive = CONSECUTIVE_OPTIONS.find(([, label]) => label === conditionHelp.consecutivePattern.historicalLabel)?.[0];
   const helpContent = activeHelp ? conditionHelp[activeHelp] : null;
@@ -604,7 +673,10 @@ export function ConditionSheet({
   };
   const applyRecommendedPreset = () => {
     setDraft(cloneGeneratorConditions(recommendedPreset));
-    goToPage(2);
+  };
+  const acceptRecommendedPreset = () => {
+    applyRecommendedPreset();
+    onRecommendationPromptDismiss?.();
   };
   const toggleNumber = (number: number) => {
     setDraft((current) => {
@@ -636,6 +708,15 @@ export function ConditionSheet({
       size={size}
     />
   );
+  const applyAccessLabel = applyAccess === 'pro'
+    ? 'PRO · 무제한'
+    : applyAccess === 'ticket'
+      ? '티켓 1장 사용'
+      : applyAccess === 'ticket-required'
+        ? '티켓 필요'
+        : applyAccess === 'guest'
+          ? '로그인 필요'
+          : '이용 정보 확인 중';
 
   return (
     <Modal
@@ -666,11 +747,8 @@ export function ConditionSheet({
             recommendedPresetActive && styles.recommendedPresetActive,
           ]}>
             <View style={styles.recommendedPresetCopy}>
-              <Text style={[
-                styles.recommendedPresetTitle,
-                recommendedPresetActive && styles.recommendedPresetTitleActive,
-              ]}>
-                {recommendedPresetActive ? '균형 조건 프리셋 적용됨' : '균형 조건 프리셋'}
+              <Text style={styles.recommendedPresetSummary}>
+                {conditionSummary}
               </Text>
             </View>
             <Pressable
@@ -727,6 +805,7 @@ export function ConditionSheet({
               onLayout={(event) => { pageOffsetsRef.current[0] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
               testID="condition-group-0">
+              <ConditionGroupHeader label={PAGE_LABELS[0]} />
               <Section
                 enabled={sectionEnabled('fixedExcluded')}
                 onEnabledChange={(enabled) => setSectionEnabled('fixedExcluded', enabled)}
@@ -772,6 +851,7 @@ export function ConditionSheet({
               onLayout={(event) => { pageOffsetsRef.current[1] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
               testID="condition-group-1">
+              <ConditionGroupHeader label={PAGE_LABELS[1]} />
               <Section
                 enabled={sectionEnabled('sameEnding')}
                 onEnabledChange={(enabled) => setSectionEnabled('sameEnding', enabled)}
@@ -844,6 +924,7 @@ export function ConditionSheet({
               onLayout={(event) => { pageOffsetsRef.current[2] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
               testID="condition-group-2">
+              <ConditionGroupHeader label={PAGE_LABELS[2]} />
               <Section
                 enabled={sectionEnabled('acValue')}
                 hint="과거 1,237회 본번호 기준 8~10: 70.7%"
@@ -904,6 +985,7 @@ export function ConditionSheet({
               onLayout={(event) => { pageOffsetsRef.current[3] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
               testID="condition-group-3">
+              <ConditionGroupHeader label={PAGE_LABELS[3]} />
               <Section
                 enabled={sectionEnabled('carryCount')}
                 headerAction={(
@@ -957,6 +1039,7 @@ export function ConditionSheet({
               onLayout={(event) => { pageOffsetsRef.current[4] = event.nativeEvent.layout.y; }}
               style={[styles.conditionGroup, styles.conditionGroupLast]}
               testID="condition-group-4">
+              <ConditionGroupHeader label={PAGE_LABELS[4]} />
               {GENERATOR_BAND_KEYS.map((band) => (
                 <Section
                   enabled={sectionEnabled(BAND_SECTION_KEYS[band])}
@@ -993,10 +1076,19 @@ export function ConditionSheet({
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable
+              accessibilityLabel={`${activeConditionCount(draft)}개 조건 적용, ${applyAccessLabel}`}
               accessibilityRole="button"
               onPress={() => onApply(cloneGeneratorConditions(draft))}
               style={styles.applyButton}>
               <Text style={styles.applyText}>{activeConditionCount(draft)}개 조건 적용</Text>
+              <View style={styles.applyAccessBadge}>
+                {applyAccess === 'ticket' || applyAccess === 'ticket-required' ? (
+                  <Ionicons color={styles.applyAccessText.color} name="ticket-outline" size={14} />
+                ) : null}
+                <Text style={styles.applyAccessText}>
+                  {applyAccess === 'ticket' ? '1장 사용' : applyAccessLabel}
+                </Text>
+              </View>
             </Pressable>
           </View>
 
@@ -1047,6 +1139,39 @@ export function ConditionSheet({
             </View>
           </View>
         ) : null}
+        {recommendationPromptVisible ? (
+          <View accessibilityViewIsModal style={styles.recommendationOverlay}>
+            <View style={styles.helpBackdrop} />
+            <View
+              style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
+              testID="recommendation-prompt">
+              <Text style={styles.recommendationEyebrow}>BALANCED FILTER</Text>
+              <Text style={styles.recommendationTitle}>추천 필터를 적용하시겠습니까?</Text>
+              <Text style={styles.recommendationDescription}>
+                표준편차·합계·홀짝·저고·A/C·연번을 과거 분포의 넓은 범위로 설정해요.
+              </Text>
+              <Text style={styles.recommendationDisclaimer}>
+                과거 통계를 참고한 탐색용 설정이며 당첨을 예측하지 않습니다.
+              </Text>
+              <View style={styles.recommendationActions}>
+                <Pressable
+                  accessibilityLabel="추천 필터 적용 안 함"
+                  accessibilityRole="button"
+                  onPress={onRecommendationPromptDismiss}
+                  style={styles.recommendationCancelButton}>
+                  <Text style={styles.recommendationCancelText}>아니요</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel="추천 필터 적용"
+                  accessibilityRole="button"
+                  onPress={acceptRecommendedPreset}
+                  style={styles.recommendationApplyButton}>
+                  <Text style={styles.recommendationApplyText}>예</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        ) : null}
         </View>
       </SafeAreaView>
     </Modal>
@@ -1073,8 +1198,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   recommendedPresetActive: { borderBottomColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   recommendedPresetCopy: { flex: 1, minWidth: 0 },
-  recommendedPresetTitle: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  recommendedPresetTitleActive: { color: colors.accentPrimary },
+  recommendedPresetSummary: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
   recommendedPresetButton: {
     minHeight: 38, flexShrink: 0, justifyContent: 'center', paddingHorizontal: spacing.md,
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentPrimary,
@@ -1084,8 +1208,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   recommendedPresetButtonText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   recommendedPresetButtonTextActive: { color: colors.background },
   numberGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
-    alignSelf: 'center', rowGap: spacing.sm,
+    flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'center',
+    columnGap: spacing.sm, rowGap: spacing.xs,
   },
   numberChip: {
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
@@ -1115,8 +1239,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   conditionContent: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.huge },
   conditionGroup: { gap: spacing.md, paddingBottom: spacing.xxxl },
   conditionGroupLast: { paddingBottom: 0 },
-  section: { gap: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.background, padding: spacing.md },
+  conditionGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  conditionGroupTitle: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  conditionGroupDivider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
+  section: { overflow: 'hidden', borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.background, padding: spacing.md },
   sectionEnabled: { borderColor: colors.accentBorder },
+  sectionContent: { paddingTop: spacing.md },
   sectionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   sectionHeadingCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
   sectionHeaderAction: { flexShrink: 0, alignItems: 'flex-end' },
@@ -1124,6 +1252,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   sectionHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
+  sectionCollapsedHint: { color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
   conditionDisabled: { opacity: 0.38, pointerEvents: 'none' },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   option: { minHeight: 40, minWidth: 46, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
@@ -1220,8 +1349,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   actions: { flexDirection: 'row', flexShrink: 0, gap: spacing.sm, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider, backgroundColor: colors.surface },
   cancelButton: { width: 82, minHeight: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  applyButton: { flex: 1, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.accentPrimary, alignItems: 'center', justifyContent: 'center' },
+  applyButton: {
+    flex: 1, minHeight: 48, paddingHorizontal: spacing.md, flexDirection: 'row',
+    borderRadius: radius.md, backgroundColor: colors.accentPrimary,
+    alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+  },
   applyText: { color: colors.background, fontSize: typography.sizes.body, fontWeight: typography.weights.bold },
+  applyAccessBadge: {
+    minHeight: 28, flexShrink: 0, paddingHorizontal: spacing.sm, flexDirection: 'row',
+    alignItems: 'center', gap: spacing.xs, borderRadius: radius.round,
+    backgroundColor: '#FFFFFF26',
+  },
+  applyAccessText: { color: colors.background, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   numberLegend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md },
   numberLegendFixed: { color: colors.accentPrimary, fontSize: 10 },
   numberLegendExcluded: { color: colors.hot, fontSize: 10 },
@@ -1267,4 +1406,45 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   helpConfirmText: { color: colors.background, fontSize: typography.sizes.small, fontWeight: typography.weights.bold },
+  recommendationOverlay: {
+    position: 'absolute', inset: 0, zIndex: 40,
+    alignItems: 'center', justifyContent: 'center', padding: spacing.xl,
+  },
+  recommendationDialog: {
+    borderRadius: radius.xl, borderWidth: 1, borderColor: colors.divider,
+    backgroundColor: colors.surfaceElevated, padding: spacing.xl,
+  },
+  recommendationEyebrow: {
+    color: colors.accentPrimary, fontSize: 9, letterSpacing: 1.4,
+    fontWeight: typography.weights.semibold, marginBottom: spacing.sm,
+  },
+  recommendationTitle: {
+    color: colors.textPrimary, fontSize: typography.sizes.section,
+    fontWeight: typography.weights.bold, lineHeight: 26,
+  },
+  recommendationDescription: {
+    color: colors.textPrimary, fontSize: typography.sizes.small,
+    lineHeight: 21, marginTop: spacing.md,
+  },
+  recommendationDisclaimer: {
+    color: colors.textSecondary, fontSize: typography.sizes.caption,
+    lineHeight: 18, marginTop: spacing.sm,
+  },
+  recommendationActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
+  recommendationCancelButton: {
+    flex: 1, minHeight: 48, borderRadius: radius.md, borderWidth: 1,
+    borderColor: colors.divider, alignItems: 'center', justifyContent: 'center',
+  },
+  recommendationCancelText: {
+    color: colors.textSecondary, fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  recommendationApplyButton: {
+    flex: 1, minHeight: 48, borderRadius: radius.md,
+    backgroundColor: colors.accentPrimary, alignItems: 'center', justifyContent: 'center',
+  },
+  recommendationApplyText: {
+    color: colors.background, fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+  },
 });

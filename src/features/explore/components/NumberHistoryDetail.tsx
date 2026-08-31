@@ -1,8 +1,10 @@
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
+import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import type { NumberAppearanceHistoryItem } from '@/domain/analytics/numberHistory';
-import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberHistoryDetailProps = {
   entries: readonly NumberAppearanceHistoryItem[];
@@ -18,46 +20,78 @@ export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDe
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Pressable
+        <SubScreenBackButton
           accessibilityLabel="번호분석으로 돌아가기"
-          accessibilityRole="button"
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-          <Text style={styles.backIcon}>‹</Text>
-        </Pressable>
-        <Text style={styles.title}>상세보기</Text>
-        <View style={styles.headerSpacer} />
+        />
+        <View style={styles.headerCopy}>
+          <Text style={styles.eyebrow}>NUMBER HISTORY</Text>
+          <Text accessibilityRole="header" style={styles.title}>상세보기</Text>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.content, compact && styles.contentCompact]}
         showsVerticalScrollIndicator={false}>
-        <View style={styles.listSummary} testID="number-history-summary">
-          <Text style={styles.summaryValue}>총 {entries.length}회</Text>
-        </View>
-        {entries.length ? entries.map((entry) => (
-          <View
-            key={entry.round}
-            style={[styles.row, compact && styles.rowCompact]}
-            testID={`number-history-row-${entry.round}`}>
-            <Text numberOfLines={1} style={[styles.round, compact && styles.roundCompact]}>
-              {entry.round}회
-            </Text>
-            <LottoDrawBalls
-              bonus={entry.bonus}
-              highlightedNumbers={[number]}
-              numbers={entry.numbers}
-              size={compact ? 22 : 24}
-              style={styles.balls}
-            />
-            <Text numberOfLines={1} style={[styles.gap, compact && styles.gapCompact]}>
-              {entry.gapSincePrevious === null
-                ? '첫 등장'
-                : `${entry.gapSincePrevious}회 만에 등장`}
-            </Text>
+        <View style={styles.summaryCard} testID="number-history-summary">
+          <View style={styles.numberBadge}>
+            <Text style={styles.numberBadgeValue}>{number}</Text>
           </View>
-        )) : (
-          <Text style={styles.empty}>출현 기록이 없습니다.</Text>
+          <View style={styles.summaryCopy}>
+            <Text style={styles.summaryTitle}>{number}번 출현 기록</Text>
+            <Text style={styles.summaryDescription}>선택한 번호가 등장한 회차와 직전 출현 간격입니다.</Text>
+          </View>
+          <View style={styles.summaryCount}>
+            <Text style={styles.summaryValue}>총 {entries.length}회</Text>
+            <Text style={styles.summaryUnit}>등장</Text>
+          </View>
+        </View>
+
+        <View style={styles.listHeading}>
+          <View>
+            <Text style={styles.listTitle}>회차별 기록</Text>
+            <Text style={styles.listDescription}>최근 회차부터 표시됩니다</Text>
+          </View>
+          <Ionicons color={styles.listIcon.color} name="time-outline" size={18} />
+        </View>
+
+        {entries.length ? (
+          <View style={styles.listCard}>
+            {entries.map((entry, index) => (
+              <View
+                key={entry.round}
+                style={[
+                  styles.row,
+                  index > 0 && styles.rowDivider,
+                ]}
+                testID={`number-history-row-${entry.round}`}>
+                <View style={styles.rowMeta}>
+                  <Text
+                    style={styles.round}
+                    testID={`number-history-round-${entry.round}`}>
+                    {entry.round}회
+                  </Text>
+                  <Text style={styles.gap}>
+                    {entry.gapSincePrevious === null
+                      ? '첫 등장'
+                      : `${entry.gapSincePrevious}회 만에 등장`}
+                  </Text>
+                </View>
+                <LottoDrawBalls
+                  bonus={entry.bonus}
+                  highlightedNumbers={[number]}
+                  numbers={entry.numbers}
+                  size={compact ? 22 : 24}
+                  style={styles.balls}
+                />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Ionicons color={styles.emptyIcon.color} name="calendar-clear-outline" size={26} />
+            <Text style={styles.empty}>출현 기록이 없습니다.</Text>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -67,103 +101,174 @@ export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDe
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   header: {
-    height: 54,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerCopy: {
+    flex: 1,
+    marginLeft: spacing.sm,
   },
-  backIcon: {
-    color: colors.textPrimary,
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: typography.weights.regular,
+  eyebrow: {
+    color: colors.accentPrimary,
+    fontSize: 9,
+    fontWeight: typography.weights.bold,
+    letterSpacing: 1.35,
+    marginBottom: 2,
   },
   title: {
-    flex: 1,
     color: colors.textPrimary,
-    fontSize: typography.sizes.body,
+    fontSize: typography.sizes.section,
     fontWeight: typography.weights.semibold,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  pressed: {
-    opacity: 0.6,
+    letterSpacing: -0.5,
   },
   content: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    paddingBottom: spacing.xxxl,
-    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.huge,
   },
   contentCompact: {
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
-  listSummary: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  summaryValue: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
-  },
-  row: {
-    minHeight: 46,
+  summaryCard: {
+    minHeight: 108,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
   },
-  rowCompact: {
-    gap: spacing.xs,
+  numberBadge: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
   },
-  round: {
-    width: 48,
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.semibold,
+  numberBadgeValue: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.bold,
     fontVariant: ['tabular-nums'],
   },
-  roundCompact: {
-    width: 44,
-    fontSize: 12,
-  },
-  balls: {
+  summaryCopy: {
     flex: 1,
     minWidth: 0,
   },
-  gap: {
-    width: 92,
+  summaryTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+    letterSpacing: -0.3,
+  },
+  summaryDescription: {
     color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 17,
+    marginTop: spacing.xs,
+  },
+  summaryCount: {
+    alignItems: 'flex-end',
+  },
+  summaryValue: {
+    color: colors.accentPrimary,
     fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  summaryUnit: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  listHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xxl,
+    marginBottom: spacing.md,
+  },
+  listTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+  },
+  listDescription: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    marginTop: spacing.xs,
+  },
+  listIcon: {
+    color: colors.accentPrimary,
+  },
+  listCard: {
+    overflow: 'hidden',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  row: {
+    minHeight: 78,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  rowMeta: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  round: {
+    flexShrink: 0,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  balls: {
+    alignSelf: 'flex-start',
+  },
+  gap: {
+    flexShrink: 0,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
     fontWeight: typography.weights.medium,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
-  },
-  gapCompact: {
-    width: 80,
-    fontSize: 12,
   },
   empty: {
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
     textAlign: 'center',
-    paddingVertical: spacing.huge,
+    marginTop: spacing.sm,
+  },
+  emptyCard: {
+    minHeight: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  emptyIcon: {
+    color: colors.textTertiary,
   },
 });

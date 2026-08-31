@@ -1,5 +1,7 @@
 import {
+  cloneGeneratorConditions,
   CONSECUTIVE_LABELS,
+  DEFAULT_GENERATOR_CONDITIONS,
   GENERATOR_BAND_KEYS,
   generatorSectionEnabled,
   SAME_ENDING_LABELS,
@@ -19,6 +21,69 @@ export type GeneratorConditionDescription = {
   label: string;
   value: string;
 };
+
+function numbersFromDescription(value: string) {
+  return (value.match(/\d+(?:\.\d+)?/g) ?? []).map(Number);
+}
+
+function patternFromLabel<T extends string>(labels: Record<T, string>, value: string) {
+  return (Object.entries(labels) as [T, string][])
+    .filter(([, label]) => value.split(' · ').includes(label))
+    .map(([pattern]) => pattern);
+}
+
+export function restoreGeneratorConditions(
+  descriptions: readonly GeneratorConditionDescription[],
+): GeneratorConditions {
+  const conditions = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
+
+  descriptions.forEach(({ key, value }) => {
+    const values = numbersFromDescription(value);
+    switch (key) {
+      case 'fixed': conditions.fixedNumbers = values; break;
+      case 'excluded': conditions.excludedNumbers = values; break;
+      case 'sameEnding': conditions.sameEndingPatterns = patternFromLabel(SAME_ENDING_LABELS, value); break;
+      case 'standardDeviation': {
+        const [min, max] = values;
+        if (min !== undefined && max !== undefined) conditions.standardDeviation = { enabled: true, min, max };
+        break;
+      }
+      case 'sum': {
+        const [min, max] = values;
+        if (min !== undefined && max !== undefined) conditions.sum = { enabled: true, min, max };
+        break;
+      }
+      case 'lastDigitSum': {
+        const [min, max] = values;
+        if (min !== undefined && max !== undefined) conditions.lastDigitSum = { enabled: true, min, max };
+        break;
+      }
+      case 'odd': conditions.oddCounts = values as GeneratorConditions['oddCounts']; break;
+      case 'low': conditions.highLowCounts = values as GeneratorConditions['highLowCounts']; break;
+      case 'ac': conditions.acValues = values; break;
+      case 'prime': conditions.primeCounts = values as GeneratorConditions['primeCounts']; break;
+      case 'square': conditions.squareCounts = values as GeneratorConditions['squareCounts']; break;
+      case 'composite': conditions.compositeCounts = values as GeneratorConditions['compositeCounts']; break;
+      case 'multiple:3': conditions.multipleCounts[3] = values as GeneratorConditions['multipleCounts'][3]; break;
+      case 'multiple:4': conditions.multipleCounts[4] = values as GeneratorConditions['multipleCounts'][4]; break;
+      case 'multiple:5': conditions.multipleCounts[5] = values as GeneratorConditions['multipleCounts'][5]; break;
+      case 'carry': conditions.carry = { allowed: values as GeneratorConditions['carry']['allowed'], includeBonus: value.includes('보너스 포함') }; break;
+      case 'neighbor': conditions.neighbor = { allowed: values as GeneratorConditions['neighbor']['allowed'], includeBonus: value.includes('보너스 포함') }; break;
+      case 'consecutive': conditions.consecutivePatterns = patternFromLabel(CONSECUTIVE_LABELS, value); break;
+      case 'pastRanks': conditions.excludedPastRanks = values as GeneratorConditions['excludedPastRanks']; break;
+      default: {
+        if (key.startsWith('band:')) {
+          const band = key.slice(5) as keyof GeneratorConditions['bandCounts'];
+          if (band in conditions.bandCounts) {
+            conditions.bandCounts[band] = values as GeneratorConditions['bandCounts'][typeof band];
+          }
+        }
+      }
+    }
+  });
+
+  return conditions;
+}
 
 function joined(values: readonly number[]) {
   return [...values].sort((left, right) => left - right).join(' · ');

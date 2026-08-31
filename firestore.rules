@@ -41,9 +41,15 @@ service cloud.firestore {
           && validNumbers(request.resource.data.numbers)
           && request.resource.data.keys().hasOnly([
             'ownerUid', 'id', 'createdAt', 'favorite', 'purchased',
-            'source', 'numbers', 'generationConditions', 'updatedAt'
+            'source', 'numbers', 'generationConditions', 'generatorConditions',
+            'updatedAt'
           ]);
         allow delete: if signedInAs(uid);
+      }
+
+      match /analysisUnlocks/{unlockId} {
+        allow read: if signedInAs(uid);
+        allow create, update, delete: if false;
       }
 
       match /migrationState/{migrationId} {

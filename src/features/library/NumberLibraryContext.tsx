@@ -20,7 +20,12 @@ import {
 } from 'firebase/firestore';
 
 import { normalizeDraftNumbers } from '@/features/combination/CombinationDraftContext';
-import type { GeneratorConditionDescription } from '@/domain/generator/describeGeneratorConditions';
+import { cloneGeneratorConditions } from '@/domain/generator/combinationGenerator';
+import {
+  type GeneratorConditionDescription,
+  restoreGeneratorConditions,
+} from '@/domain/generator/describeGeneratorConditions';
+import type { GeneratorConditions } from '@/domain/generator/types';
 import { useAuth } from '@/features/auth/AuthContext';
 import { db } from '@/features/auth/firebaseClient';
 
@@ -30,6 +35,7 @@ export type SavedCombination = {
   createdAt: string;
   favorite: boolean;
   generationConditions?: GeneratorConditionDescription[];
+  generatorConditions?: GeneratorConditions;
   id: string;
   numbers: number[];
   purchased: boolean;
@@ -40,8 +46,11 @@ type NumberLibraryValue = {
   addCombination: (
     numbers: readonly number[],
     source: CombinationSource,
-    options?: { generationConditions?: readonly GeneratorConditionDescription[] },
-  ) => void;
+    options?: {
+      generationConditions?: readonly GeneratorConditionDescription[];
+      generatorConditions?: GeneratorConditions;
+    },
+  ) => string | undefined;
   combinations: SavedCombination[];
   isReady: boolean;
   toggleFavorite: (id: string) => void;
@@ -92,16 +101,58 @@ function normalizeGenerationConditions(value: unknown) {
   }));
 }
 
+function normalizeGeneratorConditions(value: unknown) {
+  if (!value || typeof value !== 'object') return undefined;
+  const item = value as Partial<GeneratorConditions>;
+  const arrayKeys = [
+    'acValues',
+    'compositeCounts',
+    'consecutivePatterns',
+    'excludedNumbers',
+    'excludedPastRanks',
+    'fixedNumbers',
+    'highLowCounts',
+    'oddCounts',
+    'primeCounts',
+    'sameEndingPatterns',
+    'squareCounts',
+  ] as const;
+  const bands = item.bandCounts;
+  const multiples = item.multipleCounts;
+  if (
+    !arrayKeys.every((key) => Array.isArray(item[key]))
+    || !bands
+    || !['1-9', '10-19', '20-29', '30-39', '40-45'].every((key) => Array.isArray(bands[key as keyof typeof bands]))
+    || !multiples
+    || ![3, 4, 5].every((key) => Array.isArray(multiples[key as keyof typeof multiples]))
+    || !item.carry
+    || !Array.isArray(item.carry.allowed)
+    || !item.neighbor
+    || !Array.isArray(item.neighbor.allowed)
+    || !item.lastDigitSum
+    || !item.standardDeviation
+    || !item.sum
+  ) return undefined;
+  return cloneGeneratorConditions(item as GeneratorConditions);
+}
+
 export function normalizeStoredCombinations(values: unknown[]) {
   const seenIds = new Set<string>();
   return values.filter(isSavedCombination).map((item, index) => {
     const id = seenIds.has(item.id) ? `${item.id}-restored-${index}` : item.id;
     seenIds.add(id);
-    const { generationConditions: storedGenerationConditions, ...storedItem } = item;
+    const {
+      generationConditions: storedGenerationConditions,
+      generatorConditions: storedGeneratorConditions,
+      ...storedItem
+    } = item;
     const generationConditions = normalizeGenerationConditions(storedGenerationConditions);
+    const generatorConditions = normalizeGeneratorConditions(storedGeneratorConditions)
+      ?? (generationConditions ? restoreGeneratorConditions(generationConditions) : undefined);
     return {
       ...storedItem,
       ...(generationConditions ? { generationConditions } : {}),
+      ...(generatorConditions ? { generatorConditions } : {}),
       id,
       numbers: normalizeDraftNumbers(item.numbers),
     };
@@ -114,6 +165,9 @@ function toCloudCombination(item: SavedCombination, ownerUid: string) {
     favorite: item.favorite,
     ...(item.generationConditions ? {
       generationConditions: item.generationConditions.map((condition) => ({ ...condition })),
+    } : {}),
+    ...(item.generatorConditions ? {
+      generatorConditions: cloneGeneratorConditions(item.generatorConditions),
     } : {}),
     id: item.id,
     numbers: [...item.numbers],
@@ -246,7 +300,10 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
   const addCombination = useCallback((
     numbers: readonly number[],
     source: CombinationSource,
-    options?: { generationConditions?: readonly GeneratorConditionDescription[] },
+    options?: {
+      generationConditions?: readonly GeneratorConditionDescription[];
+      generatorConditions?: GeneratorConditions;
+    },
   ) => {
     const normalized = normalizeDraftNumbers(numbers);
     if (normalized.length !== 6) return;
@@ -258,6 +315,9 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
       ...(options?.generationConditions ? {
         generationConditions: options.generationConditions.map((item) => ({ ...item })),
       } : {}),
+      ...(options?.generatorConditions ? {
+        generatorConditions: cloneGeneratorConditions(options.generatorConditions),
+      } : {}),
       id: `${createdAt}-${idSequence.current}-${Math.random().toString(36).slice(2, 9)}`,
       numbers: normalized,
       purchased: false,
@@ -265,6 +325,7 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     };
     setCombinations((current) => [nextItem, ...current].slice(0, 200));
     syncCombination(nextItem);
+    return nextItem.id;
   }, [syncCombination]);
 
   const toggleFavorite = useCallback((id: string) => {

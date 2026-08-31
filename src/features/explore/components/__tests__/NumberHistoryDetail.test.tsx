@@ -24,7 +24,7 @@ describe('NumberHistoryDetail', () => {
     expect(getByText('총 1회')).toBeTruthy();
     expect(getByText('1234회')).toBeTruthy();
     expect(getByText('7회 만에 등장')).toBeTruthy();
-    expect(getByTestId('number-history-row-1234').props.children).toHaveLength(3);
+    expect(getByTestId('number-history-round-1234').props.numberOfLines).toBeUndefined();
     expect(getByTestId('number-history-summary')).toBeTruthy();
     expect(getByLabelText('39번, 선택 번호와 일치')).toBeTruthy();
     expect(getByLabelText('14번')).toBeTruthy();

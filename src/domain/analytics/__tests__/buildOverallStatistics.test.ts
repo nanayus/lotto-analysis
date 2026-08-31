@@ -21,10 +21,22 @@ describe('buildOverallStatistics', () => {
       latestRound: 2,
     });
     expect(result.topNumbers.slice(0, 2)).toEqual([
-      { count: 2, number: 1 },
-      { count: 2, number: 2 },
+      { count: 2, number: 1, percentage: 100 },
+      { count: 2, number: 2, percentage: 100 },
     ]);
-    expect(result.topNumbers).not.toContainEqual({ count: 1, number: 7 });
+    expect(result.numberFrequencies[6]).toEqual({ count: 0, number: 7, percentage: 0 });
+    expect(result.oddEvenDistribution.find((item) => item.key === '3')).toMatchObject({
+      count: 2,
+      label: '3:3',
+      percentage: 100,
+    });
+    expect(result.sumDistribution).toEqual(expect.arrayContaining([
+      expect.objectContaining({ count: 1, label: '20–29' }),
+      expect.objectContaining({ count: 1, label: '40–49' }),
+    ]));
+    expect(result.comparisonDrawCount).toBe(1);
+    expect(result.carryDistributions.bonusExcluded.find((item) => item.key === '2'))
+      .toMatchObject({ count: 1, percentage: 100 });
   });
 
   test('returns a safe empty summary', () => {

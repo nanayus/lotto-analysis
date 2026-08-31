@@ -20,11 +20,11 @@ import { fillCombinationRandomly } from './randomFill';
 import { CombinationComparison } from './components/CombinationComparison';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useAuth } from '@/features/auth/AuthContext';
-import { AnalysisAccessModal } from '@/features/monetization/AnalysisAccessModal';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { isAnalysisAuthorized } from '@/features/monetization/types';
 import {
   buildCombinationReturnDestination,
+  COMBINATION_ANALYSIS_ROUTE,
   type CombinationReturnTarget,
 } from './combinationNavigation';
 
@@ -59,6 +59,10 @@ function latestParam(value?: string | string[]) {
   return Array.isArray(value) ? value.at(-1) : value;
 }
 
+function savedCombinationId(value?: string) {
+  return value?.startsWith('library-') ? value.slice('library-'.length) : undefined;
+}
+
 function shouldPreserveOrigin(target?: CombinationReturnTarget) {
   return target === 'combination-generator'
     || target === 'explore'
@@ -89,11 +93,17 @@ export function CombinationScreen() {
   }>();
   const analyzeToken = latestParam(analyze);
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
-  const { addCombination } = useNumberLibrary();
+  const {
+    addCombination,
+    combinations,
+    toggleFavorite,
+    togglePurchased,
+  } = useNumberLibrary();
   const { consumePendingIntent, openLogin, state: authState } = useAuth();
   const {
     authorizeAnalysis,
     openPaywall,
+    refresh: refreshMonetization,
     state: monetizationState,
   } = useMonetization();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
@@ -104,10 +114,10 @@ export function CombinationScreen() {
   const [analysisState, setAnalysisState] = useState<AnalysisState | null>(null);
   const [comparisonA, setComparisonA] = useState<CombinationAnalysis | null>(null);
   const [comparisonB, setComparisonB] = useState<CombinationAnalysis | null>(null);
-  const [accessGateVisible, setAccessGateVisible] = useState(false);
   const [analysisAccessRequired, setAnalysisAccessRequired] = useState(false);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const [isAuthorizing, setAuthorizing] = useState(false);
+  const [analysisLibraryId, setAnalysisLibraryId] = useState<string | null>(null);
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
 
@@ -139,10 +149,16 @@ export function CombinationScreen() {
     if (mode.kind === 'compareSelect' && comparisonA) {
       setComparisonB(snapshot); setMode({ kind: 'comparison' });
     } else {
-      addCombination(selectedNumbers, 'random');
+      const numberKey = selectedNumbers.join('-');
+      const requestedSavedId = savedCombinationId(analyzeToken);
+      const savedCombination = combinations.find((item) => item.id === requestedSavedId)
+        ?? combinations.find((item) => item.numbers.join('-') === numberKey);
+      setAnalysisLibraryId(
+        savedCombination?.id ?? addCombination(selectedNumbers, 'random') ?? null,
+      );
       setMode({ kind: 'result' });
     }
-  }, [addCombination, analysisState, comparisonA, mode.kind, selectedNumbers]);
+  }, [addCombination, analysisState, analyzeToken, combinations, comparisonA, mode.kind, selectedNumbers]);
 
   const authorizeAndExecute = useCallback(async () => {
     if (selectedNumbers.length !== 6 || isAuthorizing) return;
@@ -155,7 +171,6 @@ export function CombinationScreen() {
       if (analyzeToken) await waitForGeneratedTransition(transitionStartedAt);
       if (!isAnalysisAuthorized(authorization.decision)) {
         setAnalysisAccessRequired(true);
-        if (!analyzeToken) setAccessGateVisible(true);
         return;
       }
       executeAnalysis();
@@ -223,6 +238,16 @@ export function CombinationScreen() {
     queueMicrotask(() => void authorizeAndExecute());
   }, [analyzeToken, authState.status, authorizeAndExecute, consumePendingIntent, selectedNumbers.length]);
 
+  useEffect(() => {
+    if (authState.status !== 'guest' || !analysisStateRef.current) return;
+    analysisStateRef.current = null;
+    setAnalysisState(null);
+    setAnalysisLibraryId(null);
+    setComparisonA(null);
+    setComparisonB(null);
+    setMode({ kind: 'select' });
+  }, [authState.status]);
+
   const commitFilters = useCallback((filters: AnalysisFilters) => {
     if (selectedNumbers.length !== 6) return;
     const nextState = {
@@ -256,6 +281,7 @@ export function CombinationScreen() {
   const startOver = useCallback(() => {
     analysisStateRef.current = null;
     setAnalysisState(null);
+    setAnalysisLibraryId(null);
     clear();
     setExcludedNumbers([]);
     setComparisonA(null); setComparisonB(null);
@@ -286,36 +312,94 @@ export function CombinationScreen() {
     : authState.status === 'guest'
       ? '로그인 후 웰컴 3회'
       : monetizationState.status === 'loading' ? '이용 정보 확인 중' : undefined;
-  const generatedAnalysisPhase: GeneratedAnalysisPhase = accessMessage
+  const requestedAnalysisHasNumbers = Boolean(analyzeToken && selectedNumbers.length === 6);
+  const hasNewAnalysisAccess = monetizationState.status === 'ready' && (
+    monetizationState.access.isPro
+    || monetizationState.access.weeklyFreeAvailable
+    || monetizationState.access.bonusAnalysisCredits > 0
+  );
+  const authorizationPhase: GeneratedAnalysisPhase = accessMessage
     ? 'error'
     : analysisAccessRequired
       ? 'access'
       : authState.status === 'guest'
         ? 'login'
         : 'loading';
+  const manualEntryPhase: GeneratedAnalysisPhase | null = authState.status === 'loading'
+    ? 'loading'
+    : authState.status === 'guest'
+      ? 'login'
+      : monetizationState.status === 'loading'
+        ? 'loading'
+        : monetizationState.status === 'error'
+          ? 'error'
+          : hasNewAnalysisAccess ? null : 'access';
+  const analysisTransitionPhase: GeneratedAnalysisPhase | null = requestedAnalysisHasNumbers
+    ? authorizationPhase
+    : accessMessage
+      ? 'error'
+      : analysisAccessRequired
+        ? 'access'
+        : manualEntryPhase ?? (analyzeToken ? 'invalid' : null);
+  const transitionErrorMessage = accessMessage
+    ?? (monetizationState.status === 'error' ? monetizationState.error : null);
+
+  const restartInvalidAnalysis = useCallback(() => {
+    clear();
+    setExcludedNumbers([]);
+    router.replace({
+      pathname: COMBINATION_ANALYSIS_ROUTE,
+      params: returnTarget ? { returnTo: returnTarget } : undefined,
+    });
+  }, [clear, returnTarget]);
 
   const continueGeneratedAnalysis = useCallback(() => {
-    if (generatedAnalysisPhase === 'login') {
+    if (analysisTransitionPhase === 'login') {
       openLogin('combination-analysis');
       return;
     }
+    if (analysisTransitionPhase === 'invalid') {
+      restartInvalidAnalysis();
+      return;
+    }
+    if (analysisTransitionPhase === 'error' && !accessMessage) {
+      void refreshMonetization();
+      return;
+    }
     void authorizeAndExecute();
-  }, [authorizeAndExecute, generatedAnalysisPhase, openLogin]);
+  }, [
+    accessMessage,
+    analysisTransitionPhase,
+    authorizeAndExecute,
+    openLogin,
+    refreshMonetization,
+    restartInvalidAnalysis,
+  ]);
+
+  const savedAnalysisCombination = analysisLibraryId
+    ? combinations.find((item) => item.id === analysisLibraryId)
+    : undefined;
+  const toggleLibraryState = useCallback((kind: 'favorite' | 'purchased') => {
+    if (!analysisLibraryId) return;
+    if (kind === 'favorite') toggleFavorite(analysisLibraryId);
+    else togglePurchased(analysisLibraryId);
+    if (Platform.OS !== 'web') void Haptics.selectionAsync();
+  }, [analysisLibraryId, toggleFavorite, togglePurchased]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
       <View style={styles.container}>
         {mode.kind === 'select' || mode.kind === 'compareSelect' ? (
           <>{mode.kind === 'compareSelect' && comparisonA ? <View style={styles.compareBasis}><Text style={styles.compareLabel}>비교 기준 A</Text><Text style={styles.compareNumbers}>{comparisonA.numbers.map((n)=>String(n).padStart(2,'0')).join(' · ')}</Text></View> : null}
-          {mode.kind === 'select' && analyzeToken ? (
+          {mode.kind === 'select' && analysisTransitionPhase ? (
             <GeneratedAnalysisTransition
-              errorMessage={accessMessage}
+              errorMessage={transitionErrorMessage}
               numbers={selectedNumbers}
               onBack={leaveCombination}
               onContinue={continueGeneratedAnalysis}
               onLater={leaveCombination}
               onOpenPro={() => openPaywall('analysis-limit')}
-              phase={generatedAnalysisPhase}
+              phase={analysisTransitionPhase}
             />
           ) : (
             <NumberSelector
@@ -345,16 +429,22 @@ export function CombinationScreen() {
               <CombinationResult
                 analysis={analysisState.snapshot}
                 bonusIncluded={analysisState.includeBonus}
+                favorite={savedAnalysisCombination?.favorite}
                 firstRound={firstRound}
+                isPro={monetizationState.status === 'ready' && monetizationState.access.isPro}
                 latestRound={latestRound}
                 onBack={leaveCombination}
                 onBonusChange={changeBonus}
                 onOpenHistory={() => setMode({ kind: 'history' })}
                 onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
+                onOpenPro={() => openPaywall('ai-combination-explanation')}
                 onPeriodChange={changePeriod}
                 onStartOver={startOver}
                 onCompare={startComparison}
+                onToggleFavorite={() => toggleLibraryState('favorite')}
+                onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}
+                purchased={savedAnalysisCombination?.purchased}
               />
             </Animated.View>
           ) : mode.kind === 'history' || mode.kind === 'prizeRank' ? (
@@ -365,11 +455,6 @@ export function CombinationScreen() {
             />
           ) : null
         ) : null}
-        <AnalysisAccessModal
-          onClose={() => setAccessGateVisible(false)}
-          onOpenPro={() => openPaywall('analysis-limit')}
-          visible={accessGateVisible}
-        />
       </View>
     </SafeAreaView>
   );

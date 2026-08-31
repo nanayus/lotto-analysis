@@ -1,13 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 import { useAuth } from '@/features/auth/AuthContext';
-import { functions } from '@/features/auth/firebaseClient';
+import { db, functions } from '@/features/auth/firebaseClient';
 
 import { ProPaywallModal } from './ProPaywallModal';
 import { ReferralCodeOnboardingModal } from './ReferralCodeOnboardingModal';
-import type { AnalysisAuthorization, MonetizationAccessState } from './types';
+import { isAnalysisAuthorized, type AnalysisAuthorization, type MonetizationAccessState } from './types';
 
 export const REFERRAL_ONBOARDING_SEEN_KEY = 'lotto.referralOnboarding.seen.v1';
 export const REFERRAL_ONBOARDING_PENDING_KEY = 'lotto.referralOnboarding.pending.v1';
@@ -19,6 +20,7 @@ type MonetizationState =
   | { access: MonetizationAccessState; status: 'ready' };
 
 type MonetizationValue = {
+  analysisUnlocksReady: boolean;
   applyReferral: (code: string) => Promise<void>;
   authorizeAnalysis: (numbers: readonly number[], dataVersion: string) => Promise<AnalysisAuthorization>;
   closePaywall: () => void;
@@ -27,9 +29,13 @@ type MonetizationValue = {
   paywallSource: string | null;
   refresh: () => Promise<void>;
   state: MonetizationState;
+  unlockedCombinationKeys: ReadonlySet<string>;
 };
 
+const EMPTY_UNLOCKS = new Set<string>();
+
 const fallbackValue: MonetizationValue = {
+  analysisUnlocksReady: true,
   applyReferral: async () => undefined,
   authorizeAnalysis: async (numbers) => ({
     accessState: {
@@ -52,6 +58,7 @@ const fallbackValue: MonetizationValue = {
   paywallSource: null,
   refresh: async () => undefined,
   state: { status: 'guest' },
+  unlockedCombinationKeys: EMPTY_UNLOCKS,
 };
 
 const MonetizationContext = createContext<MonetizationValue>(fallbackValue);
@@ -82,6 +89,54 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   const [referralPromptError, setReferralPromptError] = useState<string | null>(null);
   const [isApplyingReferral, setApplyingReferral] = useState(false);
   const referralApplicationInFlight = useRef(false);
+  const [analysisUnlocksReady, setAnalysisUnlocksReady] = useState(false);
+  const [unlockedCombinationKeys, setUnlockedCombinationKeys] = useState<ReadonlySet<string>>(
+    EMPTY_UNLOCKS,
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (authState.status === 'loading') {
+      queueMicrotask(() => {
+        if (active) setAnalysisUnlocksReady(false);
+      });
+      return () => { active = false; };
+    }
+    if (authState.status !== 'authenticated' || !db) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setUnlockedCombinationKeys(EMPTY_UNLOCKS);
+        setAnalysisUnlocksReady(true);
+      });
+      return () => { active = false; };
+    }
+
+    queueMicrotask(() => {
+      if (active) setAnalysisUnlocksReady(false);
+    });
+    const unsubscribe = onSnapshot(
+      collection(db, 'users', authState.user.uid, 'analysisUnlocks'),
+      (snapshot) => {
+        if (!active) return;
+        const keys = new Set<string>();
+        snapshot.docs.forEach((item) => {
+          const combinationKey = item.data().combinationKey;
+          if (typeof combinationKey === 'string') keys.add(combinationKey);
+        });
+        setUnlockedCombinationKeys(keys);
+        setAnalysisUnlocksReady(true);
+      },
+      () => {
+        if (!active) return;
+        setUnlockedCombinationKeys(EMPTY_UNLOCKS);
+        setAnalysisUnlocksReady(true);
+      },
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [authState]);
 
   const refresh = useCallback(async () => {
     if (authState.status !== 'authenticated') {
@@ -122,6 +177,12 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     >(functions, 'authorizeCombinationAnalysis');
     const result = await authorize({ dataVersion, numbers });
     setState({ access: result.data.accessState, status: 'ready' });
+    if (isAnalysisAuthorized(result.data.decision)) {
+      setUnlockedCombinationKeys((current) => {
+        if (current.has(result.data.combinationKey)) return current;
+        return new Set([...current, result.data.combinationKey]);
+      });
+    }
     return result.data;
   }, [authState.status]);
 
@@ -246,6 +307,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     );
 
   const value = useMemo<MonetizationValue>(() => ({
+    analysisUnlocksReady,
     applyReferral,
     authorizeAnalysis,
     closePaywall,
@@ -254,12 +316,28 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     paywallSource,
     refresh,
     state,
-  }), [applyReferral, authorizeAnalysis, closePaywall, isPaywallVisible, openPaywall, paywallSource, refresh, state]);
+    unlockedCombinationKeys,
+  }), [
+    analysisUnlocksReady,
+    applyReferral,
+    authorizeAnalysis,
+    closePaywall,
+    isPaywallVisible,
+    openPaywall,
+    paywallSource,
+    refresh,
+    state,
+    unlockedCombinationKeys,
+  ]);
 
   return (
     <MonetizationContext.Provider value={value}>
       {children}
-      <ProPaywallModal onClose={closePaywall} visible={isPaywallVisible} />
+      <ProPaywallModal
+        onClose={closePaywall}
+        source={paywallSource}
+        visible={isPaywallVisible}
+      />
       <ReferralCodeOnboardingModal
         error={referralPromptError}
         isApplying={isApplyingReferral}

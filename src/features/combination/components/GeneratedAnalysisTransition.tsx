@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -7,31 +6,10 @@ import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
 
+import { AnalysisNumberShuffle } from './AccessNumberShuffle';
 import { CombinationNumberPills } from './CombinationNumberPills';
 
-export type GeneratedAnalysisPhase = 'access' | 'error' | 'loading' | 'login';
-
-const BALL_REVEAL_INTERVAL_MS = 90;
-
-function RevealingCombinationNumberPills({ numbers }: { numbers: readonly number[] }) {
-  const [revealedCount, setRevealedCount] = useState(0);
-
-  useEffect(() => {
-    const timers = numbers.map((_, index) => setTimeout(
-      () => setRevealedCount(index + 1),
-      (index + 1) * BALL_REVEAL_INTERVAL_MS,
-    ));
-    return () => timers.forEach(clearTimeout);
-  }, [numbers]);
-
-  return (
-    <CombinationNumberPills
-      accessibilityLabel={`분석할 번호 ${numbers.join(', ')}`}
-      numbers={numbers}
-      revealedCount={revealedCount}
-    />
-  );
-}
+export type GeneratedAnalysisPhase = 'access' | 'error' | 'invalid' | 'loading' | 'login';
 
 type GeneratedAnalysisTransitionProps = {
   errorMessage?: string | null;
@@ -52,9 +30,13 @@ const COPY = {
     description: '연결 상태를 확인하고 다시 시도해 주세요.',
     title: '분석을 시작하지 못했어요',
   },
+  invalid: {
+    description: '분석할 번호 정보가 없거나 만료되었어요. 번호를 다시 선택해 주세요.',
+    title: '분석할 번호를 찾지 못했어요',
+  },
   loading: {
-    description: '로그인과 분석 이용 가능 횟수를 확인한 뒤 결과를 바로 열어요.',
-    title: '분석을 준비하고 있어요',
+    description: '선택한 번호의 과거 기록을 확인한 뒤 결과를 바로 열어요.',
+    title: '분석하고 있습니다',
   },
   login: {
     description: '로그인하면 분석 이용 가능 횟수를 확인하고 결과를 바로 열어요.',
@@ -75,7 +57,9 @@ export function GeneratedAnalysisTransition({
   const copy = COPY[phase];
   const actionLabel = phase === 'login'
     ? '로그인하고 계속'
-    : '다시 시도';
+    : phase === 'invalid'
+      ? '번호 다시 선택하기'
+      : '다시 시도';
 
   return (
     <View style={styles.root} testID="generated-analysis-transition">
@@ -92,7 +76,9 @@ export function GeneratedAnalysisTransition({
           ) : (
             <Ionicons
               color={styles.iconColor.color}
-              name={phase === 'error' ? 'alert-circle-outline' : phase === 'login' ? 'person-outline' : 'ticket-outline'}
+              name={phase === 'error' || phase === 'invalid'
+                ? 'alert-circle-outline'
+                : phase === 'login' ? 'person-outline' : 'ticket-outline'}
               size={25}
             />
           )}
@@ -101,16 +87,18 @@ export function GeneratedAnalysisTransition({
         <Text style={styles.title}>{copy.title}</Text>
         <Text style={styles.description}>{errorMessage || copy.description}</Text>
 
-        <AppCard style={styles.numberCard}>
-          {phase === 'loading' ? (
-            <RevealingCombinationNumberPills numbers={numbers} />
-          ) : (
+        {phase === 'access' || phase === 'loading' ? (
+          <AppCard style={styles.numberCard}>
+            <AnalysisNumberShuffle testID={`${phase}-number-shuffle`} />
+          </AppCard>
+        ) : numbers.length > 0 ? (
+          <AppCard style={styles.numberCard}>
             <CombinationNumberPills
               accessibilityLabel={`분석할 번호 ${numbers.join(', ')}`}
               numbers={numbers}
             />
-          )}
-        </AppCard>
+          </AppCard>
+        ) : null}
 
         {phase === 'access' ? (
           <View style={styles.accessActions}>

@@ -4,6 +4,7 @@ import WheelPicker, {
   type RenderItemContainerProps,
   usePickerItemHeight,
   useScrollContentOffset,
+  withVirtualized,
 } from '@quidone/react-native-wheel-picker';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -114,6 +115,8 @@ const webClipStyle = Platform.select<ViewStyle>({
 const webFocusStyle = Platform.select<ViewStyle>({
   web: { outlineStyle: 'none' } as unknown as ViewStyle,
 });
+
+const VirtualizedWheelPicker = withVirtualized(WheelPicker);
 
 function PickerNumberItem({
   colors,
@@ -325,7 +328,7 @@ export function NumberScrubberV3({
       style={[themedStyles.container, webClipStyle]}
       testID="number-scrubber-v3">
       {layout.height > 0 && layout.width > 0 ? (
-        <WheelPicker<LottoPickerItem>
+        <VirtualizedWheelPicker<LottoPickerItem>
           _onScrollEnd={handleInteractionEnd}
           _onScrollStart={handleInteractionStart}
           data={PICKER_DATA}

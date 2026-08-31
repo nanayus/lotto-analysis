@@ -11,6 +11,7 @@ import {
 import type { NumericRangeCondition } from '@/domain/generator/types';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
+import { CollapsibleConditionContent } from './CollapsibleConditionContent';
 import { ConditionInfoButton } from './ConditionInfoButton';
 import { ConditionToggle } from './ConditionToggle';
 
@@ -167,9 +168,12 @@ export function RangeControl({
   return (
     <View style={[styles.container, value.enabled && styles.containerEnabled]}>
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{title}</Text>
-          {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
+        <View style={styles.headingCopy}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{title}</Text>
+            {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
+          </View>
+          {!value.enabled ? <Text style={styles.collapsedHint}>비활성 · 제한 없이 적용</Text> : null}
         </View>
         <ConditionToggle
           enabled={value.enabled}
@@ -177,71 +181,73 @@ export function RangeControl({
           title={title}
         />
       </View>
-      {historicalPreset ? (
-        <View
-          accessibilityLabel={`전체 과거 본번호 기준 과거 최다 구간 ${format(historicalPreset.min)}에서 ${format(historicalPreset.max)}`}
-          style={styles.presetRow}>
-          <Text style={styles.presetBadge}>과거 최다</Text>
-          <Text style={styles.presetValue}>{format(historicalPreset.min)}~{format(historicalPreset.max)}</Text>
-          <Text style={styles.presetSource}>전체 과거 본번호 기준</Text>
-        </View>
-      ) : null}
-      <View style={!value.enabled && styles.disabled}>
-        <View onLayout={onTrackLayout} style={styles.track} testID={`range-track-${title}`}>
+      <CollapsibleConditionContent expanded={value.enabled}>
+        {historicalPreset ? (
           <View
-            style={[
-              styles.activeTrack,
-              { left: `${startPercent}%`, width: `${Math.max(0, endPercent - startPercent)}%` },
-            ]}
-            testID={`range-active-track-${title}`}
-          />
-          <SliderThumb
-            allowedMax={value.max}
-            allowedMin={limits.min}
-            kind="min"
-            onChange={(min) => onChange({ ...value, min })}
-            rangeMax={limits.max}
-            rangeMin={limits.min}
-            step={step}
-            title={title}
-            trackWidth={trackWidth}
-            value={value.min}
-          />
-          <SliderThumb
-            allowedMax={limits.max}
-            allowedMin={value.min}
-            kind="max"
-            onChange={(max) => onChange({ ...value, max })}
-            rangeMax={limits.max}
-            rangeMin={limits.min}
-            step={step}
-            title={title}
-            trackWidth={trackWidth}
-            value={value.max}
-          />
+            accessibilityLabel={`전체 과거 본번호 기준 과거 최다 구간 ${format(historicalPreset.min)}에서 ${format(historicalPreset.max)}`}
+            style={styles.presetRow}>
+            <Text style={styles.presetBadge}>과거 최다</Text>
+            <Text style={styles.presetValue}>{format(historicalPreset.min)}~{format(historicalPreset.max)}</Text>
+            <Text style={styles.presetSource}>전체 과거 본번호 기준</Text>
+          </View>
+        ) : null}
+        <View>
+          <View onLayout={onTrackLayout} style={styles.track} testID={`range-track-${title}`}>
+            <View
+              style={[
+                styles.activeTrack,
+                { left: `${startPercent}%`, width: `${Math.max(0, endPercent - startPercent)}%` },
+              ]}
+              testID={`range-active-track-${title}`}
+            />
+            <SliderThumb
+              allowedMax={value.max}
+              allowedMin={limits.min}
+              kind="min"
+              onChange={(min) => onChange({ ...value, min })}
+              rangeMax={limits.max}
+              rangeMin={limits.min}
+              step={step}
+              title={title}
+              trackWidth={trackWidth}
+              value={value.min}
+            />
+            <SliderThumb
+              allowedMax={limits.max}
+              allowedMin={value.min}
+              kind="max"
+              onChange={(max) => onChange({ ...value, max })}
+              rangeMax={limits.max}
+              rangeMin={limits.min}
+              step={step}
+              title={title}
+              trackWidth={trackWidth}
+              value={value.max}
+            />
+          </View>
+          <View style={styles.inputs} testID={`range-inputs-${title}`}>
+            <TextInput
+              accessibilityLabel={`${title} 최솟값`}
+              defaultValue={format(value.min)}
+              key={`min-${value.min}`}
+              keyboardType="decimal-pad"
+              onEndEditing={(event) => commitText('min', event.nativeEvent.text)}
+              selectTextOnFocus
+              style={styles.input}
+            />
+            <Text style={styles.separator}>~</Text>
+            <TextInput
+              accessibilityLabel={`${title} 최댓값`}
+              defaultValue={format(value.max)}
+              key={`max-${value.max}`}
+              keyboardType="decimal-pad"
+              onEndEditing={(event) => commitText('max', event.nativeEvent.text)}
+              selectTextOnFocus
+              style={styles.input}
+            />
+          </View>
         </View>
-        <View style={styles.inputs} testID={`range-inputs-${title}`}>
-          <TextInput
-            accessibilityLabel={`${title} 최솟값`}
-            defaultValue={format(value.min)}
-            key={`min-${value.min}`}
-            keyboardType="decimal-pad"
-            onEndEditing={(event) => commitText('min', event.nativeEvent.text)}
-            selectTextOnFocus
-            style={styles.input}
-          />
-          <Text style={styles.separator}>~</Text>
-          <TextInput
-            accessibilityLabel={`${title} 최댓값`}
-            defaultValue={format(value.max)}
-            key={`max-${value.max}`}
-            keyboardType="decimal-pad"
-            onEndEditing={(event) => commitText('max', event.nativeEvent.text)}
-            selectTextOnFocus
-            style={styles.input}
-          />
-        </View>
-      </View>
+      </CollapsibleConditionContent>
     </View>
   );
 }
@@ -252,12 +258,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.divider,
     borderRadius: radius.md,
     backgroundColor: colors.background,
+    overflow: 'hidden',
     padding: spacing.md,
   },
   containerEnabled: { borderColor: colors.accentBorder },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  headingCopy: { flex: 1, minWidth: 0, paddingRight: spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   title: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  collapsedHint: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, marginTop: spacing.xs },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm },
   presetBadge: {
     color: colors.accentSecondary, fontSize: 10, fontWeight: typography.weights.semibold,
@@ -266,7 +275,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   presetValue: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   presetSource: { color: colors.textSecondary, fontSize: 10 },
-  disabled: { opacity: 0.38, pointerEvents: 'none' },
   track: { height: 36, marginHorizontal: 10, marginTop: spacing.md, justifyContent: 'center' },
   activeTrack: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: colors.accentPrimary },
   thumbHitArea: {

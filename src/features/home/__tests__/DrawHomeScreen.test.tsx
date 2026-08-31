@@ -1,16 +1,60 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { describe, expect, jest, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { router } from 'expo-router';
 
 import { DrawHomeScreen } from '../DrawHomeScreen';
+
+const freeAccess = {
+  bonusAnalysisCredits: 3,
+  canApplyReferralCode: false,
+  inviteCode: '',
+  isPro: false,
+  nextWeeklyResetAt: '',
+  proExpiresAt: null,
+  rewardedUnlocksLimit: 3,
+  rewardedUnlocksUsedThisWeek: 0,
+  weeklyFreeAvailable: true,
+};
+
+let mockMonetizationState: { access: typeof freeAccess; status: 'ready' } = {
+  access: freeAccess,
+  status: 'ready',
+};
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
 }));
 
+jest.mock('@/features/monetization/MonetizationContext', () => ({
+  useMonetization: () => ({ state: mockMonetizationState }),
+}));
+
 const mockNavigate = router.navigate as jest.Mock;
 
 describe('DrawHomeScreen', () => {
+  beforeEach(() => {
+    mockMonetizationState = { access: freeAccess, status: 'ready' };
+  });
+
+  test('shows the available ticket count for free users and marks random draw as free', async () => {
+    const screen = await render(<DrawHomeScreen />);
+
+    expect(screen.getByLabelText('남은 티켓 4개')).toBeTruthy();
+    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByText('FREE')).toBeTruthy();
+  });
+
+  test('shows Pro instead of tickets for subscribers', async () => {
+    mockMonetizationState = {
+      access: { ...freeAccess, isPro: true },
+      status: 'ready',
+    };
+    const screen = await render(<DrawHomeScreen />);
+
+    expect(screen.getByText('PRO')).toBeTruthy();
+    expect(screen.queryByLabelText('남은 티켓 4개')).toBeNull();
+  });
+
   test('keeps the random game count independent from the single AI condition draw', async () => {
     mockNavigate.mockClear();
     const screen = await render(<DrawHomeScreen />);

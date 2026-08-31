@@ -137,6 +137,8 @@ describe('CombinationResult', () => {
   test('shows the selected combination as one compact profile', async () => {
     const onOpenHistory = jest.fn();
     const onCompare = jest.fn();
+    const onToggleFavorite = jest.fn();
+    const onTogglePurchased = jest.fn();
     const { getByRole, getByTestId, getByText, queryByText } = await render(
       <CombinationResult
         analysis={analysis}
@@ -149,6 +151,8 @@ describe('CombinationResult', () => {
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
         onStartOver={() => undefined}
+        onToggleFavorite={onToggleFavorite}
+        onTogglePurchased={onTogglePurchased}
         period={{ kind: 'preset', label: '전체' }}
       />,
     );
@@ -172,16 +176,58 @@ describe('CombinationResult', () => {
     expect(getByText('선택 번호 출현 빈도')).toBeTruthy();
     expect(getByText('전체 회차 일치 분포')).toBeTruthy();
     expect(queryByText('과거 당첨번호와 비교한 등급 상당 기록입니다.')).toBeNull();
+    expect(getByTestId('result-card-actions')).toBeTruthy();
+    expect(getByRole('button', { name: '구매한 번호로 표시' }).props.accessibilityState)
+      .toEqual({ selected: false });
+    expect(getByRole('button', { name: '즐겨찾기에 추가' }).props.accessibilityState)
+      .toEqual({ selected: false });
 
     await act(async () => {
       fireEvent.press(getByRole('button', { name: '비교할 조합 추가' }));
+      fireEvent.press(getByRole('button', { name: '구매한 번호로 표시' }));
     });
+    expect(getByTestId('library-action-toast')).toBeTruthy();
+    expect(getByText('구매번호로 등록되었습니다.')).toBeTruthy();
+    expect(getByRole('button', { name: '구매 표시 해제' }).props.accessibilityState)
+      .toEqual({ selected: true });
+
+    await act(async () => {
+      fireEvent.press(getByRole('button', { name: '즐겨찾기에 추가' }));
+    });
+    expect(getByText('즐겨찾기에 등록되었습니다.')).toBeTruthy();
+    expect(getByRole('button', { name: '즐겨찾기 해제' }).props.accessibilityState)
+      .toEqual({ selected: true });
     await act(async () => {
       fireEvent.press(getByRole('button', { name: '전체 기록' }));
     });
 
     expect(onCompare).toHaveBeenCalledTimes(1);
+    expect(onTogglePurchased).toHaveBeenCalledTimes(1);
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
+
+  test('highlights the locked AI explanation with the same Pro card treatment', async () => {
+    const { getByRole, getByTestId } = await render(
+      <CombinationResult
+        analysis={analysis}
+        bonusIncluded={false}
+        firstRound={1}
+        isPro={false}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onCompare={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('ai-combination-explanation-card').props.style))
+      .toMatchObject({ backgroundColor: '#102A43', borderColor: '#2997FF' });
+    expect(getByRole('button', { name: 'AI 조합 해설, Pro 전용' })).toBeTruthy();
   });
 
   test('restores match distribution and group frequency before condition statistics', async () => {

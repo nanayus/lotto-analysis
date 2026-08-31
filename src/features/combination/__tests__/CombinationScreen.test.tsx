@@ -12,17 +12,19 @@ import {
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
 let mockIsPro = true;
-let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'AUTHORIZED_WEEKLY' | 'REWARD_OR_PRO_REQUIRED' = 'AUTHORIZED_PRO';
+let mockBonusAnalysisCredits = 3;
+let mockWeeklyFreeAvailable = true;
+let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'AUTHORIZED_WEEKLY' | 'REWARD_OR_PRO_REQUIRED' | 'UNLOCKED_EXISTING' = 'AUTHORIZED_PRO';
 const mockAuthorizeAnalysis = jest.fn(async () => ({
   accessState: {
-    bonusAnalysisCredits: 3,
+    bonusAnalysisCredits: mockBonusAnalysisCredits,
     inviteCode: 'ABCDEF12',
     isPro: mockIsPro,
     nextWeeklyResetAt: '2026-09-06T15:00:00.000Z',
     proExpiresAt: '2026-12-31T00:00:00.000Z',
     rewardedUnlocksLimit: 3,
     rewardedUnlocksUsedThisWeek: 0,
-    weeklyFreeAvailable: true,
+    weeklyFreeAvailable: mockWeeklyFreeAvailable,
   },
   combinationKey: '1-7-12-19-34-45',
   decision: mockAuthorizationDecision,
@@ -64,17 +66,18 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     authorizeAnalysis: mockAuthorizeAnalysis,
     openPaywall: mockOpenPaywall,
+    refresh: jest.fn(async () => undefined),
     state: {
       status: 'ready',
       access: {
-        bonusAnalysisCredits: 3,
+        bonusAnalysisCredits: mockBonusAnalysisCredits,
         inviteCode: 'ABCDEF12',
         isPro: mockIsPro,
         nextWeeklyResetAt: '2026-09-06T15:00:00.000Z',
         proExpiresAt: '2026-12-31T00:00:00.000Z',
         rewardedUnlocksLimit: 3,
         rewardedUnlocksUsedThisWeek: 0,
-        weeklyFreeAvailable: true,
+        weeklyFreeAvailable: mockWeeklyFreeAvailable,
       },
     },
   }),
@@ -107,6 +110,8 @@ describe('CombinationScreen', () => {
     mockOpenPaywall.mockClear();
     mockAuthorizeAnalysis.mockClear();
     mockIsPro = true;
+    mockBonusAnalysisCredits = 3;
+    mockWeeklyFreeAvailable = true;
     mockAuthorizationDecision = 'AUTHORIZED_PRO';
   });
 
@@ -131,7 +136,11 @@ describe('CombinationScreen', () => {
 
     await waitFor(() => expect(mockAuthorizeAnalysis).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
-    expect(screen.getAllByTestId(/animated-combination-number-/)).toHaveLength(6);
+    expect(screen.getByTestId('loading-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getAllByTestId(
+      /loading-number-shuffle-number-/,
+      { includeHiddenElements: true },
+    )).toHaveLength(6);
     expect(screen.queryByTestId('combination-number-grid')).toBeNull();
     await screen.unmount();
   });
@@ -148,6 +157,47 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
   });
 
+  test('blocks direct manual analysis before showing the selector when no analysis is available', async () => {
+    mockSearchParams.mockReturnValue({ returnTo: 'draw' });
+    mockIsPro = false;
+    mockBonusAnalysisCredits = 0;
+    mockWeeklyFreeAvailable = false;
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    expect(screen.getByText('분석 이용권이 필요해요')).toBeTruthy();
+    expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
+    expect(screen.getByTestId('access-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getAllByTestId(
+      /access-number-shuffle-number-/,
+      { includeHiddenElements: true },
+    )).toHaveLength(6);
+    expect(screen.queryByTestId('combination-number-grid')).toBeNull();
+    expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
+  });
+
+  test('shows a recoverable page for a direct analysis URL without six numbers', async () => {
+    const screen = await render(
+      <CombinationDraftProvider>
+        <CombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    expect(screen.getByText('분석할 번호를 찾지 못했어요')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '번호 다시 선택하기' })).toBeTruthy();
+    expect(screen.queryByTestId('combination-number-grid')).toBeNull();
+    expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole('button', { name: '번호 다시 선택하기' }));
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/combination-analysis',
+      params: { returnTo: 'random-draw' },
+    });
+  });
+
   test('returns New analysis from a result to the Number Draw home', async () => {
     mockReplace.mockClear();
     const screen = await render(
@@ -157,6 +207,7 @@ describe('CombinationScreen', () => {
     );
 
     await waitFor(() => expect(screen.getByRole('button', { name: '새 조합 분석' })).toBeTruthy());
+    expect(screen.getByText('해설 보기')).toBeTruthy();
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: '새 조합 분석' }));
     });
@@ -178,6 +229,7 @@ describe('CombinationScreen', () => {
     expect(screen.getByRole('button', { name: 'Pro 살펴보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '광고 보고 이번 결과 보기, 연결 준비 중' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '다음에 하기' })).toBeTruthy();
+    expect(screen.getByTestId('access-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText('이용 방법 보기')).toBeNull();
     expect(screen.queryByText('이번 주 무료 분석을 모두 사용했어요')).toBeNull();
     expect(screen.queryByTestId('result-section-prize')).toBeNull();
@@ -186,7 +238,7 @@ describe('CombinationScreen', () => {
     expect(mockOpenPaywall).toHaveBeenCalledWith('analysis-limit');
   });
 
-  test('keeps the access modal for a direct manual analysis', async () => {
+  test('uses the full access page when a direct manual analysis is denied', async () => {
     mockSearchParams.mockReturnValue({ returnTo: 'draw' });
     mockIsPro = false;
     mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
@@ -200,8 +252,46 @@ describe('CombinationScreen', () => {
       fireEvent.press(screen.getByRole('button', { name: '분석하기' }));
     });
 
-    await waitFor(() => expect(screen.getByText('이번 주 무료 분석을 모두 사용했어요')).toBeTruthy());
-    expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
+    await waitFor(() => expect(screen.getByText('분석 이용권이 필요해요')).toBeTruthy());
+    expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
+    expect(screen.queryByTestId('combination-number-grid')).toBeNull();
+    expect(screen.queryByText('이번 주 무료 분석을 모두 사용했어요')).toBeNull();
+  });
+
+  test('restores an already unlocked requested analysis even with no new analysis credits', async () => {
+    mockIsPro = false;
+    mockBonusAnalysisCredits = 0;
+    mockWeeklyFreeAvailable = false;
+    mockAuthorizationDecision = 'UNLOCKED_EXISTING';
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('result-section-prize')).toBeTruthy());
+    expect(screen.queryByText('분석 이용권이 필요해요')).toBeNull();
+  });
+
+  test('hides an open analysis result after sign-out', async () => {
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('result-section-prize')).toBeTruthy());
+    mockAuthStatus = 'guest';
+    await act(async () => {
+      screen.rerender(
+        <CombinationDraftProvider>
+          <SeededCombinationScreen />
+        </CombinationDraftProvider>,
+      );
+    });
+
+    await waitFor(() => expect(screen.getByText('로그인이 필요해요')).toBeTruthy());
+    expect(screen.queryByTestId('result-section-prize')).toBeNull();
   });
 
   test('opens Pro when a free user requests combination comparison', async () => {

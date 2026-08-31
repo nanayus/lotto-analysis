@@ -27,6 +27,7 @@ import { describeGeneratorConditions } from '@/domain/generator/describeGenerato
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import {
@@ -84,6 +85,7 @@ export function CombinationGeneratorScreen({
   const styles = useThemedStyles(createStyles);
   const { setNumbers } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
+  const { state: monetizationState } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
   const [conditions, setConditions] = useState(
     () => restoreConditions(sessionToken) ?? buildGeneratorConditionDefaults(lottoHistory),
@@ -91,6 +93,7 @@ export function CombinationGeneratorScreen({
   const [outcomes, setOutcomes] = useState<GenerationOutcome[]>([]);
   const outcome = outcomes[0] ?? null;
   const [sheetVisible, setSheetVisible] = useState(autoOpenConditions);
+  const [recommendationPromptVisible, setRecommendationPromptVisible] = useState(conditionOnly);
   const [generating, setGenerating] = useState(false);
   const [searchedCandidates, setSearchedCandidates] = useState(0);
   const [nearestNoticeVisible, setNearestNoticeVisible] = useState(false);
@@ -98,6 +101,16 @@ export function CombinationGeneratorScreen({
   const generationToken = useRef(0);
   const summary = useMemo(() => conditionSummary(conditions), [conditions]);
   const conditionCount = activeConditionCount(conditions);
+  const conditionApplyAccess = monetizationState.status === 'ready'
+    ? monetizationState.access.isPro
+      ? 'pro'
+      : monetizationState.access.weeklyFreeAvailable
+        || monetizationState.access.bonusAnalysisCredits > 0
+        ? 'ticket'
+        : 'ticket-required'
+    : monetizationState.status === 'guest'
+      ? 'guest'
+      : 'checking';
 
   useEffect(() => () => { generationToken.current += 1; }, []);
 
@@ -153,7 +166,10 @@ export function CombinationGeneratorScreen({
       if (generationToken.current !== token) return;
       setOutcomes(nextOutcomes);
       const generationConditions = describeGeneratorConditions(conditions);
-      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', { generationConditions }));
+      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', {
+        generationConditions,
+        generatorConditions: conditions,
+      }));
       if (nextOutcomes.some((item) => item.mode === 'nearest')) setNearestNoticeVisible(true);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -176,6 +192,18 @@ export function CombinationGeneratorScreen({
     setOutcomes([]);
     setErrorMessage(null);
     setSheetVisible(false);
+    if (conditionApplyAccess === 'ticket-required') {
+      router.push({
+        pathname: COMBINATION_ANALYSIS_ROUTE,
+        params: {
+          returnCount: String(gameCount),
+          returnSession: sessionToken ?? 'generator',
+          returnTo: conditionOnly ? 'combination-generator' : 'draw',
+          returnToken: String(Date.now()),
+        },
+      });
+      return;
+    }
     setGenerating(true);
     setSearchedCandidates(0);
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
@@ -190,7 +218,10 @@ export function CombinationGeneratorScreen({
 
       setOutcomes(nextOutcomes);
       const generationConditions = describeGeneratorConditions(next);
-      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', { generationConditions }));
+      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', {
+        generationConditions,
+        generatorConditions: next,
+      }));
       if (nextOutcomes.some((item) => item.mode === 'nearest')) {
         setNearestNoticeVisible(true);
       }
@@ -226,7 +257,7 @@ export function CombinationGeneratorScreen({
         setSearchedCandidates(0);
       }
     }
-  }, [addCombination, conditionOnly, gameCount, generateOutcomes, saveConditions, sessionToken, setNumbers]);
+  }, [addCombination, conditionApplyAccess, conditionOnly, gameCount, generateOutcomes, saveConditions, sessionToken, setNumbers]);
 
   const analyzeOutcome = useCallback((selectedOutcome: GenerationOutcome | null) => {
     if (!selectedOutcome) return;
@@ -277,10 +308,13 @@ export function CombinationGeneratorScreen({
 
         {sheetVisible ? (
           <ConditionSheet
+            applyAccess={conditionApplyAccess}
             conditions={conditions}
             history={lottoHistory}
             onApply={applyConditions}
             onClose={leaveDirectConditionSelection}
+            onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
+            recommendationPromptVisible={recommendationPromptVisible}
             visible
           />
         ) : null}
@@ -435,6 +469,7 @@ export function CombinationGeneratorScreen({
 
       {sheetVisible ? (
         <ConditionSheet
+          applyAccess={conditionApplyAccess}
           conditions={conditions}
           history={lottoHistory}
           onApply={applyConditions}

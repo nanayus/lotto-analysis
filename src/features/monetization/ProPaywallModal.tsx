@@ -5,14 +5,24 @@ import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '
 
 const BENEFITS = [
   '조합 분석 무제한',
+  'AI 조합 해설과 후속 질문',
   '두 조합 비교와 Custom 기간',
   '새 회차 자동 재분석',
   '최대 200개 저장과 클라우드 동기화',
   '리워드 광고 없음',
 ] as const;
 
-export function ProPaywallModal({ onClose, visible }: { onClose: () => void; visible: boolean }) {
+export function ProPaywallModal({
+  onClose,
+  source,
+  visible,
+}: {
+  onClose: () => void;
+  source?: string | null;
+  visible: boolean;
+}) {
   const styles = useThemedStyles(createStyles);
+  const isAiExplanation = source === 'ai-combination-explanation';
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -21,7 +31,14 @@ export function ProPaywallModal({ onClose, visible }: { onClose: () => void; vis
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.badge}><Text style={styles.badgeText}>PRO</Text></View>
-          <Text style={styles.title}>조합을 제한 없이 비교하고 관리하세요</Text>
+          <Text style={styles.title}>
+            {isAiExplanation ? 'AI 조합 해설은 Pro 기능이에요' : '조합을 제한 없이 비교하고 관리하세요'}
+          </Text>
+          {isAiExplanation ? (
+            <Text style={styles.description}>
+              계산된 통계를 AI가 알기 쉽게 해설하고, 궁금한 내용을 이어서 질문할 수 있습니다.
+            </Text>
+          ) : null}
           <View style={styles.benefits}>
             {BENEFITS.map((benefit) => (
               <View key={benefit} style={styles.benefitRow}>
@@ -60,6 +77,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   badge: { alignSelf: 'flex-start', paddingHorizontal: spacing.sm, paddingVertical: 5, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
   badgeText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 1.2 },
   title: { marginTop: spacing.md, color: colors.textPrimary, fontSize: 25, lineHeight: 32, fontWeight: typography.weights.bold, letterSpacing: -0.5 },
+  description: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20 },
   benefits: { marginTop: spacing.xl, gap: spacing.md },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   benefitText: { flex: 1, color: colors.textPrimary, fontSize: typography.sizes.body },

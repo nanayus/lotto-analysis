@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import type { AnalysisPeriod } from '@/domain/analytics/types';
 import type { CombinationAnalysis, CombinationSize, PrizeRank } from '@/domain/combination/types';
@@ -12,6 +14,9 @@ import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
+import { LibraryStatusActions } from '@/features/library/components/LibraryStatusActions';
+
+import { AiCombinationExplanation } from './AiCombinationExplanation';
 import { CombinationNumberPills } from './CombinationNumberPills';
 
 type CombinationResultProps = {
@@ -21,12 +26,18 @@ type CombinationResultProps = {
   latestRound: number;
   onBonusChange: (included: boolean) => void;
   onBack?: () => void;
+  onToggleFavorite?: () => void;
+  onTogglePurchased?: () => void;
   onOpenHistory: () => void;
   onOpenPrizeRank: (rank: PrizeRank) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
+  onOpenPro?: () => void;
   onStartOver: () => void;
   onCompare: () => void;
   period: AnalysisPeriod;
+  favorite?: boolean;
+  isPro?: boolean;
+  purchased?: boolean;
 };
 
 const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
@@ -284,14 +295,24 @@ export function CombinationResult({
   latestRound,
   onBonusChange,
   onBack = NOOP,
+  onToggleFavorite = NOOP,
+  onTogglePurchased = NOOP,
   onOpenHistory,
   onOpenPrizeRank,
   onPeriodChange,
+  onOpenPro = NOOP,
   onStartOver,
   onCompare,
   period,
+  favorite = false,
+  isPro = false,
+  purchased = false,
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
+  const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
+  const [favoriteSelection, setFavoriteSelection] = useState<{ key: string; value: boolean } | null>(null);
+  const [purchasedSelection, setPurchasedSelection] = useState<{ key: string; value: boolean } | null>(null);
+  const libraryNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const individualNumbers = [...analysis.individualNumbers].sort(
     (left, right) => right.appearanceCount - left.appearanceCount || left.number - right.number,
   );
@@ -306,12 +327,44 @@ export function CombinationResult({
       .map((group) => `${formatNumber(group[0])}‑${formatNumber(group.at(-1)!)}`)
       .join(' · ')
     : '-';
+  const analysisNumberKey = analysis.numbers.join('-');
+  const favoriteSelected = favoriteSelection?.key === analysisNumberKey
+    ? favoriteSelection.value
+    : favorite;
+  const purchasedSelected = purchasedSelection?.key === analysisNumberKey
+    ? purchasedSelection.value
+    : purchased;
+
+  useEffect(() => () => {
+    if (libraryNoticeTimerRef.current) clearTimeout(libraryNoticeTimerRef.current);
+  }, []);
+
+  const showLibraryNotice = (message: string) => {
+    if (libraryNoticeTimerRef.current) clearTimeout(libraryNoticeTimerRef.current);
+    setLibraryNotice(message);
+    libraryNoticeTimerRef.current = setTimeout(() => setLibraryNotice(null), 1800);
+  };
+
+  const handleTogglePurchased = () => {
+    const selected = !purchasedSelected;
+    setPurchasedSelection({ key: analysisNumberKey, value: selected });
+    onTogglePurchased();
+    showLibraryNotice(selected ? '구매번호로 등록되었습니다.' : '구매번호에서 해제되었습니다.');
+  };
+
+  const handleToggleFavorite = () => {
+    const selected = !favoriteSelected;
+    setFavoriteSelection({ key: analysisNumberKey, value: selected });
+    onToggleFavorite();
+    showLibraryNotice(selected ? '즐겨찾기에 등록되었습니다.' : '즐겨찾기에서 해제되었습니다.');
+  };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      testID="combination-result-scroll">
+    <>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        testID="combination-result-scroll">
       <View style={styles.topBar}>
         <SubScreenBackButton accessibilityLabel="이전 화면으로 돌아가기" onPress={onBack} />
         <Text style={styles.title}>조합 분석</Text>
@@ -329,6 +382,15 @@ export function CombinationResult({
       </View>
 
       <AppCard style={styles.selectedProfile}>
+        <View style={styles.profileLibraryActions}>
+          <LibraryStatusActions
+            favorite={favoriteSelected}
+            onToggleFavorite={handleToggleFavorite}
+            onTogglePurchased={handleTogglePurchased}
+            purchased={purchasedSelected}
+            testID="result-card-actions"
+          />
+        </View>
         <CombinationNumberPills numbers={analysis.numbers} />
         <Text style={styles.profileMeta}>
           <Text style={styles.profileMetaMuted}>최근 </Text>
@@ -370,6 +432,12 @@ export function CombinationResult({
           variant="plain"
         />
       </View>
+
+      <AiCombinationExplanation
+        analysis={analysis}
+        isPro={isPro}
+        onOpenPro={onOpenPro}
+      />
 
       <AppCard style={styles.prizeSection} testID="result-section-prize">
         <View style={styles.prizeHeadingRow}>
@@ -511,7 +579,23 @@ export function CombinationResult({
       </SectionCard>
 
       <FrequentCombinations analysis={analysis} />
-    </ScrollView>
+      </ScrollView>
+      {libraryNotice ? (
+        <Animated.View
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          entering={FadeIn.duration(140)}
+          exiting={FadeOut.duration(140)}
+          pointerEvents="none"
+          style={styles.toastPositioner}
+          testID="library-action-toast">
+          <View style={styles.toast}>
+            <Ionicons color={styles.toastText.color} name="checkmark-circle" size={17} />
+            <Text style={styles.toastText}>{libraryNotice}</Text>
+          </View>
+        </Animated.View>
+      ) : null}
+    </>
   );
 }
 
@@ -548,8 +632,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.medium,
   },
   selectedProfile: {
+    position: 'relative',
     alignItems: 'center',
     padding: spacing.lg,
+    paddingTop: spacing.huge + spacing.sm,
   },
   compareButton: {
     minHeight: 32,
@@ -562,6 +648,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.accentPrimary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
+  },
+  profileLibraryActions: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.md,
   },
   profileMeta: {
     alignSelf: 'stretch',
@@ -587,6 +678,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   filterRow: {
     alignItems: 'flex-end',
     marginBottom: -spacing.xs,
+  },
+  toastPositioner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.xl,
+    alignItems: 'center',
+    zIndex: 20,
+    elevation: 8,
+  },
+  toast: {
+    minHeight: 42,
+    maxWidth: '90%',
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: radius.round,
+    backgroundColor: colors.textPrimary,
+    boxShadow: colors.cardShadow,
+  },
+  toastText: {
+    color: colors.background,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
   },
   card: {
     borderRadius: radius.lg,

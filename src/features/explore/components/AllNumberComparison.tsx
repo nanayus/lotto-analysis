@@ -1,14 +1,27 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
+import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
 import type { AnalysisPeriod, AnalyticsSnapshot } from '@/domain/analytics/types';
-import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
+import {
+  type ThemeColors,
+  radius,
+  spacing,
+  typography,
+  useAppTheme,
+  useThemedStyles,
+} from '@/theme';
 
 import { AnalysisControls } from './AnalysisControls';
 
 const WIDE_GRID_BREAKPOINT = 480;
 const MOBILE_COLUMN_COUNT = 5;
 const WIDE_COLUMN_COUNT = 10;
+const RING_SIZE = 42;
+const RING_STROKE = 3;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 type ComparisonMetric = 'appearanceCount' | 'currentGap';
 
@@ -30,6 +43,55 @@ type AllNumberComparisonProps = {
   snapshot: AnalyticsSnapshot;
 };
 
+type MetricRingProps = {
+  number: number;
+  progress: number;
+  selected: boolean;
+};
+
+function MetricRing({ number, progress, selected }: MetricRingProps) {
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View
+      style={[styles.ring, selected && styles.ringSelected]}
+      testID={`all-number-ball-${number}`}>
+      <Svg
+        accessibilityElementsHidden
+        height={RING_SIZE}
+        style={[StyleSheet.absoluteFill, styles.ringSvg]}
+        width={RING_SIZE}>
+        <Circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          fill="transparent"
+          r={RING_RADIUS}
+          stroke={colors.divider}
+          strokeWidth={RING_STROKE}
+        />
+        <Circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          fill="transparent"
+          r={RING_RADIUS}
+          rotation={-90}
+          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+          stroke={selected ? colors.accentPrimary : colors.textTertiary}
+          strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+          strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
+          strokeLinecap="round"
+          strokeWidth={RING_STROKE}
+          testID={`all-number-progress-${number}`}
+        />
+      </Svg>
+      <Text style={[styles.number, selected && styles.numberSelected]}>
+        {String(number).padStart(2, '0')}
+      </Text>
+    </View>
+  );
+}
+
 export function AllNumberComparison({
   bonusIncluded,
   firstRound,
@@ -49,6 +111,10 @@ export function AllNumberComparison({
     ? WIDE_COLUMN_COUNT
     : MOBILE_COLUMN_COUNT;
   const numbers = Object.values(snapshot.numbers).sort((a, b) => a.number - b.number);
+  const maxMetricValue = useMemo(
+    () => Math.max(...numbers.map((item) => item[metric]), 1),
+    [metric, numbers],
+  );
   const rows = Array.from(
     { length: Math.ceil(numbers.length / columnCount) },
     (_, index) => numbers.slice(index * columnCount, (index + 1) * columnCount),
@@ -57,19 +123,30 @@ export function AllNumberComparison({
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Pressable
+        <SubScreenBackButton
           accessibilityLabel="번호분석으로 돌아가기"
-          accessibilityRole="button"
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-          <Text style={styles.backIcon}>‹</Text>
-        </Pressable>
-        <Text style={styles.title}>전체 번호</Text>
-        <View style={styles.headerSpacer} />
+        />
+        <View style={styles.headerCopy}>
+          <Text style={styles.eyebrow}>NUMBER INDEX</Text>
+          <Text accessibilityRole="header" style={styles.title}>전체 번호</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.filterRow}>
+        <View style={styles.introRow}>
+          <View style={styles.introCopy}>
+            <Text style={styles.introTitle}>1–45 번호 비교</Text>
+            <Text style={styles.introDescription}>같은 기준으로 모든 번호를 한눈에 살펴보세요.</Text>
+          </View>
+          <View style={styles.selectionBadge}>
+            <Text style={styles.selectionLabel}>선택</Text>
+            <Text style={styles.selectionNumber}>{selectedNumber}</Text>
+          </View>
+        </View>
+
+        <View style={styles.filterBar}>
+          <Text style={styles.filterTitle}>분석 조건</Text>
           <AnalysisControls
             bonusIncluded={bonusIncluded}
             compact
@@ -105,6 +182,11 @@ export function AllNumberComparison({
           })}
         </View>
 
+        <View style={styles.gridHeading}>
+          <Text style={styles.gridTitle}>{metric === 'appearanceCount' ? '번호별 출현 횟수' : '번호별 미출현 간격'}</Text>
+          <Text style={styles.gridHint}>테두리가 길수록 값이 큽니다 · 번호를 누르면 상세 분석으로 이동합니다</Text>
+        </View>
+
         <View style={styles.grid} testID={`all-number-grid-${columnCount}-columns`}>
           {rows.map((row, rowIndex) => (
             <View
@@ -130,13 +212,11 @@ export function AllNumberComparison({
                       pressed && styles.pressed,
                     ]}
                     testID={`all-number-item-${item.number}`}>
-                    <View
-                      style={[styles.ball, selected && styles.ballSelected]}
-                      testID={`all-number-ball-${item.number}`}>
-                      <Text style={[styles.number, selected && styles.numberSelected]}>
-                        {String(item.number).padStart(2, '0')}
-                      </Text>
-                    </View>
+                    <MetricRing
+                      number={item.number}
+                      progress={metricValue / maxMetricValue}
+                      selected={selected}
+                    />
                     <Text style={[styles.count, selected && styles.countSelected]}>
                       {metricValue}회
                     </Text>
@@ -154,55 +234,104 @@ export function AllNumberComparison({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   header: {
-    height: 54,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerCopy: {
+    flex: 1,
+    marginLeft: spacing.sm,
   },
-  backIcon: {
-    color: colors.textPrimary,
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: typography.weights.regular,
+  eyebrow: {
+    color: colors.accentPrimary,
+    fontSize: 9,
+    fontWeight: typography.weights.bold,
+    letterSpacing: 1.35,
+    marginBottom: 2,
   },
   title: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.semibold,
+    letterSpacing: -0.5,
+  },
+  content: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.huge,
+  },
+  introRow: {
+    minHeight: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  introCopy: {
     flex: 1,
+  },
+  introTitle: {
     color: colors.textPrimary,
     fontSize: typography.sizes.body,
     fontWeight: typography.weights.semibold,
-    textAlign: 'center',
+    letterSpacing: -0.35,
   },
-  headerSpacer: {
-    width: 44,
+  introDescription: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+    marginTop: spacing.xs,
   },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxxl,
+  selectionBadge: {
+    minWidth: 64,
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
   },
-  filterRow: {
-    alignItems: 'flex-end',
-    paddingVertical: spacing.md,
+  selectionLabel: {
+    color: colors.textSecondary,
+    fontSize: 10,
+  },
+  selectionNumber: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  filterBar: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.divider,
+  },
+  filterTitle: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
   },
   metricFilters: {
     minHeight: 44,
     flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: spacing.xl,
+    marginTop: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
   metricFilter: {
+    flex: 1,
     minHeight: 44,
+    alignItems: 'center',
     justifyContent: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -216,39 +345,58 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.medium,
   },
   metricFilterTextSelected: {
-    color: colors.textPrimary,
+    color: colors.accentPrimary,
     fontWeight: typography.weights.semibold,
+  },
+  gridHeading: {
+    marginTop: spacing.xxl,
+    marginBottom: spacing.md,
+  },
+  gridTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+    letterSpacing: -0.3,
+  },
+  gridHint: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    marginTop: spacing.xs,
   },
   grid: {
     width: '100%',
+    overflow: 'hidden',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
   },
   gridRow: {
     flexDirection: 'row',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   rowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
   },
   item: {
-    minHeight: 64,
+    minHeight: 74,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
   },
-  ball: {
-    width: 38,
-    height: 38,
+  ring: {
+    width: RING_SIZE,
+    height: RING_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.round,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
   },
-  ballSelected: {
-    borderColor: colors.accentPrimary,
+  ringSelected: {
     backgroundColor: colors.surfaceAccent,
+  },
+  ringSvg: {
+    pointerEvents: 'none',
   },
   number: {
     color: colors.textPrimary,
@@ -261,7 +409,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   count: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.small,
+    fontSize: typography.sizes.caption,
     fontVariant: ['tabular-nums'],
   },
   countSelected: {

@@ -1,15 +1,27 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 const GAME_COUNTS = [1, 3, 5] as const;
 
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
+  const { state: monetizationState } = useMonetization();
   const [gameCount, setGameCount] = useState<(typeof GAME_COUNTS)[number]>(1);
+  const aiAccess = monetizationState.status === 'ready'
+    ? monetizationState.access.isPro
+      ? { label: 'PRO' as const, ticketCount: null }
+      : {
+          label: null,
+          ticketCount: monetizationState.access.bonusAnalysisCredits
+            + (monetizationState.access.weeklyFreeAvailable ? 1 : 0),
+        }
+    : { label: 'FREE' as const, ticketCount: null };
 
   const openAiDraw = useCallback(() => {
     router.navigate({
@@ -52,7 +64,22 @@ export function DrawHomeScreen() {
               <View style={styles.aiIcon}>
                 <Text style={styles.aiIconText}>✦</Text>
               </View>
-              <View style={styles.primaryBadge}><Text style={styles.primaryBadgeText}>MAIN</Text></View>
+              <View
+                accessibilityLabel={aiAccess.ticketCount === null
+                  ? aiAccess.label === 'PRO' ? 'Pro 구독 중' : '무료 이용'
+                  : `남은 티켓 ${aiAccess.ticketCount}개`}
+                style={[styles.primaryBadge, aiAccess.ticketCount !== null && styles.ticketBadge]}>
+                {aiAccess.ticketCount === null ? (
+                  <Text style={styles.primaryBadgeText}>{aiAccess.label}</Text>
+                ) : (
+                  <>
+                    <Ionicons color="#FFFFFF" name="ticket-outline" size={15} />
+                    <Text style={[styles.primaryBadgeText, styles.ticketBadgeText]}>
+                      {aiAccess.ticketCount}
+                    </Text>
+                  </>
+                )}
+              </View>
             </View>
             <View style={styles.aiCopy}>
               <Text style={styles.aiEyebrow}>CONDITION DRAW</Text>
@@ -73,6 +100,9 @@ export function DrawHomeScreen() {
               <View style={styles.randomCopy}>
                 <Text style={styles.randomTitle}>랜덤조합</Text>
                 <Text style={styles.randomDescription}>조건 없이 번호를 바로 만들어요.</Text>
+              </View>
+              <View accessibilityLabel="무료 기능" style={styles.freeBadge}>
+                <Text style={styles.freeBadgeText}>FREE</Text>
               </View>
             </View>
 
@@ -141,8 +171,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   aiTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   aiIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF1A' },
   aiIconText: { color: '#FFFFFF', fontSize: 27, lineHeight: 30 },
-  primaryBadge: { paddingHorizontal: spacing.lg, paddingVertical: 7, borderRadius: radius.round, backgroundColor: '#FFFFFF1A' },
+  primaryBadge: { minHeight: 32, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, borderRadius: radius.round, backgroundColor: '#FFFFFF1A' },
   primaryBadgeText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
+  ticketBadge: { backgroundColor: '#FFFFFF59' },
+  ticketBadgeText: { fontSize: typography.sizes.small },
   aiCopy: { flex: 1, justifyContent: 'center', paddingVertical: spacing.xxl },
   aiEyebrow: { color: '#FFFFFFB8', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 1.2 },
   aiTitle: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: typography.weights.semibold, letterSpacing: -0.28, marginTop: spacing.sm },
@@ -157,6 +189,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   randomCopy: { flex: 1, marginLeft: spacing.lg },
   randomTitle: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, letterSpacing: -0.37 },
   randomDescription: { color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, marginTop: spacing.xs },
+  freeBadge: { alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
+  freeBadgeText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
   randomCountSection: { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   randomCountLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   randomAction: { minHeight: 48, marginTop: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, backgroundColor: colors.surfaceAccent },
