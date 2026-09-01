@@ -90,6 +90,8 @@ const MULTIPLE_SECTION_KEYS = {
   5: 'multiple5',
 } as const satisfies Record<3 | 4 | 5, GeneratorSectionKey>;
 const MAX_VISIBLE_CONDITION_LABELS = 6;
+const NUMBER_GRID_COLUMN_COUNT = 7;
+const NUMBER_GRID_MAXIMUM_SIZE = 48;
 
 type ConditionSheetProps = {
   applyAccess: 'free' | 'guest' | 'pro';
@@ -599,13 +601,25 @@ export function ConditionSheet({
   const styles = useThemedStyles(createStyles);
   const { width: windowWidth } = useWindowDimensions();
   const sheetWidth = Math.min(windowWidth, 500);
-  const gridMaximumSize = 48;
-  const gridAvailableWidth = sheetWidth - (spacing.xl * 2);
-  const expandedNumberSize = Math.min(
-    gridMaximumSize,
-    ((gridAvailableWidth - 2) - (spacing.sm * 6)) / 7,
+  const fallbackNumberGridWidth = Math.max(
+    0,
+    sheetWidth - (spacing.xl * 2) - (spacing.md * 2) - 2,
   );
-  const expandedGridWidth = (expandedNumberSize * 7) + (spacing.sm * 6);
+  const [measuredNumberGridWidth, setMeasuredNumberGridWidth] = useState<number | null>(null);
+  const gridAvailableWidth = measuredNumberGridWidth ?? fallbackNumberGridWidth;
+  const expandedNumberSize = Math.min(
+    NUMBER_GRID_MAXIMUM_SIZE,
+    Math.max(
+      0,
+      (gridAvailableWidth - (spacing.sm * (NUMBER_GRID_COLUMN_COUNT - 1)))
+        / NUMBER_GRID_COLUMN_COUNT,
+    ),
+  );
+  const expandedGridWidth = Math.min(
+    gridAvailableWidth,
+    (expandedNumberSize * NUMBER_GRID_COLUMN_COUNT)
+      + (spacing.sm * (NUMBER_GRID_COLUMN_COUNT - 1)),
+  );
   const [draft, setDraft] = useState(() => cloneGeneratorConditions(conditions));
   const [numberMode, setNumberMode] = useState<'fixed' | 'excluded'>('fixed');
   const [activeHelp, setActiveHelp] = useState<ConditionHelpKey | null>(null);
@@ -879,7 +893,15 @@ export function ConditionSheet({
                 onEnabledChange={(enabled) => setSectionEnabled('fixedExcluded', enabled)}
                 onHelpPress={() => setActiveHelp('fixedExcluded')}
                 title="고정수 · 제외수">
-                <View style={styles.fixedExcludedContent}>
+                <View
+                  onLayout={(event) => {
+                    const nextWidth = event.nativeEvent.layout.width;
+                    if (nextWidth > 0) {
+                      setMeasuredNumberGridWidth((current) => current === nextWidth ? current : nextWidth);
+                    }
+                  }}
+                  style={styles.fixedExcludedContent}
+                  testID="fixed-excluded-content">
                   <View style={styles.modeRow}>
                     <Pressable
                       accessibilityRole="button"

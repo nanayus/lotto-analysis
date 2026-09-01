@@ -6,7 +6,7 @@ import { Pressable, StyleSheet } from 'react-native';
 
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
 import type { ConsecutivePattern } from '@/domain/generator/types';
-import { typography } from '@/theme';
+import { spacing, typography } from '@/theme';
 
 import {
   CombinationGeneratorScreen,
@@ -299,6 +299,23 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '번호' })); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
     expect(screen.getByLabelText('8번, 제외수')).toBeTruthy();
+  });
+
+  test('fits the number grid to the measured card width on narrow screens', async () => {
+    const screen = await renderScreen();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+
+    await act(async () => {
+      fireEvent(screen.getByTestId('fixed-excluded-content'), 'layout', {
+        nativeEvent: { layout: { height: 400, width: 280, x: 0, y: 0 } },
+      });
+    });
+
+    const gridStyle = StyleSheet.flatten(screen.getByTestId('number-status-grid').props.style);
+    const numberChipStyle = StyleSheet.flatten(screen.getByLabelText('7번').props.style);
+    expect(gridStyle.width).toBeLessThanOrEqual(280);
+    expect(numberChipStyle.width).toBeCloseTo((280 - (spacing.sm * 6)) / 7);
+    expect((numberChipStyle.width * 7) + (spacing.sm * 6)).toBeLessThanOrEqual(280);
   });
 
   test('keeps every category in one list and updates the tab while scrolling vertically', async () => {

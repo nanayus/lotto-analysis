@@ -6,13 +6,13 @@ import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
 import { Animated, ColorValue, Easing, Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
+import { radius, type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 import {
   TabBarVisibilityProvider,
   useTabBarVisibility,
 } from '@/navigation/tabBarVisibility';
 
-const TAB_BAR_CONTENT_HEIGHT = 56;
+const TAB_BAR_FLOATING_HEIGHT = 64;
 const TAB_TRANSITION_DURATION_MS = 180;
 const TAB_BAR_VISIBILITY_DURATION_MS = 200;
 
@@ -73,7 +73,7 @@ function TabsNavigator() {
   const styles = useThemedStyles(createStyles);
   const { hidden, show } = useTabBarVisibility();
   const [hiddenProgress] = useState(() => new Animated.Value(0));
-  const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + insets.bottom;
+  const tabBarBottom = Math.max(insets.bottom, spacing.md);
 
   useEffect(() => {
     Animated.timing(hiddenProgress, {
@@ -92,7 +92,10 @@ function TabsNavigator() {
       }}
       screenOptions={{
         animation: 'fade',
-        sceneStyle: { backgroundColor: colors.background },
+        sceneStyle: {
+          backgroundColor: colors.background,
+          paddingBottom: TAB_BAR_FLOATING_HEIGHT + tabBarBottom + spacing.sm,
+        },
         headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.neutral,
@@ -102,8 +105,9 @@ function TabsNavigator() {
           {
             height: hiddenProgress.interpolate({
               inputRange: [0, 1],
-              outputRange: [tabBarHeight, 0],
+              outputRange: [TAB_BAR_FLOATING_HEIGHT, 0],
             }),
+            bottom: tabBarBottom,
             opacity: hiddenProgress.interpolate({
               inputRange: [0, 0.75, 1],
               outputRange: [1, 0, 0],
@@ -182,16 +186,19 @@ export default function TabsLayout() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
     backgroundColor: colors.surface,
-    borderTopColor: colors.divider,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    boxShadow: 'none',
-    elevation: 0,
+    borderColor: colors.borderStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.round,
+    boxShadow: '0 8px 28px rgba(0, 0, 0, 0.14)',
+    elevation: 8,
     overflow: 'hidden',
   },
   tabBarWeb: {
-    width: '100%',
-    maxWidth: 500,
+    maxWidth: 476,
     marginHorizontal: 'auto',
   },
   tabItem: {
