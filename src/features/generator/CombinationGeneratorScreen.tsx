@@ -26,6 +26,7 @@ import type { GenerationOutcome, GeneratorConditions } from '@/domain/generator/
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
+import { useAuth } from '@/features/auth/AuthContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -87,6 +88,7 @@ export function CombinationGeneratorScreen({
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
+  const { openLogin } = useAuth();
   const { addCombination } = useNumberLibrary();
   const { productAccess } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
@@ -259,13 +261,16 @@ export function CombinationGeneratorScreen({
         {sheetVisible ? (
           <ConditionSheet
             applyAccess={conditionApplyAccess}
+            canUseBalancedPreset={productAccess.canUseBalancedPreset}
             conditions={conditions}
             history={lottoHistory}
             onApply={applyConditions}
             onClose={leaveDirectConditionSelection}
             onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
+            onRequestLogin={() => openLogin('balanced-preset')}
             presentation="screen"
             recommendationPromptVisible={recommendationPromptVisible}
+            selectionLimit={productAccess.combinationSelectionLimit}
             visible
           />
         ) : (
@@ -273,7 +278,7 @@ export function CombinationGeneratorScreen({
             <SubScreenHeader
               backAccessibilityLabel="번호뽑기로 돌아가기"
               onBack={leaveDirectConditionSelection}
-              title="AI 뽑기"
+              title="조건 뽑기"
             />
             <View style={styles.directConditionState}>
               {generating ? (
@@ -335,7 +340,7 @@ export function CombinationGeneratorScreen({
               {conditionCount ? <Text style={styles.headerConditionCount}>{conditionCount}</Text> : null}
             </Pressable>
           )}
-          title="AI 뽑기"
+          title="조건 뽑기"
         />
         <ScrollView
           {...tabBarScrollProps}
@@ -474,10 +479,13 @@ export function CombinationGeneratorScreen({
       {sheetVisible ? (
         <ConditionSheet
           applyAccess={conditionApplyAccess}
+          canUseBalancedPreset={productAccess.canUseBalancedPreset}
           conditions={conditions}
           history={lottoHistory}
           onApply={applyConditions}
           onClose={() => setSheetVisible(false)}
+          onRequestLogin={() => openLogin('balanced-preset')}
+          selectionLimit={productAccess.combinationSelectionLimit}
           visible
         />
       ) : null}

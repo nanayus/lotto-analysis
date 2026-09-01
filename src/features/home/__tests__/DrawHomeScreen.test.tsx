@@ -30,6 +30,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     productAccess: {
       canCompareCombinations: mockTier === 'pro',
       canSaveNumbers: mockTier !== 'guest',
+      canUseBalancedPreset: mockTier !== 'guest',
       canUseAiExplanation: mockTier === 'pro',
       canUseCustomPeriod: mockTier === 'pro',
       combinationSelectionLimit: mockTier === 'guest' ? 2 : 5,
@@ -61,6 +62,8 @@ describe('DrawHomeScreen', () => {
     const screen = await render(<DrawHomeScreen />);
 
     expect(screen.getByText('PRO')).toBeTruthy();
+    expect(screen.getByText('Pro · 한 번에 최대 5게임')).toBeTruthy();
+    expect(screen.queryByText(/무료회원 · 한 번에 최대 5게임/)).toBeNull();
     expect(screen.queryByLabelText('Pro 살펴보기')).toBeNull();
   });
 
@@ -75,7 +78,7 @@ describe('DrawHomeScreen', () => {
       fireEvent.press(screen.getByRole('radio', { name: '3게임' }));
     });
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /AI 뽑기/ }));
+      fireEvent.press(screen.getByRole('button', { name: /조건 뽑기/ }));
     });
 
     expect(mockNavigate).toHaveBeenCalledWith({
@@ -87,7 +90,15 @@ describe('DrawHomeScreen', () => {
     });
   });
 
+  test('explains the guest game limit and member-only preset', async () => {
+    mockTier = 'guest';
+    const screen = await render(<DrawHomeScreen />);
+    expect(screen.getByText('게스트 · 한 번에 최대 2게임')).toBeTruthy();
+    expect(screen.getByText(/균형 프리셋은 로그인 후/)).toBeTruthy();
+  });
+
   test('opens the dedicated random draw route instead of drawing inline', async () => {
+    mockTier = 'free';
     mockNavigate.mockClear();
     const screen = await render(<DrawHomeScreen />);
 

@@ -63,6 +63,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     productAccess: {
       canCompareCombinations: mockAuthStatus === 'authenticated' && mockIsPro,
       canSaveNumbers: mockAuthStatus === 'authenticated',
+      canUseBalancedPreset: mockAuthStatus === 'authenticated',
       canUseAiExplanation: mockAuthStatus === 'authenticated' && mockIsPro,
       canUseCustomPeriod: mockAuthStatus === 'authenticated' && mockIsPro,
       combinationSelectionLimit: mockAuthStatus === 'authenticated' ? 5 : 2,

@@ -23,7 +23,7 @@ export function DrawHomeScreen() {
   const [gameCount, setGameCount] = useState<GameCount>(1);
   const selectedGameCount = gameCounts.includes(gameCount) ? gameCount : 1;
 
-  const openAiDraw = useCallback(() => {
+  const openConditionDraw = useCallback(() => {
     router.navigate({
       pathname: '/combination-generator',
       params: { count: '1', openConditions: String(Date.now()) },
@@ -46,10 +46,10 @@ export function DrawHomeScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
           <Pressable
-            accessibilityLabel="AI 뽑기, 조합 선택하기"
+            accessibilityLabel="조건 뽑기, 조합 선택하기"
             accessibilityHint="조건을 선택해 번호를 생성합니다"
             accessibilityRole="button"
-            onPress={openAiDraw}
+            onPress={openConditionDraw}
             style={({ pressed }) => [styles.aiCard, pressed && styles.cardPressed]}>
             <View style={styles.aiGlowLarge} />
             <View style={styles.aiGlowSmall} />
@@ -60,8 +60,15 @@ export function DrawHomeScreen() {
             </View>
             <View style={styles.aiCopy}>
               <Text style={styles.aiEyebrow}>CONDITION DRAW</Text>
-              <Text style={styles.aiTitle}>AI 뽑기</Text>
+              <Text style={styles.aiTitle}>조건 뽑기</Text>
               <Text style={styles.aiDescription}>원하는 조건을 직접 정하고{`\n`}하나의 조합을 만들어보세요.</Text>
+              <Text style={styles.aiPolicy}>
+                {productAccess.tier === 'guest'
+                  ? '게스트 · 직접 조건 설정 가능 · 균형 프리셋은 로그인 후'
+                  : productAccess.tier === 'free'
+                    ? '무료회원 · 균형 프리셋 사용 가능'
+                    : 'Pro · 균형 프리셋 사용 가능'}
+              </Text>
             </View>
             <View style={styles.aiAction}>
               <Text style={styles.aiActionText}>조합 선택하기</Text>
@@ -111,8 +118,10 @@ export function DrawHomeScreen() {
 
             <Text style={styles.countPolicy}>
               {productAccess.tier === 'guest'
-                ? '게스트는 한 번에 2게임까지 만들 수 있어요.'
-                : '무료회원은 최대 5게임까지 한 번에 만들 수 있어요.'}
+                ? '게스트 · 한 번에 최대 2게임'
+                : productAccess.tier === 'free'
+                  ? '무료회원 · 한 번에 최대 5게임'
+                  : 'Pro · 한 번에 최대 5게임'}
             </Text>
 
             <Pressable
@@ -156,6 +165,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   aiEyebrow: { color: '#FFFFFFB8', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 1.2 },
   aiTitle: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: typography.weights.semibold, letterSpacing: -0.28, marginTop: spacing.sm },
   aiDescription: { color: '#FFFFFFD9', fontSize: typography.sizes.body, lineHeight: 25, letterSpacing: -0.37, marginTop: spacing.md },
+  aiPolicy: { color: '#FFFFFFA8', fontSize: 10, lineHeight: 16, marginTop: spacing.sm },
   aiAction: { minHeight: 50, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF18' },
   aiActionText: { color: '#FFFFFF', fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   aiActionArrow: { color: '#FFFFFF', fontSize: 22, lineHeight: 24 },

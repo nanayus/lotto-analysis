@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
@@ -32,13 +33,21 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   const isPro = monetization.productAccess.tier === 'pro';
 
   const openAccount = () => {
-    if (authenticated) onAuthenticatedAccountPress?.();
-    else openLogin('main-header');
+    if (!authenticated) {
+      openLogin('main-header');
+      return;
+    }
+    if (onAuthenticatedAccountPress) onAuthenticatedAccountPress();
+    else router.navigate('/(tabs)/settings');
   };
 
   const openAccess = () => {
-    if (isPro) onProPress?.();
-    else monetization.openPaywall?.('main-header');
+    if (!isPro) {
+      monetization.openPaywall?.('main-header');
+      return;
+    }
+    if (onProPress) onProPress();
+    else router.navigate('/(tabs)/settings');
   };
 
   return (

@@ -8,16 +8,19 @@ import { useMonetization } from './MonetizationContext';
 
 const FREE_FEATURES = [
   { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
+  { icon: 'options-outline', label: '한 번에 최대 5개 조합과 균형 프리셋' },
   { icon: 'phone-portrait-outline', label: '내 번호를 이 기기에 저장' },
 ] as const;
 
 const GUEST_FEATURES = [
   { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
+  { icon: 'options-outline', label: '조건을 직접 설정해 조합 생성' },
   { icon: 'layers-outline', label: '한 번에 최대 2개 조합 생성' },
 ] as const;
 
 const PRO_FEATURES = [
   { icon: 'ban-outline', label: '모든 결과를 광고 없이 바로 확인' },
+  { icon: 'options-outline', label: '한 번에 최대 5개 조합과 균형 프리셋' },
   { icon: 'sparkles-outline', label: 'AI 조합 해설과 추가 질문' },
   { icon: 'git-compare-outline', label: '조합 비교와 회차 직접 선택' },
   { icon: 'cloud-done-outline', label: '클라우드 저장과 기기간 동기화' },

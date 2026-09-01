@@ -2,6 +2,31 @@ import 'react-native-gesture-handler/jestSetup';
 import './tamagui.config';
 import { jest } from '@jest/globals';
 
+jest.mock('expo-router', () => ({
+  Redirect: jest.fn(() => null),
+  Stack: Object.assign(jest.fn(({ children }) => children ?? null), {
+    Screen: jest.fn(() => null),
+  }),
+  Tabs: Object.assign(jest.fn(({ children }) => children ?? null), {
+    Screen: jest.fn(() => null),
+  }),
+  router: {
+    back: jest.fn(),
+    navigate: jest.fn(),
+    push: jest.fn(),
+    replace: jest.fn(),
+  },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: jest.fn(() => ({})),
+  usePathname: jest.fn(() => '/'),
+  useRouter: jest.fn(() => ({
+    back: jest.fn(),
+    navigate: jest.fn(),
+    push: jest.fn(),
+    replace: jest.fn(),
+  })),
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );

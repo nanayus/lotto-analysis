@@ -18,7 +18,7 @@ export default function AccountDeletionScreen() {
           <Text style={styles.eyebrow}>ACCOUNT DELETION</Text>
           <Text style={styles.title}>계정 및 데이터 삭제</Text>
           <Text style={styles.description}>
-            Lotto Insight 계정과 클라우드에 저장된 번호를 영구 삭제할 수 있습니다. 삭제한 데이터는 복구할 수 없습니다.
+            Lotto Insight 계정과 계정에 연결된 기기·클라우드 저장 번호를 영구 삭제할 수 있습니다. 삭제한 데이터는 복구할 수 없습니다.
           </Text>
           <View style={styles.card}>
           {state.status === 'loading' ? (

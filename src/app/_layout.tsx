@@ -30,7 +30,7 @@ const SITE_URL = 'https://lotto.wondly.net';
 
 const drawMetadata = {
   title: '로또 번호뽑기 | Lotto Insight',
-  description: '조건 기반 AI 뽑기와 무작위 조합으로 로또 6/45 번호를 만들고 과거 데이터를 분석합니다.',
+  description: '조건 뽑기와 무작위 조합으로 로또 6/45 번호를 만들고 과거 데이터를 분석합니다.',
   path: '/draw',
 };
 

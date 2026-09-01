@@ -3,6 +3,7 @@ export type AccountTier = 'guest' | 'free' | 'pro';
 export type ProductAccess = {
   canCompareCombinations: boolean;
   canSaveNumbers: boolean;
+  canUseBalancedPreset: boolean;
   canUseAiExplanation: boolean;
   canUseCustomPeriod: boolean;
   combinationSelectionLimit: number;
@@ -31,6 +32,7 @@ export function productAccessFor(tier: AccountTier): ProductAccess {
   return {
     canCompareCombinations: isPro,
     canSaveNumbers: authenticated,
+    canUseBalancedPreset: authenticated,
     canUseAiExplanation: isPro,
     canUseCustomPeriod: isPro,
     combinationSelectionLimit: authenticated

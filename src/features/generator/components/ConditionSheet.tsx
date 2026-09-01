@@ -93,13 +93,16 @@ const MAX_VISIBLE_CONDITION_LABELS = 6;
 
 type ConditionSheetProps = {
   applyAccess: 'free' | 'guest' | 'pro';
+  canUseBalancedPreset: boolean;
   conditions: GeneratorConditions;
   history: readonly LottoHistoryDraw[];
   onApply: (conditions: GeneratorConditions) => void;
   onClose: () => void;
   onRecommendationPromptDismiss?: () => void;
+  onRequestLogin: () => void;
   presentation?: 'modal' | 'screen';
   recommendationPromptVisible?: boolean;
+  selectionLimit: number;
   visible: boolean;
 };
 
@@ -579,13 +582,16 @@ function PreviewNumber({
 
 export function ConditionSheet({
   applyAccess,
+  canUseBalancedPreset,
   conditions,
   history,
   onApply,
   onClose,
   onRecommendationPromptDismiss,
+  onRequestLogin,
   presentation = 'modal',
   recommendationPromptVisible = false,
+  selectionLimit,
   visible,
 }: ConditionSheetProps) {
   const styles = useThemedStyles(createStyles);
@@ -680,6 +686,13 @@ export function ConditionSheet({
     applyRecommendedPreset();
     onRecommendationPromptDismiss?.();
   };
+  const requestRecommendedPreset = () => {
+    if (!canUseBalancedPreset) {
+      onRequestLogin();
+      return;
+    }
+    applyRecommendedPreset();
+  };
   const toggleNumber = (number: number) => {
     setDraft((current) => {
       if (numberMode === 'fixed') {
@@ -744,24 +757,37 @@ export function ConditionSheet({
               recommendedPresetActive && styles.recommendedPresetActive,
             ]}>
               <View style={styles.recommendedPresetCopy}>
+                <Text style={styles.recommendedPresetEyebrow}>BALANCED PRESET</Text>
                 <Text style={styles.recommendedPresetSummary}>
                   {conditionSummary}
                 </Text>
+                {!canUseBalancedPreset ? (
+                  <Text style={styles.recommendedPresetAccess}>
+                    게스트는 조건을 직접 설정할 수 있어요 · 균형 프리셋은 로그인 후 사용
+                  </Text>
+                ) : null}
               </View>
               <Pressable
-                accessibilityLabel={recommendedPresetActive ? '추천 조건 적용됨' : '추천 조건 적용'}
+                accessibilityLabel={recommendedPresetActive
+                  ? '균형 프리셋 적용됨'
+                  : canUseBalancedPreset ? '균형 프리셋 적용' : '로그인 후 균형 프리셋 사용'}
                 accessibilityRole="button"
                 accessibilityState={{ selected: recommendedPresetActive }}
-                onPress={applyRecommendedPreset}
+                onPress={requestRecommendedPreset}
                 style={[
                   styles.recommendedPresetButton,
                   recommendedPresetActive && styles.recommendedPresetButtonActive,
                 ]}>
+                {!canUseBalancedPreset ? (
+                  <Ionicons color={styles.recommendedPresetButtonText.color} name="lock-closed-outline" size={13} />
+                ) : null}
                 <Text style={[
                   styles.recommendedPresetButtonText,
                   recommendedPresetActive && styles.recommendedPresetButtonTextActive,
                 ]}>
-                  {recommendedPresetActive ? '✓ 적용됨' : '추천 조건 적용'}
+                  {recommendedPresetActive
+                    ? '✓ 적용됨'
+                    : canUseBalancedPreset ? '균형 프리셋' : '로그인 후 사용'}
                 </Text>
               </Pressable>
             </View>
@@ -1132,28 +1158,38 @@ export function ConditionSheet({
             <View
               style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
               testID="recommendation-prompt">
-              <Text style={styles.recommendationEyebrow}>BALANCED FILTER</Text>
-              <Text style={styles.recommendationTitle}>추천 필터를 적용하시겠습니까?</Text>
+              <Text style={styles.recommendationEyebrow}>BALANCED PRESET</Text>
+              <Text style={styles.recommendationTitle}>
+                {canUseBalancedPreset
+                  ? '균형 프리셋을 적용할까요?'
+                  : '균형 프리셋은 로그인 후 사용할 수 있어요'}
+              </Text>
               <Text style={styles.recommendationDescription}>
-                표준편차·합계·홀짝·저고·A/C·연번을 과거 분포의 넓은 범위로 설정해요.
+                {canUseBalancedPreset
+                  ? '표준편차·합계·홀짝·저고·A/C·연번을 과거 분포의 넓은 범위로 설정해요.'
+                  : `게스트도 조건을 직접 설정할 수 있고 한 번에 최대 ${selectionLimit}게임을 만들 수 있어요. 로그인하면 균형 프리셋과 최대 5게임을 이용할 수 있어요.`}
               </Text>
               <Text style={styles.recommendationDisclaimer}>
                 과거 통계를 참고한 탐색용 설정이며 당첨을 예측하지 않습니다.
               </Text>
               <View style={styles.recommendationActions}>
                 <Pressable
-                  accessibilityLabel="추천 필터 적용 안 함"
+                  accessibilityLabel={canUseBalancedPreset ? '균형 프리셋 적용 안 함' : '직접 조건 설정'}
                   accessibilityRole="button"
                   onPress={onRecommendationPromptDismiss}
                   style={styles.recommendationCancelButton}>
-                  <Text style={styles.recommendationCancelText}>아니요</Text>
+                  <Text style={styles.recommendationCancelText}>
+                    {canUseBalancedPreset ? '아니요' : '직접 설정'}
+                  </Text>
                 </Pressable>
                 <Pressable
-                  accessibilityLabel="추천 필터 적용"
+                  accessibilityLabel={canUseBalancedPreset ? '균형 프리셋 적용' : '균형 프리셋 사용을 위해 로그인'}
                   accessibilityRole="button"
-                  onPress={acceptRecommendedPreset}
+                  onPress={canUseBalancedPreset ? acceptRecommendedPreset : onRequestLogin}
                   style={styles.recommendationApplyButton}>
-                  <Text style={styles.recommendationApplyText}>예</Text>
+                  <Text style={styles.recommendationApplyText}>
+                    {canUseBalancedPreset ? '적용' : '무료로 로그인'}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -1198,9 +1234,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   recommendedPresetActive: { borderBottomColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   recommendedPresetCopy: { flex: 1, minWidth: 0 },
+  recommendedPresetEyebrow: {
+    marginBottom: 3, color: colors.accentPrimary, fontSize: 8,
+    fontWeight: typography.weights.bold, letterSpacing: 1.1,
+  },
   recommendedPresetSummary: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
+  recommendedPresetAccess: { marginTop: 4, color: colors.textTertiary, fontSize: 9, lineHeight: 14 },
   recommendedPresetButton: {
-    minHeight: 38, flexShrink: 0, justifyContent: 'center', paddingHorizontal: spacing.md,
+    minHeight: 38, flexShrink: 0, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 5, paddingHorizontal: spacing.md,
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentPrimary,
     backgroundColor: colors.background,
   },
