@@ -32,9 +32,22 @@ const freeAccess = {
   weeklyFreeAvailable: true,
 };
 let mockMonetizationState = { access: freeAccess, status: 'ready' as const };
+let mockIsPro = false;
 
 jest.mock('@/features/monetization/MonetizationContext', () => ({
-  useMonetization: () => ({ state: mockMonetizationState }),
+  useMonetization: () => ({
+    productAccess: {
+      canCompareCombinations: mockIsPro,
+      canSaveNumbers: true,
+      canUseAiExplanation: mockIsPro,
+      canUseCustomPeriod: mockIsPro,
+      combinationSelectionLimit: 5,
+      requiresRewardedAdForResults: !mockIsPro,
+      storageMode: mockIsPro ? 'cloud' : 'device',
+      tier: mockIsPro ? 'pro' : 'free',
+    },
+    state: mockMonetizationState,
+  }),
 }));
 
 const mockPush = router.push as jest.Mock;
@@ -90,6 +103,7 @@ const PATTERN_CASES: [ConsecutivePattern, number[]][] = [
 describe('CombinationGeneratorScreen', () => {
   beforeEach(() => {
     mockMonetizationState = { access: freeAccess, status: 'ready' };
+    mockIsPro = false;
   });
 
   test.each(PATTERN_CASES)('expands the %s visual pattern into six grouped numbers', (pattern, expected) => {
@@ -100,56 +114,29 @@ describe('CombinationGeneratorScreen', () => {
     expect(CONDITION_APPLY_MINIMUM_LOADING_MS).toBe(3000);
   });
 
-  test('shows the ticket cost for free users', async () => {
+  test('explains that free users see results after an ad', async () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    expect(screen.getByRole('button', { name: '3개 조건 적용, 티켓 1장 사용' })).toBeTruthy();
-    expect(screen.getByText('1장 사용')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '3개 조건 적용, 광고 후 결과 보기' })).toBeTruthy();
+    expect(screen.getByText('광고 후 결과 보기')).toBeTruthy();
   });
 
   test('shows unlimited access for Pro users', async () => {
+    mockIsPro = true;
     mockMonetizationState = {
       access: { ...freeAccess, isPro: true },
       status: 'ready',
     };
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    expect(screen.getByRole('button', { name: '3개 조건 적용, PRO · 무제한' })).toBeTruthy();
-    expect(screen.getByText('PRO · 무제한')).toBeTruthy();
-  });
-
-  test('opens the analysis access screen immediately when no ticket is available', async () => {
-    mockPush.mockClear();
-    mockMonetizationState = {
-      access: {
-        ...freeAccess,
-        bonusAnalysisCredits: 0,
-        weeklyFreeAvailable: false,
-      },
-      status: 'ready',
-    };
-    const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-
-    const applyButton = screen.getByRole('button', { name: '3개 조건 적용, 티켓 필요' });
-    await act(async () => { fireEvent.press(applyButton); });
-
-    expect(screen.queryByText('조합을 만들고 있어요')).toBeNull();
-    expect(mockPush).toHaveBeenCalledWith({
-      pathname: '/combination-analysis',
-      params: {
-        returnCount: '1',
-        returnSession: 'generator',
-        returnTo: 'draw',
-        returnToken: expect.any(String),
-      },
-    });
+    expect(screen.getByRole('button', { name: '3개 조건 적용, 결과 바로 보기' })).toBeTruthy();
+    expect(screen.getByText('결과 바로 보기')).toBeTruthy();
   });
 
   test('starts with active range defaults and applies a fixed number from the condition sheet', async () => {
     mockPush.mockClear();
     const screen = await renderScreen();
-    expect(screen.getByText('3 조건')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '조건 설정, 3개 적용 중' })).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
     expect(screen.getByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeTruthy();
@@ -173,6 +160,8 @@ describe('CombinationGeneratorScreen', () => {
     const screen = await render(<DirectSessionHarness />);
 
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
+    expect(screen.queryByTestId('condition-sheet-modal')).toBeNull();
+    expect(screen.queryByTestId('direct-condition-shell')).toBeNull();
     expect(screen.queryByText('AI 뽑기')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '추천 필터 적용 안 함' })); });
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
@@ -182,6 +171,7 @@ describe('CombinationGeneratorScreen', () => {
       fireEvent.press(screen.getByText('4개 조건 적용'));
     });
     expect(screen.getByText('조합을 만들고 있어요')).toBeTruthy();
+    expect(screen.getByTestId('direct-condition-shell')).toBeTruthy();
     expect(mockPush).not.toHaveBeenCalled();
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith({
@@ -466,7 +456,7 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('11.0');
 
-    await act(async () => { fireEvent.press(screen.getByText('초기화')); });
+    await act(async () => { fireEvent.press(screen.getByLabelText('조건 초기화')); });
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('12.0');
   });

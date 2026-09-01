@@ -16,11 +16,11 @@ const entries: NumberAppearanceHistoryItem[] = [
 
 describe('NumberHistoryDetail', () => {
   test('shows one compact row and highlights only the explored number', async () => {
-    const { getByLabelText, getByTestId, getByText, queryByText } = await render(
+    const { getAllByText, getByLabelText, getByTestId, getByText, queryByText } = await render(
       <NumberHistoryDetail entries={entries} number={39} onBack={() => undefined} />,
     );
 
-    expect(getByText('상세보기')).toBeTruthy();
+    expect(getAllByText('39번 출현 기록')).toHaveLength(2);
     expect(getByText('총 1회')).toBeTruthy();
     expect(getByText('1234회')).toBeTruthy();
     expect(getByText('7회 만에 등장')).toBeTruthy();

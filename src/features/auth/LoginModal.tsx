@@ -24,9 +24,9 @@ export function LoginModal() {
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <Text style={styles.eyebrow}>ACCOUNT</Text>
-          <Text style={styles.title}>분석 결과를 계정에 보관하세요</Text>
+          <Text style={styles.title}>번호를 기기에 저장하세요</Text>
           <Text style={styles.description}>
-            로그인하면 저장한 번호와 분석 기록을 다른 기기에서도 안전하게 복원할 수 있어요.
+            로그인하면 최대 5개 조합을 한 번에 만들고, 내 번호를 이 기기에 저장할 수 있어요.
           </Text>
 
           <View style={styles.buttons}>

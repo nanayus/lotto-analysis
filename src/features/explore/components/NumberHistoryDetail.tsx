@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import type { NumberAppearanceHistoryItem } from '@/domain/analytics/numberHistory';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
@@ -19,16 +19,11 @@ export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDe
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <SubScreenBackButton
-          accessibilityLabel="번호분석으로 돌아가기"
-          onPress={onBack}
-        />
-        <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>NUMBER HISTORY</Text>
-          <Text accessibilityRole="header" style={styles.title}>상세보기</Text>
-        </View>
-      </View>
+      <SubScreenHeader
+        backAccessibilityLabel="번호분석으로 돌아가기"
+        onBack={onBack}
+        title={`${number}번 출현 기록`}
+      />
 
       <ScrollView
         contentContainerStyle={[styles.content, compact && styles.contentCompact]}
@@ -102,29 +97,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  headerCopy: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  eyebrow: {
-    color: colors.accentPrimary,
-    fontSize: 9,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 1.35,
-    marginBottom: 2,
-  },
-  title: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.section,
-    fontWeight: typography.weights.semibold,
-    letterSpacing: -0.5,
   },
   content: {
     paddingHorizontal: spacing.xl,

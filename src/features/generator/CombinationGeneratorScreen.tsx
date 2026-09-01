@@ -31,6 +31,7 @@ import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import {
   type ThemeColors,
   radius,
@@ -79,7 +80,7 @@ export function CombinationGeneratorScreen({
 }: {
   autoOpenConditions?: boolean;
   conditionOnly?: boolean;
-  gameCount?: 1 | 3 | 5;
+  gameCount?: 1 | 2 | 3 | 5;
   sessionToken?: string;
 }) {
   const { colors } = useAppTheme();
@@ -87,7 +88,7 @@ export function CombinationGeneratorScreen({
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
-  const { state: monetizationState } = useMonetization();
+  const { productAccess } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
   const [conditions, setConditions] = useState(
     () => restoreConditions(sessionToken) ?? buildGeneratorConditionDefaults(lottoHistory),
@@ -103,16 +104,7 @@ export function CombinationGeneratorScreen({
   const generationToken = useRef(0);
   const summary = useMemo(() => conditionSummary(conditions), [conditions]);
   const conditionCount = activeConditionCount(conditions);
-  const conditionApplyAccess = monetizationState.status === 'ready'
-    ? monetizationState.access.isPro
-      ? 'pro'
-      : monetizationState.access.weeklyFreeAvailable
-        || monetizationState.access.bonusAnalysisCredits > 0
-        ? 'ticket'
-        : 'ticket-required'
-    : monetizationState.status === 'guest'
-      ? 'guest'
-      : 'checking';
+  const conditionApplyAccess = productAccess.tier;
 
   useEffect(() => () => { generationToken.current += 1; }, []);
 
@@ -194,18 +186,6 @@ export function CombinationGeneratorScreen({
     setOutcomes([]);
     setErrorMessage(null);
     setSheetVisible(false);
-    if (conditionApplyAccess === 'ticket-required') {
-      router.push({
-        pathname: COMBINATION_ANALYSIS_ROUTE,
-        params: {
-          returnCount: String(gameCount),
-          returnSession: sessionToken ?? 'generator',
-          returnTo: conditionOnly ? 'combination-generator' : 'draw',
-          returnToken: String(Date.now()),
-        },
-      });
-      return;
-    }
     setGenerating(true);
     setSearchedCandidates(0);
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
@@ -259,7 +239,7 @@ export function CombinationGeneratorScreen({
         setSearchedCandidates(0);
       }
     }
-  }, [addCombination, conditionApplyAccess, conditionOnly, gameCount, generateOutcomes, saveConditions, sessionToken, setNumbers]);
+  }, [addCombination, conditionOnly, gameCount, generateOutcomes, saveConditions, sessionToken, setNumbers]);
 
   const analyzeOutcome = useCallback((selectedOutcome: GenerationOutcome | null) => {
     if (!selectedOutcome) return;
@@ -275,39 +255,7 @@ export function CombinationGeneratorScreen({
 
   if (conditionOnly) {
     return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-        <View style={styles.directConditionState}>
-          {generating ? (
-            <>
-              <ActivityIndicator color={colors.accentPrimary} size="large" />
-              <Text style={styles.directConditionTitle}>조합을 만들고 있어요</Text>
-              <Text style={styles.directConditionDescription}>
-                선택한 조건 안에서 {gameCount}개 조합을 확인하고 있습니다.
-              </Text>
-              {searchedCandidates ? (
-                <Text style={styles.directConditionProgress}>
-                  {searchedCandidates.toLocaleString()}개 조합 확인
-                </Text>
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={leaveDirectConditionSelection}
-                style={styles.directConditionCancel}>
-                <Text style={styles.directConditionCancelText}>취소</Text>
-              </Pressable>
-            </>
-          ) : errorMessage ? (
-            <>
-              <Text accessibilityRole="alert" style={styles.directConditionTitle}>
-                조합을 만들지 못했어요
-              </Text>
-              <Text style={styles.directConditionDescription}>{errorMessage}</Text>
-              <AppButton label="조건 다시 선택" onPress={() => setSheetVisible(true)} />
-              <AppButton label="번호뽑기로 돌아가기" onPress={leaveDirectConditionSelection} variant="secondary" />
-            </>
-          ) : null}
-        </View>
-
+      <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
         {sheetVisible ? (
           <ConditionSheet
             applyAccess={conditionApplyAccess}
@@ -316,10 +264,50 @@ export function CombinationGeneratorScreen({
             onApply={applyConditions}
             onClose={leaveDirectConditionSelection}
             onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
+            presentation="screen"
             recommendationPromptVisible={recommendationPromptVisible}
             visible
           />
-        ) : null}
+        ) : (
+          <View style={styles.container} testID="direct-condition-shell">
+            <SubScreenHeader
+              backAccessibilityLabel="번호뽑기로 돌아가기"
+              onBack={leaveDirectConditionSelection}
+              title="AI 뽑기"
+            />
+            <View style={styles.directConditionState}>
+              {generating ? (
+                <>
+                  <ActivityIndicator color={colors.accentPrimary} size="large" />
+                  <Text style={styles.directConditionTitle}>조합을 만들고 있어요</Text>
+                  <Text style={styles.directConditionDescription}>
+                    선택한 조건 안에서 {gameCount}개 조합을 확인하고 있습니다.
+                  </Text>
+                  {searchedCandidates ? (
+                    <Text style={styles.directConditionProgress}>
+                      {searchedCandidates.toLocaleString()}개 조합 확인
+                    </Text>
+                  ) : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={leaveDirectConditionSelection}
+                    style={styles.directConditionCancel}>
+                    <Text style={styles.directConditionCancelText}>취소</Text>
+                  </Pressable>
+                </>
+              ) : errorMessage ? (
+                <>
+                  <Text accessibilityRole="alert" style={styles.directConditionTitle}>
+                    조합을 만들지 못했어요
+                  </Text>
+                  <Text style={styles.directConditionDescription}>{errorMessage}</Text>
+                  <AppButton label="조건 다시 선택" onPress={() => setSheetVisible(true)} />
+                  <AppButton label="번호뽑기로 돌아가기" onPress={leaveDirectConditionSelection} variant="secondary" />
+                </>
+              ) : null}
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -327,22 +315,33 @@ export function CombinationGeneratorScreen({
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
+        <SubScreenHeader
+          backAccessibilityLabel="번호뽑기로 돌아가기"
+          onBack={() => router.back()}
+          right={(
+            <Pressable
+              accessibilityLabel={`조건 설정, ${conditionCount ? `${conditionCount}개 적용 중` : '적용 조건 없음'}`}
+              accessibilityRole="button"
+              onPress={() => setSheetVisible(true)}
+              style={({ pressed }) => [
+                styles.headerConditionButton,
+                pressed && styles.pressed,
+              ]}>
+              <Ionicons
+                color={conditionCount ? colors.accentPrimary : colors.textSecondary}
+                name="options-outline"
+                size={17}
+              />
+              {conditionCount ? <Text style={styles.headerConditionCount}>{conditionCount}</Text> : null}
+            </Pressable>
+          )}
+          title="AI 뽑기"
+        />
         <ScrollView
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.eyebrow}>CONDITION RANDOMIZER</Text>
-              <Text style={styles.title}>AI 뽑기</Text>
-            </View>
-            <View style={[styles.conditionBadge, conditionCount > 0 && styles.conditionBadgeActive]}>
-              <Text style={[styles.conditionBadgeText, conditionCount > 0 && styles.conditionBadgeTextActive]}>
-                {conditionCount ? `${conditionCount} 조건` : '무제한'}
-              </Text>
-            </View>
-          </View>
-
+          <Text style={styles.eyebrow}>CONDITION RANDOMIZER</Text>
           <Text style={styles.intro}>
             원하는 기준을 고르면 그 조건 안에서 {gameCount}개 조합을 무작위로 만들어요.
           </Text>
@@ -509,9 +508,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   directConditionCancel: { minHeight: 44, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'center' },
   directConditionCancelText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
-  header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   eyebrow: { color: colors.textSecondary, fontSize: 9, letterSpacing: 1.6, marginBottom: spacing.sm },
-  title: { color: colors.textPrimary, fontSize: typography.sizes.title, fontWeight: typography.weights.semibold, letterSpacing: -0.7 },
+  headerConditionButton: { minWidth: 44, height: 44, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  headerConditionCount: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   conditionBadge: { minHeight: 32, paddingHorizontal: spacing.md, borderRadius: radius.round, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   conditionBadgeActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   conditionBadgeText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },

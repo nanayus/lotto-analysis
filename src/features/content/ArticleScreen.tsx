@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getArticleBySlug } from './articles';
 
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
@@ -23,7 +23,7 @@ export function ArticleScreen() {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
         <View style={styles.container}>
-          <View style={styles.topBar}><SubScreenBackButton onPress={() => router.back()} /></View>
+          <SubScreenHeader onBack={() => router.back()} title="콘텐츠" />
           <View style={styles.notFound}>
             <Ionicons name="document-text-outline" size={32} style={styles.notFoundIcon} />
             <Text aria-level={1} role="heading" style={styles.notFoundTitle}>게시글을 찾을 수 없어요</Text>
@@ -37,11 +37,11 @@ export function ArticleScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.topBar}>
-          <SubScreenBackButton accessibilityLabel="콘텐츠 목록으로 돌아가기" onPress={() => router.back()} />
-          <Text style={styles.topBarTitle}>콘텐츠</Text>
-          <View style={styles.topBarSpacer} />
-        </View>
+        <SubScreenHeader
+          backAccessibilityLabel="콘텐츠 목록으로 돌아가기"
+          onBack={() => router.back()}
+          title="콘텐츠"
+        />
         <ScrollView
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
@@ -78,9 +78,6 @@ export function ArticleScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
-  topBar: { minHeight: 52, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
-  topBarTitle: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
-  topBarSpacer: { width: 44 },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxxl, paddingBottom: spacing.huge },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   category: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },

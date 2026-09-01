@@ -2,6 +2,8 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { router } from 'expo-router';
 
+import type { AccountTier } from '@/features/monetization/policy';
+
 import { DrawHomeScreen } from '../DrawHomeScreen';
 
 const freeAccess = {
@@ -16,43 +18,50 @@ const freeAccess = {
   weeklyFreeAvailable: true,
 };
 
-let mockMonetizationState: { access: typeof freeAccess; status: 'ready' } = {
-  access: freeAccess,
-  status: 'ready',
-};
+let mockTier: AccountTier = 'free';
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
 }));
 
 jest.mock('@/features/monetization/MonetizationContext', () => ({
-  useMonetization: () => ({ state: mockMonetizationState }),
+  useMonetization: () => ({
+    openPaywall: jest.fn(),
+    productAccess: {
+      canCompareCombinations: mockTier === 'pro',
+      canSaveNumbers: mockTier !== 'guest',
+      canUseAiExplanation: mockTier === 'pro',
+      canUseCustomPeriod: mockTier === 'pro',
+      combinationSelectionLimit: mockTier === 'guest' ? 2 : 5,
+      requiresRewardedAdForResults: mockTier !== 'pro',
+      storageMode: mockTier === 'pro' ? 'cloud' : mockTier === 'free' ? 'device' : 'unavailable',
+      tier: mockTier,
+    },
+    state: { access: { ...freeAccess, isPro: mockTier === 'pro' }, status: 'ready' },
+  }),
 }));
 
 const mockNavigate = router.navigate as jest.Mock;
 
 describe('DrawHomeScreen', () => {
   beforeEach(() => {
-    mockMonetizationState = { access: freeAccess, status: 'ready' };
+    mockTier = 'free';
   });
 
-  test('shows the available ticket count for free users and marks random draw as free', async () => {
+  test('shows Pro entry instead of ticket balance for free users', async () => {
     const screen = await render(<DrawHomeScreen />);
 
-    expect(screen.getByLabelText('남은 티켓 4개')).toBeTruthy();
-    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByLabelText('Pro 살펴보기')).toBeTruthy();
+    expect(screen.queryByText('4')).toBeNull();
     expect(screen.getByText('FREE')).toBeTruthy();
   });
 
   test('shows Pro instead of tickets for subscribers', async () => {
-    mockMonetizationState = {
-      access: { ...freeAccess, isPro: true },
-      status: 'ready',
-    };
+    mockTier = 'pro';
     const screen = await render(<DrawHomeScreen />);
 
     expect(screen.getByText('PRO')).toBeTruthy();
-    expect(screen.queryByLabelText('남은 티켓 4개')).toBeNull();
+    expect(screen.queryByLabelText('Pro 살펴보기')).toBeNull();
   });
 
   test('keeps the random game count independent from the single AI condition draw', async () => {
@@ -70,7 +79,7 @@ describe('DrawHomeScreen', () => {
     });
 
     expect(mockNavigate).toHaveBeenCalledWith({
-      pathname: '/(tabs)/draw/combination-generator',
+      pathname: '/combination-generator',
       params: {
         count: '1',
         openConditions: expect.any(String),

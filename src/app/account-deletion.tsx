@@ -1,6 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { useAuth } from '@/features/auth/AuthContext';
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
 
@@ -11,12 +13,14 @@ export default function AccountDeletionScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.eyebrow}>ACCOUNT DELETION</Text>
-        <Text style={styles.title}>계정 및 데이터 삭제</Text>
-        <Text style={styles.description}>
-          Lotto Insight 계정과 클라우드에 저장된 번호를 영구 삭제할 수 있습니다. 삭제한 데이터는 복구할 수 없습니다.
-        </Text>
-        <View style={styles.card}>
+        <SubScreenHeader onBack={() => router.back()} title="계정 삭제" />
+        <View style={styles.content}>
+          <Text style={styles.eyebrow}>ACCOUNT DELETION</Text>
+          <Text style={styles.title}>계정 및 데이터 삭제</Text>
+          <Text style={styles.description}>
+            Lotto Insight 계정과 클라우드에 저장된 번호를 영구 삭제할 수 있습니다. 삭제한 데이터는 복구할 수 없습니다.
+          </Text>
+          <View style={styles.card}>
           {state.status === 'loading' ? (
             <ActivityIndicator color="#2997FF" />
           ) : state.status === 'guest' ? (
@@ -40,6 +44,7 @@ export default function AccountDeletionScreen() {
             </>
           )}
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -48,7 +53,8 @@ export default function AccountDeletionScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
-  container: { width: '100%', maxWidth: 500, padding: spacing.xl },
+  container: { flex: 1, width: '100%', maxWidth: 500 },
+  content: { padding: spacing.xl },
   eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.8 },
   title: { marginTop: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.title, fontWeight: typography.weights.bold },
   description: { marginTop: spacing.md, color: colors.textSecondary, fontSize: typography.sizes.body, lineHeight: 23 },
@@ -61,4 +67,3 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   deleteText: { color: '#FFFFFF', fontWeight: typography.weights.bold },
   error: { marginTop: spacing.md, color: colors.hot, fontSize: typography.sizes.small },
 });
-

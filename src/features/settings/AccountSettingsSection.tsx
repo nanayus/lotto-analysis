@@ -45,7 +45,7 @@ export function AccountSettingsSection() {
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <View style={styles.loginCopy}>
               <Text style={styles.rowLabel}>로그인</Text>
-              <Text style={styles.rowDescription}>내 번호를 여러 기기에서 복원할 수 있어요.</Text>
+              <Text style={styles.rowDescription}>더 많은 조합을 만들고 내 번호를 이 기기에 저장해요.</Text>
             </View>
             <Ionicons color="#2997FF" name="person-circle-outline" size={25} />
           </Pressable>

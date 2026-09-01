@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getPublishedArticles, type LottoArticle } from './articles';
 
+import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
@@ -59,14 +60,11 @@ export function ContentHomeScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
+        <MainTabHeader />
         <ScrollView
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <Text style={styles.eyebrow}>LOTTO JOURNAL</Text>
-          <Text aria-level={1} role="heading" style={styles.title}>콘텐츠</Text>
-          <Text style={styles.description}>로또 데이터와 번호를 더 재미있게 읽는 이야기를 전합니다.</Text>
-
           {featuredArticle ? <ArticleCard article={featuredArticle} featured /> : (
             <View style={styles.emptyState}>
               <Ionicons name="document-text-outline" size={28} style={styles.emptyIcon} />
@@ -96,10 +94,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
-  eyebrow: { marginBottom: spacing.sm, color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 1.2 },
-  title: { color: colors.textPrimary, fontSize: typography.sizes.title, lineHeight: 44, fontWeight: typography.weights.semibold, letterSpacing: -0.7 },
-  description: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.body, lineHeight: 25, letterSpacing: -0.37 },
-  featureCard: { marginTop: spacing.xxxl, overflow: 'hidden', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
+  featureCard: { overflow: 'hidden', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
   featureVisual: { height: 178, overflow: 'hidden', justifyContent: 'flex-end', padding: spacing.xxl, backgroundColor: colors.surfaceAccent },
   orbitLarge: { position: 'absolute', width: 230, height: 230, right: -55, top: -88, borderRadius: 115, borderWidth: 1, borderColor: colors.accentPrimary },
   orbitSmall: { position: 'absolute', width: 110, height: 110, right: 18, top: -18, borderRadius: 55, borderWidth: 1, borderColor: colors.accentBorder },
@@ -121,7 +116,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   notice: { marginTop: spacing.xxl, paddingTop: spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   noticeIcon: { color: colors.textTertiary },
   noticeText: { flex: 1, color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 18 },
-  emptyState: { marginTop: spacing.xxxl, padding: spacing.xxl, alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
+  emptyState: { padding: spacing.xxl, alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
   emptyIcon: { color: colors.textTertiary },
   emptyTitle: { marginTop: spacing.md, color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
   emptyDescription: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 21, textAlign: 'center' },

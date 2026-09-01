@@ -24,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimatedNumberBall } from '@/components/ui/AnimatedNumberBall';
 import { AppButton } from '@/components/ui/AppButton';
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { fillCombinationRandomly } from '@/features/combination/randomFill';
@@ -42,7 +42,7 @@ import {
 const SHUFFLE_FRAME_MS = 72;
 const SHUFFLE_DURATION_MS = 1_950;
 const REVEAL_INTERVAL_MS = 600;
-function createUniqueResults(gameCount: 1 | 3 | 5) {
+function createUniqueResults(gameCount: 1 | 2 | 3 | 5) {
   const results: number[][] = [];
   const keys = new Set<string>();
   while (results.length < gameCount) {
@@ -61,7 +61,7 @@ export function RandomDrawScreen({
   gameCount,
 }: {
   autoDrawToken?: string;
-  gameCount: 1 | 3 | 5;
+  gameCount: 1 | 2 | 3 | 5;
 }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -167,24 +167,21 @@ export function RandomDrawScreen({
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
+        <SubScreenHeader
+          backAccessibilityLabel="번호뽑기로 돌아가기"
+          onBack={() => router.back()}
+          right={(
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{gameCount}게임</Text>
+            </View>
+          )}
+          title="랜덤조합"
+        />
         <ScrollView
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <SubScreenBackButton
-              accessibilityLabel="번호뽑기로 돌아가기"
-              onPress={() => router.back()}
-            />
-            <View style={styles.headerCopy}>
-              <Text style={styles.eyebrow}>PURE RANDOM DRAW</Text>
-              <Text style={styles.title}>랜덤조합</Text>
-            </View>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{gameCount}게임</Text>
-            </View>
-          </View>
-
+          <Text style={styles.eyebrow}>PURE RANDOM DRAW</Text>
           <Text style={styles.description}>조건 없이 1–45 안에서 서로 다른 6개 번호를 무작위로 뽑아요.</Text>
 
           <View style={[styles.drawCard, firstResult && styles.drawCardReady]}>
@@ -294,8 +291,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerCopy: { flex: 1, marginLeft: spacing.md },
   eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.5, marginBottom: spacing.xs },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: typography.weights.bold, letterSpacing: -0.7 },
-  countBadge: { minHeight: 34, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
-  countBadgeText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
+  countBadge: { minHeight: 44, paddingHorizontal: spacing.sm, alignItems: 'center', justifyContent: 'center' },
+  countBadgeText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   description: { maxWidth: 350, color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, marginTop: spacing.xxl },
   drawCard: { marginTop: spacing.xl, padding: spacing.xl, overflow: 'hidden', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, boxShadow: colors.cardShadow, elevation: 3 },
   drawCardReady: { borderColor: colors.accentBorder },

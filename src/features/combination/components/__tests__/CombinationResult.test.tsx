@@ -183,7 +183,7 @@ describe('CombinationResult', () => {
       .toEqual({ selected: false });
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '비교할 조합 추가' }));
+      fireEvent.press(getByRole('button', { name: '비교할 조합 추가, Pro 전용' }));
       fireEvent.press(getByRole('button', { name: '구매한 번호로 표시' }));
     });
     expect(getByTestId('library-action-toast')).toBeTruthy();

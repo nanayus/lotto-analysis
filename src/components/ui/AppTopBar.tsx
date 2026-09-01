@@ -1,0 +1,209 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ReactNode } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+
+import { useAuth } from '@/features/auth/AuthContext';
+import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
+
+export const TOP_BAR_HEIGHT = 58;
+const webStickyHeader = Platform.select({
+  web: { position: 'sticky', top: 0, zIndex: 20 } as unknown as ViewStyle,
+});
+
+function accountLabel(state: ReturnType<typeof useAuth>['state']) {
+  if (state.status === 'loading') return '계정 확인 중';
+  if (state.status !== 'authenticated') return '로그인';
+  const preferred = state.user.displayName?.trim() || state.user.email?.split('@')[0]?.trim();
+  return preferred || '내 계정';
+}
+
+type MainTabHeaderProps = {
+  onAuthenticatedAccountPress?: () => void;
+  onProPress?: () => void;
+};
+
+export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainTabHeaderProps) {
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const { openLogin, state: authState } = useAuth();
+  const monetization = useMonetization();
+  const authenticated = authState.status === 'authenticated';
+  const isPro = monetization.productAccess.tier === 'pro';
+
+  const openAccount = () => {
+    if (authenticated) onAuthenticatedAccountPress?.();
+    else openLogin('main-header');
+  };
+
+  const openAccess = () => {
+    if (isPro) onProPress?.();
+    else monetization.openPaywall?.('main-header');
+  };
+
+  return (
+    <View style={[styles.mainBar, webStickyHeader]} testID="main-tab-header">
+      <Pressable
+        accessibilityHint={authenticated ? '환경설정의 계정 영역으로 이동합니다' : '로그인 화면을 엽니다'}
+        accessibilityLabel={authenticated ? `${accountLabel(authState)} 계정` : '로그인'}
+        accessibilityRole="button"
+        onPress={openAccount}
+        style={({ pressed }) => [styles.accountButton, pressed && styles.pressed]}>
+        <View style={styles.accountIcon}>
+          <Ionicons
+            color={authenticated ? colors.accentPrimary : colors.textSecondary}
+            name={authenticated ? 'person' : 'person-outline'}
+            size={17}
+          />
+        </View>
+        <Text numberOfLines={1} style={styles.accountText}>{accountLabel(authState)}</Text>
+      </Pressable>
+
+      <Pressable
+        accessibilityHint={isPro ? '구독 정보를 확인합니다' : 'Pro 혜택을 확인합니다'}
+        accessibilityLabel={isPro ? 'PRO 이용 중' : 'Pro 살펴보기'}
+        accessibilityRole="button"
+        onPress={openAccess}
+        style={({ pressed }) => [styles.accessButton, isPro && styles.proButton, pressed && styles.pressed]}>
+        <Ionicons
+          color={isPro ? colors.accentPrimary : colors.textSecondary}
+          name="sparkles-outline"
+          size={16}
+        />
+        <Text style={[styles.accessText, isPro && styles.proText]}>
+          {isPro ? 'PRO' : 'Pro'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+type SubScreenHeaderProps = {
+  backAccessibilityLabel?: string;
+  onBack: () => void;
+  right?: ReactNode;
+  title: string;
+};
+
+export function SubScreenHeader({
+  backAccessibilityLabel = '이전 화면으로 돌아가기',
+  onBack,
+  right,
+  title,
+}: SubScreenHeaderProps) {
+  const { colors } = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={[styles.subBar, webStickyHeader]} testID="sub-screen-header">
+      <Pressable
+        accessibilityLabel={backAccessibilityLabel}
+        accessibilityRole="button"
+        onPress={onBack}
+        style={({ pressed }) => [styles.sideButton, pressed && styles.pressed]}>
+        <Ionicons color={colors.textPrimary} name="chevron-back" size={23} />
+      </Pressable>
+      <View pointerEvents="none" style={styles.centerTitle}>
+        <Text numberOfLines={1} style={styles.subTitle}>{title}</Text>
+      </View>
+      <View style={styles.rightSlot}>{right}</View>
+    </View>
+  );
+}
+
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  mainBar: {
+    height: TOP_BAR_HEIGHT,
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  accountButton: {
+    minWidth: 0,
+    minHeight: 44,
+    maxWidth: '68%',
+    paddingRight: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  accountIcon: {
+    width: 20,
+    height: 20,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountText: {
+    minWidth: 0,
+    flexShrink: 1,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    letterSpacing: -0.2,
+  },
+  accessButton: {
+    minWidth: 54,
+    height: 36,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  proButton: {
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  accessText: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  proText: { color: colors.accentPrimary, letterSpacing: 0.7 },
+  subBar: {
+    height: TOP_BAR_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  sideButton: {
+    width: 52,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  centerTitle: {
+    ...StyleSheet.absoluteFill,
+    paddingHorizontal: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subTitle: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: typography.weights.semibold,
+    letterSpacing: -0.3,
+  },
+  rightSlot: {
+    minWidth: 52,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  pressed: { opacity: 0.66 },
+});

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import type { AnalysisPeriod, AnalyticsSnapshot } from '@/domain/analytics/types';
 import {
   type ThemeColors,
@@ -122,16 +122,11 @@ export function AllNumberComparison({
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <SubScreenBackButton
-          accessibilityLabel="번호분석으로 돌아가기"
-          onPress={onBack}
-        />
-        <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>NUMBER INDEX</Text>
-          <Text accessibilityRole="header" style={styles.title}>전체 번호</Text>
-        </View>
-      </View>
+      <SubScreenHeader
+        backAccessibilityLabel="번호분석으로 돌아가기"
+        onBack={onBack}
+        title="전체 번호 비교"
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.introRow}>
@@ -235,23 +230,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  headerCopy: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  eyebrow: {
-    color: colors.accentPrimary,
-    fontSize: 9,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 1.35,
-    marginBottom: 2,
   },
   title: {
     color: colors.textPrimary,

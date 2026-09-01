@@ -27,7 +27,7 @@ import { buildAnalyticsSnapshot } from '@/domain/analytics/buildAnalyticsSnapsho
 import { getNumberAppearanceHistory } from '@/domain/analytics/numberHistory';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { AllNumberComparison } from './components/AllNumberComparison';
 import type {
   AnalysisFilters,
@@ -271,15 +271,11 @@ export function ExploreScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.exploreContainer}>
-        <View style={styles.subHeader}>
-          <SubScreenBackButton
-            accessibilityLabel="통계보기로 돌아가기"
-            onPress={() => router.back()}
-          />
-          <Text accessibilityRole="header" style={styles.subHeaderTitle}>
-            번호별 통계
-          </Text>
-        </View>
+        <SubScreenHeader
+          backAccessibilityLabel="통계보기로 돌아가기"
+          onBack={() => router.back()}
+          title="번호별 통계"
+        />
         <View style={styles.columns} testID={`explore-focus-${interactionFocus.toLowerCase()}`}>
           <View
             style={[styles.sliderPane, { width: windowWidth <= 360 ? '30%' : '29%' }]}

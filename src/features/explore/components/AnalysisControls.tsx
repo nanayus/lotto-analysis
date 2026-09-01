@@ -10,6 +10,7 @@ import {
 
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import type { AnalysisPeriod } from '@/domain/analytics/types';
+import { useMonetization } from '@/features/monetization/MonetizationContext';
 
 export type { AnalysisPeriod } from '@/domain/analytics/types';
 
@@ -43,6 +44,7 @@ export function AnalysisControls({
   variant = 'chip',
 }: AnalysisControlsProps) {
   const styles = useThemedStyles(createStyles);
+  const { openPaywall, productAccess } = useMonetization();
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [customVisible, setCustomVisible] = useState(false);
   const [startRound, setStartRound] = useState(String(firstRound));
@@ -54,6 +56,11 @@ export function AnalysisControls({
   };
 
   const openCustom = () => {
+    if (!productAccess.canUseCustomPeriod) {
+      setSelectorVisible(false);
+      openPaywall('custom-period');
+      return;
+    }
     if (period.kind === 'custom') {
       setStartRound(String(period.startRound));
       setEndRound(String(period.endRound));
@@ -146,7 +153,12 @@ export function AnalysisControls({
             ))}
             <Pressable onPress={openCustom} style={styles.option}>
               <Text style={styles.optionText}>직접 선택</Text>
-              <Text style={styles.optionHint}>회차 범위</Text>
+              <View style={styles.optionTrailing}>
+                {!productAccess.canUseCustomPeriod ? (
+                  <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View>
+                ) : null}
+                <Text style={styles.optionHint}>회차 범위</Text>
+              </View>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -311,6 +323,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.sizes.caption,
   },
+  optionTrailing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  proBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
+  proBadgeText: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 0.7 },
   check: {
     color: colors.accentPrimary,
     fontSize: typography.sizes.small,

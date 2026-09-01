@@ -1,35 +1,60 @@
 # 수익모델 기능 구현 및 운영 설정
 
-작성 기준일: 2026-08-31
+최종 수정: 2026-09-02
 
-## 현재 구현
+이 문서는 [`MONETIZATION_PLAN_KO.md`](./MONETIZATION_PLAN_KO.md)의 승인 정책을 실제 앱과 운영 환경에 연결하는 방법을 설명한다.
 
-- Firebase 로그인 사용자별 수익모델 프로필 자동 생성
-- 최초 프로필 생성 시 웰컴 분석권 3회 지급
-- 매주 일요일 00:00 KST 무료 분석 1회 갱신
-- 무료 분석, 보너스 분석권, Pro 순서의 서버 권위 분석 승인
-- 같은 사용자·조합·데이터 버전의 중복 차감 방지
-- Pro 사용자 판정과 무제한 분석
-- 초대 코드 생성·적용과 첫 분석 완료 보상
-- 초대받은 사용자 +1회, 초대한 사용자 +2회
-- 초대한 사용자 월 5명, 보너스 분석권 최대 10회 제한
-- 받은 초대 코드는 앱 첫 실행 온보딩에서만 입력 가능
-- 초대 코드 없이 건너뛰거나 첫 분석을 완료하면 입력 UI 영구 숨김
-- 비로그인 상태에서 입력한 코드는 로그인 후 서버에 자동 적용
-- Custom 기간과 조합 비교의 Pro 게이트
-- 조합 결과의 `AI 조합 해설` 잠금 카드와 맥락형 Pro Paywall
-- Pro 사용자의 `AI 요약`, 추천 질문, 자유 입력 후속 질문
-- Firebase Callable Function에서 인증과 Pro 권한 재검증 후 Gemini 호출
-- 확정 분석 결과를 압축한 스냅샷만 전달하고 예측·추천 요청을 거절하는 서버 프롬프트
-- Gemini 요청 저장 비활성화, 50초 API timeout, 60초 함수 timeout, UI 재시도 상태
-- 설정 화면의 플랜·주간 무료 분석·분석권·초대 코드 UI
-- 분석 횟수 소진 안내와 Pro Paywall UI
+## 1. 현재 앱에 반영된 구조
 
-## Firebase 배포
+- 이용 상태를 게스트, 무료회원, Pro로 구분한다.
+- 분석권, 티켓, 일간·주간 이용 횟수는 사용하지 않는다.
+- 게스트는 한 번에 최대 2개, 로그인 회원은 최대 5개 조합을 만든다.
+- 조건 선택과 번호 생성은 결제 없이 이용한다.
+- 게스트·무료회원은 결과를 열거나 다시 열 때마다 리워드 광고를 거친다.
+- Pro는 광고 없이 즉시 결과를 연다.
+- 광고를 완료한 사용자는 표준 분석 결과 전체를 본다.
+- Custom 회차 범위, 두 조합 비교, AI 조합 해설·추가 질문은 Pro 전용이다.
+- 게스트는 내 번호를 저장하지 않는다.
+- 무료회원은 로그인 계정별로 현재 기기에 저장한다.
+- Pro는 Firestore에 저장하고 기기간 동기화를 사용한다.
+- Pro 전환 시 현재 기기의 로컬 번호를 클라우드에 병합한다.
+- 초대 코드 서버·데이터는 보존하되 사용자 UI는 숨긴다.
 
-다음 Functions가 추가됐다.
+## 2. 앱 접근 흐름
 
-수익모델 함수는 Apple 비밀키를 사용하는 계정삭제 함수와 독립적으로 배포할 수 있도록 Firebase `monetization` 코드베이스로 분리한다.
+```text
+번호 선택·생성
+  ↓
+분석하기
+  ├─ Pro → 결과 바로 공개
+  └─ 게스트·무료회원 → 결과 공개 선택 화면
+       ├─ Pro 살펴보기
+       ├─ 광고 보고 이번 결과 보기
+       └─ 다음에 하기
+```
+
+리워드 광고가 중단되거나 준비되지 않으면 결과를 열지 않는다. 실패를 결제 오류로 표현하지 않으며 Pro와 다음에 하기는 계속 선택할 수 있어야 한다.
+
+## 3. 클라이언트 정책 소스
+
+등급별 기능 차이는 `src/features/monetization/policy.ts`를 기준으로 한다.
+
+```text
+guest
+  조합 2개 / 결과 광고 / 저장 불가
+
+free
+  조합 5개 / 결과 광고 / 기기 저장
+
+pro
+  조합 5개 / 광고 제거 / AI·비교·Custom / 클라우드 저장
+```
+
+화면마다 별도의 숫자나 권한을 하드코딩하지 않는다. 화면은 정책 객체에서 선택 한도, 저장 방식, Pro 기능 여부를 읽는다.
+
+## 4. Firebase 구조
+
+현재 Callable Function은 다음 역할을 가진다.
 
 ```text
 getMonetizationAccessState
@@ -38,7 +63,14 @@ applyReferralCode
 askCombinationAi
 ```
 
-수익모델 함수는 Apple 비밀 키 설정 전에도 독립적으로 배포할 수 있다.
+- `getMonetizationAccessState`: 서버의 Pro 만료 상태를 반환한다.
+- `authorizeCombinationAnalysis`: Pro이면 즉시 승인하고, 아니면 리워드 광고 또는 Pro가 필요하다고 응답한다.
+- `applyReferralCode`: 재출시 검토를 위해 서버 코드만 보존한다. 현재 앱 UI에서는 호출 경로를 제공하지 않는다.
+- `askCombinationAi`: 인증과 Pro 권한을 서버에서 다시 확인한 뒤 과거 통계 해설을 요청한다.
+
+클라이언트의 `isPro` 값만 믿지 않는다. AI와 클라우드 저장처럼 비용·권한이 걸린 기능은 서버 또는 Firestore 보안 규칙에서도 사용자 권한을 검증해야 한다.
+
+수익모델 Functions는 별도 코드베이스로 빌드한다.
 
 ```bash
 npm --prefix functions-monetization install
@@ -46,60 +78,46 @@ npm --prefix functions-monetization run build
 firebase deploy --only functions:monetization
 ```
 
-AI API 키는 클라이언트 환경변수가 아니라 Firebase Secret으로 저장하고 `askCombinationAi` 함수에만 연결한다.
+AI API 키는 클라이언트 환경변수가 아니라 Firebase Secret에 저장한다.
 
 ```bash
 firebase functions:secrets:set GEMINI_API_KEY
 firebase deploy --only functions:monetization
 ```
 
-현재 함수는 `asia-northeast3`, Node.js 22 환경에 배포되어 있다. 내부 모델명은 서버 상수로 관리하며 사용자 화면에는 표시하지 않는다.
-
-분석권과 Pro 상태는 다음 서버 문서에서 관리한다.
-
-```text
-users/{uid}/monetization/access
-users/{uid}/analysisUnlocks/{unlockId}
-inviteCodes/{code}
-referrals/{inviteeUid}
-```
-
-클라이언트의 Firestore 직접 읽기·쓰기는 허용하지 않는다. 앱은 인증된 Firebase Callable Function으로만 분석 승인을 요청한다.
-
-## AI 조합 해설 구조
+## 5. AI 조합 해설
 
 ```text
 조합 분석 결과
-  ↓ 사용자가 AI 조합 해설 선택
+  ↓ Pro 사용자가 AI 조합 해설 선택
 Firebase Callable: askCombinationAi
-  ↓ 인증 확인 + Firestore Pro 권한 재검증
-Gemini Interactions API
+  ↓ 인증·Pro 권한 재검증
+Gemini API
   ↓ 과거 통계 설명만 반환
-AI 요약·후속 질문 sheet
+AI 요약·후속 질문 화면
 ```
 
-- 결과 화면 진입만으로 AI를 호출하지 않는다. Pro 사용자가 카드를 열 때 첫 요약을 요청한다.
-- Free 사용자는 AI 기능의 존재와 Pro 전용 여부를 확인할 수 있고, 카드 선택 시 Paywall로 이동한다.
-- 서버는 클라이언트의 `isPro` 값을 신뢰하지 않고 `users/{uid}/monetization/access`를 다시 읽는다.
-- 모델에는 전체 원본 추첨 데이터가 아니라 현재 필터가 반영된 분석 스냅샷과 제한된 대화 이력만 전달한다.
-- 요청은 `store: false`, `thinking_level: minimal`로 보내며 API 호출은 50초, Callable은 60초에 종료한다.
-- AI 서비스가 실패해도 기존 표준 분석 보고서와 분석권 원장은 변경하지 않는다.
-- 답변 UI에는 내부 모델명이나 API 이름을 노출하지 않는다.
+- 결과 화면 진입만으로 AI를 호출하지 않는다.
+- 무료 사용자가 카드를 선택하면 맥락형 Pro 안내를 연다.
+- 전체 원본 추첨 데이터 대신 현재 필터가 반영된 분석 스냅샷만 전달한다.
+- 미래 번호 예측·추천 요청은 거절하고 과거 통계 설명으로 범위를 되돌린다.
+- AI 오류는 표준 분석 결과나 저장 데이터에 영향을 주지 않는다.
+- 답변 화면에 내부 모델명과 API 이름을 노출하지 않는다.
 
-## 아직 외부 설정이 필요한 기능
+## 6. 외부 설정이 필요한 기능
 
 ### Pro 결제
 
-현재 Paywall은 상품 구조와 가격을 표시하지만 결제 버튼은 명시적으로 비활성화되어 있다. 다음 설정 후 활성화한다.
+현재 Paywall은 상품 가치를 보여주지만 실제 구매 버튼은 준비 상태다. 다음 설정을 마친 뒤 활성화한다.
 
-- App Store Connect 월간·연간 구독 상품 생성
-- Google Play Console 월간·연간 구독 상품 생성
-- RevenueCat 프로젝트, entitlement `pro`, offerings 연결
-- RevenueCat SDK와 development build 설정
-- RevenueCat webhook에서 `users/{uid}/monetization/access.proExpiresAt` 갱신
-- 구매·복원·환불·유예·만료 실제 기기 검증
+- App Store Connect 월간·연간 구독 상품
+- Google Play Console 월간·연간 구독 상품
+- RevenueCat 프로젝트와 entitlement `pro`
+- RevenueCat SDK 및 Expo development build
+- 구매, 복원, 환불, 유예, 만료의 실제 기기 검증
+- 서버 Pro 상태 또는 검증된 entitlement와 앱 상태의 동기화
 
-상품 기준:
+가격 가안:
 
 ```text
 pro_monthly  ₩4,900
@@ -108,56 +126,52 @@ pro_annual   ₩39,000
 
 ### 리워드 광고
 
-현재 분석 소진 시트는 광고 연결 준비 상태를 정확히 표시하며 가짜 광고 완료나 가짜 보상을 제공하지 않는다. 다음 설정 후 활성화한다.
+현재 결과 공개 화면은 광고가 연결되지 않았음을 명확히 표시한다. 가짜 광고 완료나 임시 무료 통과는 제공하지 않는다.
 
 - iOS·Android AdMob 앱 등록
-- Rewarded Ad Unit 생성
-- Google Mobile Ads SDK와 Expo config plugin 설정
-- AdMob SSV callback 공개 HTTPS 함수 구현
-- 거래 ID 중복 방지와 서명 검증
-- 주간 3회 제한 및 광고 실패 시 미차감 검증
+- 플랫폼별 Rewarded Ad Unit 생성
+- Google Mobile Ads SDK와 Expo config plugin
+- 테스트·운영 광고 단위 분리
+- 서버 측 검증 callback
+- transaction ID 중복 방지와 서명 검증
+- 광고 완료, 중단, 재고 없음, SDK 오류의 실제 기기 검증
+- 개인정보 동의와 광고 식별자 정책 반영
 
-Web에는 리워드 광고를 제공하지 않는다.
+Web에서 리워드 광고를 지원하지 않을 경우, 웹의 무료 결과 공개 대안을 출시 전에 별도로 확정해야 한다.
 
-## 운영 보강이 필요한 항목
+## 7. 운영 보강 항목
 
-AI 해설 기능 자체와 Secret 배포는 완료되었지만, 공개 운영 전 다음 항목을 추가로 닫아야 한다.
+- 사용자별 AI 호출 제한과 비용 경보
+- 동일 조합·동일 필터 AI 요약 캐시 여부
+- Firebase App Check 적용
+- Firestore의 Pro 클라우드 저장 보안 규칙 검증
+- Pro 종료 후 로컬 사본과 클라우드 데이터 보존 정책 검증
+- 광고·구독 관련 개인정보처리방침과 스토어 고지
+- 무료 결과가 광고 완료 뒤 빠짐없이 공개되는지 회귀 테스트
 
-- 사용자별·시간대별 AI 호출 rate limit과 Pro 사용량 상한
-- API 비용 예산과 이상 사용량 경보
-- 동일 조합·동일 필터의 첫 요약 캐시 여부
-- 지연 시간, timeout, upstream 오류율 모니터링
-- Firebase App Check 적용 및 강제 여부 검증
-- 자유 질문의 개인정보 고지와 로그·보관 정책
-- 예측성 답변이나 근거 없는 수치를 점검할 샘플링·신고 절차
+## 8. 확인 시나리오
 
-## 확인 시나리오
+1. 게스트는 한 번에 1개 또는 2개 조합만 선택할 수 있다.
+2. 로그인한 무료회원과 Pro는 1개, 3개, 5개 조합을 선택할 수 있다.
+3. 조건 선택과 번호 생성 단계에서는 광고나 결제를 요구하지 않는다.
+4. 게스트·무료회원이 분석하기를 누르면 결과 공개 선택 화면이 나타난다.
+5. 광고 완료 전에는 결과가 열리지 않고, 완료 뒤 표준 결과 전체가 열린다.
+6. 게스트·무료회원이 같은 조합을 다시 열 때도 광고를 거친다.
+7. Pro는 새 결과와 재열람 결과를 광고 없이 즉시 연다.
+8. 게스트는 내번호보기에서 로그인 안내를 보고 번호를 저장할 수 없다.
+9. 무료회원의 번호는 같은 계정이라도 다른 기기에서 자동 복원되지 않는다.
+10. Pro 전환 시 현재 기기의 로컬 번호가 클라우드에 병합된다.
+11. 무료 사용자가 Custom, 조합 비교, AI 해설을 선택하면 해당 기능의 가치를 설명하는 Pro 안내가 열린다.
+12. Pro 사용자는 Custom, 비교, AI 해설과 추가 질문을 이용할 수 있다.
+13. 클라이언트 상태를 조작해도 서버가 무료 계정의 AI 요청을 거절한다.
+14. 환경설정과 상단바 어디에도 티켓 잔액이나 갱신 횟수가 나타나지 않는다.
+15. 초대 코드 입력 UI가 로그인과 설정에 나타나지 않는다.
 
-1. 신규 로그인 사용자가 주간 무료 1회와 웰컴 분석권 3회를 확인한다.
-2. 첫 분석은 주간 무료 횟수를 먼저 사용한다.
-3. 다른 조합 분석부터 보너스 분석권이 하나씩 차감된다.
-4. 같은 조합을 다시 열면 추가 차감되지 않는다.
-5. 데이터 버전이 바뀐 같은 조합은 새 분석으로 처리된다.
-6. 사용 가능 횟수가 없으면 보고서를 계산하지 않고 선택 시트를 표시한다.
-7. 무료 사용자가 Custom 기간이나 조합 비교를 선택하면 Pro Paywall을 표시한다.
-8. 받은 초대 코드는 앱 첫 실행 온보딩에서만 입력할 수 있다.
-9. 초대 코드 입력을 건너뛰거나 첫 분석을 완료하면 입력 UI가 다시 나타나지 않는다.
-10. 초대받은 사용자의 첫 분석 완료 시 양쪽 보상이 한 번만 지급된다.
-11. 계정 삭제 시 사용자 하위 원장, 초대 코드와 초대 관계를 함께 제거한다.
-12. Free 사용자가 AI 조합 해설 카드를 누르면 답변 대신 Pro Paywall을 표시한다.
-13. Pro 사용자는 AI 요약을 불러오고 추천 질문과 자유 질문을 이어서 보낼 수 있다.
-14. 클라이언트에서 Pro처럼 보이도록 조작해도 서버가 Free 계정의 AI 요청을 거절한다.
-15. 예측·추천 질문에는 미래 번호를 제시하지 않고 과거 통계 설명 범위로 되돌린다.
-16. AI timeout·오류 시 다시 불러오기를 제공하고 표준 분석 결과는 그대로 유지한다.
-17. AI sheet와 오류 메시지 어디에도 내부 모델명이 표시되지 않는다.
-
-## 검증 명령
+## 9. 검증 명령
 
 ```bash
+npm run typecheck
 npm run lint
 npm test -- --runInBand
-npm --prefix functions run lint
-npm --prefix functions run build
-npm --prefix functions-monetization run lint
 npm --prefix functions-monetization run build
 ```

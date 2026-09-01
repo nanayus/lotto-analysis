@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberSelectorProps = {
@@ -39,22 +39,23 @@ export function NumberSelector({
   const ready = selectedNumbers.length === 6;
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      testID="combination-selector-scroll">
-      <View style={styles.header}>
-        <SubScreenBackButton accessibilityLabel="이전 화면으로 돌아가기" onPress={onBack} />
-        <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>LOTTO DATA EXPLORER</Text>
-          <Text style={styles.title}>랜덤조합</Text>
-        </View>
-        <View style={styles.countBadge}>
-          <Text accessibilityLiveRegion="polite" style={styles.countText}>
-            <Text style={styles.countAccent}>{selectedNumbers.length}</Text> / 6
-          </Text>
-        </View>
-      </View>
+    <View style={styles.screen}>
+      <SubScreenHeader
+        onBack={onBack}
+        right={(
+          <View style={styles.countBadge}>
+            <Text accessibilityLiveRegion="polite" style={styles.countText}>
+              <Text style={styles.countAccent}>{selectedNumbers.length}</Text> / 6
+            </Text>
+          </View>
+        )}
+        title="조합 분석"
+      />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        testID="combination-selector-scroll">
+      <Text style={styles.eyebrow}>LOTTO DATA EXPLORER</Text>
 
       <AppCard style={styles.ticketCard}>
         <View style={styles.instructionRow}>
@@ -131,7 +132,7 @@ export function NumberSelector({
 
       {analysisAvailabilityLabel ? (
         <View style={styles.accessSummary}>
-          <Text style={styles.accessSummaryLabel}>분석 이용</Text>
+          <Text style={styles.accessSummaryLabel}>결과 공개</Text>
           <Text style={styles.accessSummaryValue}>{analysisAvailabilityLabel}</Text>
         </View>
       ) : null}
@@ -146,24 +147,17 @@ export function NumberSelector({
         <Text accessibilityLiveRegion="polite" style={styles.analysisMessage}>{analysisMessage}</Text>
       ) : null}
       <Text style={styles.disclaimer}>선택한 번호를 과거 당첨 데이터와 비교합니다.</Text>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  screen: { flex: 1 },
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerCopy: {
-    flex: 1,
-    marginLeft: spacing.md,
   },
   eyebrow: {
     color: colors.textSecondary,
@@ -171,24 +165,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 1.6,
     marginBottom: spacing.sm,
   },
-  title: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.semibold,
-    letterSpacing: -0.7,
-  },
   countBadge: {
-    minWidth: 70,
-    alignItems: 'flex-end',
+    minWidth: 52,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countText: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.section,
-    fontWeight: typography.weights.medium,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
   },
   countAccent: {
     color: colors.accentPrimary,
-    fontSize: 28,
+    fontSize: typography.sizes.caption,
     fontWeight: typography.weights.semibold,
   },
   instruction: {

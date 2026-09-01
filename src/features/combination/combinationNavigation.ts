@@ -23,9 +23,9 @@ export function buildCombinationReturnDestination({
   if (target === 'combination-generator') {
     const conditionToken = token || String(Date.now());
     return {
-      pathname: '/(tabs)/draw/combination-generator' as const,
+      pathname: '/combination-generator' as const,
       params: {
-        count: gameCount === '3' || gameCount === '5' ? gameCount : '1',
+        count: gameCount === '2' || gameCount === '3' || gameCount === '5' ? gameCount : '1',
         openConditions: conditionToken,
         sessionToken: sessionToken || conditionToken,
       },
@@ -37,7 +37,7 @@ export function buildCombinationReturnDestination({
     return {
       pathname: '/(tabs)/draw/random-draw' as const,
       params: {
-        count: gameCount === '3' || gameCount === '5' ? gameCount : '1',
+        count: gameCount === '2' || gameCount === '3' || gameCount === '5' ? gameCount : '1',
         draw: token || String(Date.now()),
       },
     };

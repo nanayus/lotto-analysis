@@ -1,12 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent, type ViewStyle } from 'react-native';
+import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import {
   buildOverallStatistics,
   type OverallDistributionItem,
@@ -228,6 +228,125 @@ function VerticalChart({ items }: { items: readonly OverallDistributionItem[] })
       </View>
       <SelectedDetail item={selected} />
     </>
+  );
+}
+
+type RatioKind = 'oddEven' | 'lowHigh';
+
+function ratioLabel(label: string, kind: RatioKind) {
+  const [left, right] = label.split(':');
+  return kind === 'oddEven' ? `홀${left} : 짝${right}` : `저${left} : 고${right}`;
+}
+
+function RatioDonutChart({ items, kind }: { items: readonly OverallDistributionItem[]; kind: RatioKind }) {
+  const styles = useThemedStyles(createStyles);
+  const top = topItem(items);
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(top?.key);
+  const [tooltipKey, setTooltipKey] = useState<string>();
+  const selected = items.find((item) => item.key === selectedKey) ?? top;
+  const tooltipItem = items.find((item) => item.key === tooltipKey);
+  const selectedIndex = Math.max(0, items.findIndex((item) => item.key === selected?.key));
+  const totalCount = items.reduce((total, item) => total + item.count, 0);
+  const selectItem = (item: OverallDistributionItem) => {
+    setSelectedKey(item.key);
+    setTooltipKey(item.key);
+  };
+  const data = items.map((item) => ({
+    value: item.count,
+    color: item.key === selected?.key ? styles.chartAccent.color : styles.chartBar.color,
+  }));
+
+  return (
+    <View style={styles.ratioChart}>
+      <View
+        accessibilityLabel={`${selected ? ratioLabel(selected.label, kind) : ''}, ${selected?.count ?? 0}회, ${selected?.percentage.toFixed(1) ?? '0.0'}% 선택됨. 도넛 조각을 누르면 상세 수치가 표시됩니다.`}
+        style={styles.ratioDonutFrame}>
+        <PieChart
+          animationDuration={420}
+          centerLabelComponent={() => selected ? (
+            <View accessibilityLiveRegion="polite" style={styles.ratioDonutCenter}>
+              <Text numberOfLines={1} style={styles.ratioDonutCenterLabel}>{ratioLabel(selected.label, kind)}</Text>
+              <Text style={styles.ratioDonutCenterCount}>{selected.count.toLocaleString()}회</Text>
+              <Text style={styles.ratioDonutCenterPercentage}>{selected.percentage.toFixed(1)}%</Text>
+            </View>
+          ) : null}
+          data={data}
+          donut
+          extraRadius={4}
+          focusOnPress
+          focusedPieIndex={selectedIndex}
+          innerCircleColor={styles.ratioInnerCircle.backgroundColor}
+          innerRadius={52}
+          isAnimated
+          paddingHorizontal={62}
+          paddingVertical={34}
+          radius={82}
+          strokeColor={styles.ratioSliceGap.color}
+          strokeWidth={2}
+          toggleFocusOnPress={false}
+        />
+        <Pressable
+          accessibilityElementsHidden
+          focusable={false}
+          importantForAccessibility="no-hide-descendants"
+          onPress={(event) => {
+            const nativeEvent = event.nativeEvent as typeof event.nativeEvent & { offsetX?: number; offsetY?: number };
+            const locationX = nativeEvent.locationX ?? nativeEvent.offsetX;
+            const locationY = nativeEvent.locationY ?? nativeEvent.offsetY;
+            if (locationX === undefined || locationY === undefined) return;
+            const center = 106;
+            const dx = locationX - center;
+            const dy = locationY - center;
+            const distance = Math.sqrt((dx * dx) + (dy * dy));
+            if (distance < 52 || distance > 88 || totalCount <= 0) return;
+            const angle = (Math.atan2(dy, dx) + (Math.PI / 2) + (Math.PI * 2)) % (Math.PI * 2);
+            const targetCount = (angle / (Math.PI * 2)) * totalCount;
+            let cumulativeCount = 0;
+            const pressedItem = items.find((item) => {
+              cumulativeCount += item.count;
+              return targetCount <= cumulativeCount;
+            });
+            if (pressedItem) selectItem(pressedItem);
+          }}
+          style={[
+            styles.ratioDonutTouchTarget,
+            Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as ViewStyle) : null,
+          ]}
+        />
+        {tooltipItem ? (
+          <View pointerEvents="none" style={styles.ratioTooltipPopup}>
+            <Text numberOfLines={1} style={styles.ratioTooltipLabel}>{ratioLabel(tooltipItem.label, kind)}</Text>
+            <Text numberOfLines={1} style={styles.ratioTooltipValue}>
+              {tooltipItem.count.toLocaleString()}회 · {tooltipItem.percentage.toFixed(1)}%
+            </Text>
+            <View style={styles.ratioTooltipPointer} />
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.ratioLegend}>
+        {items.map((item) => {
+          const highlighted = item.key === selected?.key;
+          return (
+            <Pressable
+              accessibilityLabel={`${ratioLabel(item.label, kind)}, ${item.count.toLocaleString()}회, ${item.percentage.toFixed(1)}%`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: highlighted }}
+              key={item.key}
+              onPress={() => selectItem(item)}
+              style={[styles.ratioLegendItem, highlighted && styles.ratioLegendItemSelected]}>
+              <View style={[styles.ratioLegendDot, highlighted && styles.ratioLegendDotSelected]} />
+              <Text numberOfLines={1} style={[styles.ratioLegendLabel, highlighted && styles.ratioLegendLabelSelected]}>
+                {ratioLabel(item.label, kind)}
+              </Text>
+              <Text style={[styles.ratioLegendValue, highlighted && styles.ratioLegendValueSelected]}>
+                {item.percentage.toFixed(1)}%
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -474,7 +593,7 @@ function NumberFrequency({ statistics }: { statistics: OverallStatistics }) {
 
 function DistributionStatistics({ statistics }: { statistics: OverallStatistics }) {
   const [range, setRange] = useState<'sum' | 'lastDigit' | 'deviation'>('sum');
-  const [ratio, setRatio] = useState<'oddEven' | 'lowHigh'>('oddEven');
+  const [ratio, setRatio] = useState<RatioKind>('oddEven');
   const rangeItems = range === 'sum' ? statistics.sumDistribution : range === 'lastDigit' ? statistics.lastDigitSumDistribution : statistics.standardDeviationDistribution;
   const rangeTitle = range === 'sum' ? '번호 총합' : range === 'lastDigit' ? '끝수 총합' : '표준편차';
   const ratioItems = ratio === 'oddEven' ? statistics.oddEvenDistribution : statistics.lowHighDistribution;
@@ -499,7 +618,7 @@ function DistributionStatistics({ statistics }: { statistics: OverallStatistics 
           { label: '저고', value: 'lowHigh' },
         ]} value={ratio} />
         <ChartHeading description={ratio === 'oddEven' ? '홀수:짝수 순서' : '저번호(1–22):고번호(23–45) 순서'} items={ratioItems} title={ratio === 'oddEven' ? '홀짝 비율' : '저고 비율'} />
-        <VerticalChart items={ratioItems} />
+        <RatioDonutChart items={ratioItems} kind={ratio} />
       </StatCard>
     </>
   );
@@ -603,14 +722,14 @@ export function OverallStatisticsScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
+        <SubScreenHeader
+          backAccessibilityLabel="통계보기로 돌아가기"
+          onBack={() => router.back()}
+          title="종합 통계"
+        />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <SubScreenBackButton accessibilityLabel="통계보기로 돌아가기" onPress={() => router.back()} />
-            <View style={styles.headerCopy}>
-              <Text style={styles.eyebrow}>ALL DRAW DATA</Text>
-              <Text style={styles.title}>당첨데이터 종합 통계</Text>
-            </View>
-          </View>
+          <Text style={styles.eyebrow}>ALL DRAW DATA</Text>
+          <Text style={styles.title}>당첨데이터 종합 통계</Text>
 
           <View style={styles.rangeRow}>
             <Text style={styles.rangeLabel}>분석 범위</Text>
@@ -669,7 +788,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
-  header: { flexDirection: 'row', alignItems: 'center' },
   headerCopy: { flex: 1, marginLeft: spacing.md },
   eyebrow: { color: colors.accentSecondary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.5, marginBottom: spacing.xs },
   title: { color: colors.textPrimary, fontSize: 22, fontWeight: typography.weights.bold, letterSpacing: -0.6 },
@@ -715,6 +833,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   chartTooltip: { width: CHART_TOOLTIP_WIDTH, paddingHorizontal: spacing.sm, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surfaceElevated, boxShadow: colors.cardShadow, elevation: 5 },
   chartTooltipLabel: { color: colors.textPrimary, fontSize: 10, fontWeight: typography.weights.bold, textAlign: 'center' },
   chartTooltipValue: { marginTop: 2, color: colors.textSecondary, fontSize: 9, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  ratioChart: { marginTop: spacing.lg },
+  ratioDonutFrame: { minHeight: 244, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  ratioInnerCircle: { backgroundColor: colors.surface },
+  ratioSliceGap: { color: colors.surface },
+  ratioDonutCenter: { width: 102, alignItems: 'center', justifyContent: 'center' },
+  ratioDonutCenterLabel: { color: colors.textPrimary, fontSize: 11, fontWeight: typography.weights.bold, textAlign: 'center' },
+  ratioDonutCenterCount: { marginTop: 5, color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  ratioDonutCenterPercentage: { marginTop: 2, color: colors.accentPrimary, fontSize: 10, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  ratioDonutTouchTarget: { position: 'absolute', left: '50%', top: '50%', width: 212, height: 212, marginLeft: -106, marginTop: -106, borderRadius: 106, zIndex: 2 },
+  ratioTooltipPopup: { position: 'absolute', top: 0, left: '50%', width: 124, marginLeft: -62, paddingHorizontal: spacing.sm, paddingVertical: 8, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.accentPrimary, boxShadow: colors.cardShadow, elevation: 6, zIndex: 3 },
+  ratioTooltipLabel: { color: '#FFFFFF', fontSize: 10, fontWeight: typography.weights.bold, textAlign: 'center' },
+  ratioTooltipValue: { marginTop: 2, color: '#FFFFFF', fontSize: 9, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'], opacity: 0.9 },
+  ratioTooltipPointer: { position: 'absolute', bottom: -4, width: 8, height: 8, backgroundColor: colors.accentPrimary, transform: [{ rotate: '45deg' }] },
+  ratioLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  ratioLegendItem: { width: '48.5%', minHeight: 40, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.md, borderWidth: 1, borderColor: 'transparent', backgroundColor: colors.surfaceElevated },
+  ratioLegendItemSelected: { borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent },
+  ratioLegendDot: { width: 7, height: 7, borderRadius: radius.round, backgroundColor: colors.textTertiary },
+  ratioLegendDotSelected: { backgroundColor: colors.accentPrimary },
+  ratioLegendLabel: { flex: 1, color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.medium },
+  ratioLegendLabelSelected: { color: colors.textPrimary, fontWeight: typography.weights.bold },
+  ratioLegendValue: { color: colors.textTertiary, fontSize: 9, fontVariant: ['tabular-nums'] },
+  ratioLegendValueSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
   horizontalChart: { marginTop: spacing.xl, gap: spacing.md },
   horizontalRow: { gap: 5 },
   horizontalLabels: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },

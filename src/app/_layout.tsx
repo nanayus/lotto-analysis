@@ -70,7 +70,7 @@ const generatorMetadata = {
   title: '로또 조합 선택하기 | Lotto Insight',
   description:
     '고정수, 제외수, 번호 분포와 수학적 형태 조건을 직접 선택해 로또 6/45 번호 조합을 만들고 분석합니다.',
-  path: '/draw/combination-generator',
+  path: '/combination-generator',
 };
 
 const randomDrawMetadata = {

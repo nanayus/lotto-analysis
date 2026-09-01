@@ -11,7 +11,7 @@ import {
   SAME_ENDING_LABELS,
 } from '@/domain/generator/combinationGenerator';
 import { AppCard } from '@/components/ui/AppCard';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
 import { LibraryStatusActions } from '@/features/library/components/LibraryStatusActions';
@@ -29,6 +29,7 @@ type CombinationResultProps = {
   onToggleFavorite?: () => void;
   onTogglePurchased?: () => void;
   onOpenHistory: () => void;
+  onOpenLogin?: () => void;
   onOpenPrizeRank: (rank: PrizeRank) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
   onOpenPro?: () => void;
@@ -38,6 +39,7 @@ type CombinationResultProps = {
   favorite?: boolean;
   isPro?: boolean;
   purchased?: boolean;
+  showAccountPrompt?: boolean;
 };
 
 const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
@@ -298,6 +300,7 @@ export function CombinationResult({
   onToggleFavorite = NOOP,
   onTogglePurchased = NOOP,
   onOpenHistory,
+  onOpenLogin = NOOP,
   onOpenPrizeRank,
   onPeriodChange,
   onOpenPro = NOOP,
@@ -307,6 +310,7 @@ export function CombinationResult({
   favorite = false,
   isPro = false,
   purchased = false,
+  showAccountPrompt = false,
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
   const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
@@ -360,37 +364,36 @@ export function CombinationResult({
   };
 
   return (
-    <>
+    <View style={styles.screen}>
+      <SubScreenHeader
+        onBack={onBack}
+        right={(
+          <Pressable
+            accessibilityLabel="새 조합 분석"
+            accessibilityRole="button"
+            onPress={onStartOver}
+            style={({ pressed }) => [styles.startOverButton, webPointerStyle, pressed && styles.pressed]}>
+            <Ionicons color={styles.startOverIcon.color} name="refresh-outline" size={20} />
+          </Pressable>
+        )}
+        title="조합 분석"
+      />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         testID="combination-result-scroll">
-      <View style={styles.topBar}>
-        <SubScreenBackButton accessibilityLabel="이전 화면으로 돌아가기" onPress={onBack} />
-        <Text style={styles.title}>조합 분석</Text>
-        <Pressable
-          accessibilityLabel="새 조합 분석"
-          accessibilityRole="button"
-          onPress={onStartOver}
-          style={({ pressed }) => [
-            styles.startOverButton,
-            webPointerStyle,
-            pressed && styles.pressed,
-          ]}>
-          <Text style={styles.startOverText}>↻ 새로하기</Text>
-        </Pressable>
-      </View>
-
       <AppCard style={styles.selectedProfile}>
-        <View style={styles.profileLibraryActions}>
-          <LibraryStatusActions
-            favorite={favoriteSelected}
-            onToggleFavorite={handleToggleFavorite}
-            onTogglePurchased={handleTogglePurchased}
-            purchased={purchasedSelected}
-            testID="result-card-actions"
-          />
-        </View>
+        {!showAccountPrompt ? (
+          <View style={styles.profileLibraryActions}>
+            <LibraryStatusActions
+              favorite={favoriteSelected}
+              onToggleFavorite={handleToggleFavorite}
+              onTogglePurchased={handleTogglePurchased}
+              purchased={purchasedSelected}
+              testID="result-card-actions"
+            />
+          </View>
+        ) : null}
         <CombinationNumberPills numbers={analysis.numbers} />
         <Text style={styles.profileMeta}>
           <Text style={styles.profileMetaMuted}>최근 </Text>
@@ -408,7 +411,7 @@ export function CombinationResult({
           </Text>
         </Text>
         <Pressable
-          accessibilityLabel="비교할 조합 추가"
+          accessibilityLabel={isPro ? '비교할 조합 추가' : '비교할 조합 추가, Pro 전용'}
           accessibilityRole="button"
           onPress={onCompare}
           style={({ pressed }) => [
@@ -417,8 +420,26 @@ export function CombinationResult({
             pressed && styles.pressed,
           ]}>
           <Text style={styles.compareText}>+ 비교할 조합 추가</Text>
+          {!isPro ? <View style={styles.compareProBadge}><Text style={styles.compareProText}>PRO</Text></View> : null}
         </Pressable>
       </AppCard>
+
+      {showAccountPrompt ? (
+        <AppCard style={styles.accountPrompt}>
+          <View style={styles.accountPromptCopy}>
+            <Text style={styles.accountPromptTitle}>이 번호를 기기에 저장하세요</Text>
+            <Text style={styles.accountPromptDescription}>
+              로그인하면 뽑은 번호와 즐겨찾기를 이 기기에 보관할 수 있어요.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onOpenLogin}
+            style={({ pressed }) => [styles.accountPromptButton, pressed && styles.pressed]}>
+            <Text style={styles.accountPromptButtonText}>로그인</Text>
+          </Pressable>
+        </AppCard>
+      ) : null}
 
       <View style={styles.filterRow}>
         <AnalysisControls
@@ -595,42 +616,25 @@ export function CombinationResult({
           </View>
         </Animated.View>
       ) : null}
-    </>
+    </View>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  screen: { flex: 1 },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
     gap: spacing.md,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  title: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: typography.sizes.section,
-    fontWeight: typography.weights.semibold,
-    marginLeft: spacing.md,
-  },
   startOverButton: {
-    minHeight: 36,
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: spacing.md,
   },
-  startOverText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
-  },
+  startOverIcon: { color: colors.textSecondary },
   selectedProfile: {
     position: 'relative',
     alignItems: 'center',
@@ -642,6 +646,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
     marginTop: spacing.xs,
   },
   compareText: {
@@ -649,6 +654,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
   },
+  compareProBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
+  compareProText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 0.6 },
   profileLibraryActions: {
     position: 'absolute',
     top: spacing.sm,
@@ -674,6 +681,40 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   profileMetaMuted: {
     color: colors.textSecondary,
+  },
+  accountPrompt: {
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  accountPromptCopy: {
+    flex: 1,
+  },
+  accountPromptTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  accountPromptDescription: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+  },
+  accountPromptButton: {
+    minWidth: 66,
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceAccent,
+  },
+  accountPromptButtonText: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
   },
   filterRow: {
     alignItems: 'flex-end',

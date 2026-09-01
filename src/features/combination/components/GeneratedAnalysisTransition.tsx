@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
 
 import { AnalysisNumberShuffle } from './AccessNumberShuffle';
@@ -23,8 +23,8 @@ type GeneratedAnalysisTransitionProps = {
 
 const COPY = {
   access: {
-    description: '광고 한 편으로 이번 결과를 열거나, Pro에서 제한 없이 분석할 수 있어요.',
-    title: '분석 이용권이 필요해요',
+    description: '광고 한 편을 본 뒤 완전한 분석 결과를 열거나, Pro에서 바로 확인할 수 있어요.',
+    title: '결과를 여는 방법을 선택하세요',
   },
   error: {
     description: '연결 상태를 확인하고 다시 시도해 주세요.',
@@ -39,7 +39,7 @@ const COPY = {
     title: '분석하고 있습니다',
   },
   login: {
-    description: '로그인하면 분석 이용 가능 횟수를 확인하고 결과를 바로 열어요.',
+    description: '로그인하면 더 많은 조합을 선택하고 내 번호를 이 기기에 저장할 수 있어요.',
     title: '로그인이 필요해요',
   },
 } as const;
@@ -63,11 +63,7 @@ export function GeneratedAnalysisTransition({
 
   return (
     <View style={styles.root} testID="generated-analysis-transition">
-      <View style={styles.header}>
-        <SubScreenBackButton onPress={onBack} />
-        <Text style={styles.headerTitle}>조합 분석</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <SubScreenHeader onBack={onBack} title="조합 분석" />
 
       <View style={styles.content}>
         <View style={styles.statusIcon}>
@@ -78,7 +74,7 @@ export function GeneratedAnalysisTransition({
               color={styles.iconColor.color}
               name={phase === 'error' || phase === 'invalid'
                 ? 'alert-circle-outline'
-                : phase === 'login' ? 'person-outline' : 'ticket-outline'}
+                : phase === 'login' ? 'person-outline' : 'play-circle-outline'}
               size={25}
             />
           )}
@@ -104,7 +100,7 @@ export function GeneratedAnalysisTransition({
           <View style={styles.accessActions}>
             <AppButton label="Pro 살펴보기" onPress={onOpenPro} />
             <Pressable
-              accessibilityLabel="광고 보고 이번 결과 보기, 연결 준비 중"
+              accessibilityLabel="광고 보고 이번 결과 보기, 광고 연결 준비 중"
               accessibilityRole="button"
               accessibilityState={{ disabled: true }}
               disabled
@@ -130,9 +126,6 @@ export function GeneratedAnalysisTransition({
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  header: { height: 68, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
-  headerTitle: { flex: 1, color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, textAlign: 'center' },
-  headerSpacer: { width: 44, height: 44 },
   content: { flex: 1, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'center', paddingBottom: 72 },
   statusIcon: { width: 52, height: 52, marginBottom: spacing.lg, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAccent },
   iconColor: { color: colors.accentPrimary },

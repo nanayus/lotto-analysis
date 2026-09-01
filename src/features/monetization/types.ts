@@ -1,20 +1,12 @@
 export type MonetizationAccessState = {
-  bonusAnalysisCredits: number;
   canApplyReferralCode: boolean;
   inviteCode: string;
   isPro: boolean;
-  nextWeeklyResetAt: string;
   proExpiresAt: string | null;
-  rewardedUnlocksLimit: number;
-  rewardedUnlocksUsedThisWeek: number;
-  weeklyFreeAvailable: boolean;
 };
 
 export type AnalysisAuthorizationDecision =
-  | 'UNLOCKED_EXISTING'
   | 'AUTHORIZED_PRO'
-  | 'AUTHORIZED_WEEKLY'
-  | 'AUTHORIZED_CREDIT'
   | 'REWARD_OR_PRO_REQUIRED';
 
 export type AnalysisAuthorization = {
@@ -23,6 +15,17 @@ export type AnalysisAuthorization = {
   decision: AnalysisAuthorizationDecision;
 };
 
+export function normalizeMonetizationAccessState(
+  access: MonetizationAccessState,
+): MonetizationAccessState {
+  return {
+    canApplyReferralCode: Boolean(access.canApplyReferralCode),
+    inviteCode: typeof access.inviteCode === 'string' ? access.inviteCode : '',
+    isPro: Boolean(access.isPro),
+    proExpiresAt: typeof access.proExpiresAt === 'string' ? access.proExpiresAt : null,
+  };
+}
+
 export function isAnalysisAuthorized(decision: AnalysisAuthorizationDecision) {
-  return decision !== 'REWARD_OR_PRO_REQUIRED';
+  return decision === 'AUTHORIZED_PRO';
 }

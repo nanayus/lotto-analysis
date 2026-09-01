@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
@@ -15,14 +16,11 @@ export function StatisticsHubScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
+        <MainTabHeader />
         <ScrollView
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <Text style={styles.eyebrow}>DATA LIBRARY</Text>
-          <Text style={styles.title}>통계보기</Text>
-          <Text style={styles.description}>과거 당첨 데이터를 원하는 관점으로 살펴보세요.</Text>
-
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/statistics/explore')}
@@ -87,10 +85,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
-  eyebrow: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: -0.12, marginBottom: spacing.sm },
-  title: { color: colors.textPrimary, fontSize: typography.sizes.title, lineHeight: 44, fontWeight: typography.weights.semibold, letterSpacing: -0.37 },
-  description: { color: colors.textSecondary, fontSize: typography.sizes.body, lineHeight: 25, letterSpacing: -0.37, marginTop: spacing.sm },
-  featureCard: { minHeight: 225, marginTop: spacing.xxxl, padding: spacing.xxl, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, boxShadow: 'none', elevation: 0 },
+  featureCard: { minHeight: 225, padding: spacing.xxl, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, boxShadow: 'none', elevation: 0 },
   featureTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   featureIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surface },
   featureTitle: { color: colors.textPrimary, fontSize: 28, lineHeight: 32, fontWeight: typography.weights.semibold, letterSpacing: -0.28, marginTop: spacing.xxl },

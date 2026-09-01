@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { AccountSettingsSection } from './AccountSettingsSection';
+import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { MonetizationSettingsSection } from '@/features/monetization/MonetizationSettingsSection';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 
@@ -48,15 +49,11 @@ export function SettingsScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
+        <MainTabHeader />
         <ScrollView
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Text style={styles.eyebrow}>PREFERENCES</Text>
-            <Text style={styles.title}>환경설정</Text>
-          </View>
-
           <AccountSettingsSection />
 
           <MonetizationSettingsSection />
@@ -170,22 +167,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.huge,
-  },
-  header: {
-    marginBottom: spacing.xxl,
-  },
-  eyebrow: {
-    marginBottom: spacing.xs,
-    color: colors.accentPrimary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 1.8,
-  },
-  title: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    letterSpacing: -0.7,
   },
   section: {
     marginBottom: spacing.xxl,

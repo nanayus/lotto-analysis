@@ -34,7 +34,7 @@ describe('combination analysis return navigation', () => {
       target: 'combination-generator',
       token: 'conditions-token',
     })).toEqual({
-      pathname: '/(tabs)/draw/combination-generator',
+      pathname: '/combination-generator',
       params: {
         count: '3',
         openConditions: 'conditions-token',

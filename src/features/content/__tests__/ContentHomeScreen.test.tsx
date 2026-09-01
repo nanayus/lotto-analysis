@@ -15,7 +15,7 @@ describe('ContentHomeScreen', () => {
     mockPush.mockClear();
     const screen = await render(<ContentHomeScreen />);
 
-    expect(screen.getByText('콘텐츠')).toBeTruthy();
+    expect(screen.queryByText('콘텐츠')).toBeNull();
     expect(screen.getByText(/당첨을 예측하거나 보장하지 않습니다/)).toBeTruthy();
 
     await act(async () => {

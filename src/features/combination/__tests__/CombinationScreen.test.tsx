@@ -12,19 +12,13 @@ import {
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
 let mockIsPro = true;
-let mockBonusAnalysisCredits = 3;
-let mockWeeklyFreeAvailable = true;
-let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'AUTHORIZED_WEEKLY' | 'REWARD_OR_PRO_REQUIRED' | 'UNLOCKED_EXISTING' = 'AUTHORIZED_PRO';
+let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'REWARD_OR_PRO_REQUIRED' = 'AUTHORIZED_PRO';
 const mockAuthorizeAnalysis = jest.fn(async () => ({
   accessState: {
-    bonusAnalysisCredits: mockBonusAnalysisCredits,
+    canApplyReferralCode: false,
     inviteCode: 'ABCDEF12',
     isPro: mockIsPro,
-    nextWeeklyResetAt: '2026-09-06T15:00:00.000Z',
     proExpiresAt: '2026-12-31T00:00:00.000Z',
-    rewardedUnlocksLimit: 3,
-    rewardedUnlocksUsedThisWeek: 0,
-    weeklyFreeAvailable: mockWeeklyFreeAvailable,
   },
   combinationKey: '1-7-12-19-34-45',
   decision: mockAuthorizationDecision,
@@ -66,18 +60,24 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     authorizeAnalysis: mockAuthorizeAnalysis,
     openPaywall: mockOpenPaywall,
+    productAccess: {
+      canCompareCombinations: mockAuthStatus === 'authenticated' && mockIsPro,
+      canSaveNumbers: mockAuthStatus === 'authenticated',
+      canUseAiExplanation: mockAuthStatus === 'authenticated' && mockIsPro,
+      canUseCustomPeriod: mockAuthStatus === 'authenticated' && mockIsPro,
+      combinationSelectionLimit: mockAuthStatus === 'authenticated' ? 5 : 2,
+      requiresRewardedAdForResults: mockAuthStatus !== 'authenticated' || !mockIsPro,
+      storageMode: mockAuthStatus === 'authenticated' && mockIsPro ? 'cloud' : mockAuthStatus === 'authenticated' ? 'device' : 'unavailable',
+      tier: mockAuthStatus === 'authenticated' && mockIsPro ? 'pro' : mockAuthStatus === 'authenticated' ? 'free' : 'guest',
+    },
     refresh: jest.fn(async () => undefined),
     state: {
       status: 'ready',
       access: {
-        bonusAnalysisCredits: mockBonusAnalysisCredits,
+        canApplyReferralCode: false,
         inviteCode: 'ABCDEF12',
         isPro: mockIsPro,
-        nextWeeklyResetAt: '2026-09-06T15:00:00.000Z',
         proExpiresAt: '2026-12-31T00:00:00.000Z',
-        rewardedUnlocksLimit: 3,
-        rewardedUnlocksUsedThisWeek: 0,
-        weeklyFreeAvailable: mockWeeklyFreeAvailable,
       },
     },
   }),
@@ -110,20 +110,21 @@ describe('CombinationScreen', () => {
     mockOpenPaywall.mockClear();
     mockAuthorizeAnalysis.mockClear();
     mockIsPro = true;
-    mockBonusAnalysisCredits = 3;
-    mockWeeklyFreeAvailable = true;
     mockAuthorizationDecision = 'AUTHORIZED_PRO';
   });
 
-  test('requires login before opening a requested analysis', async () => {
+  test('lets a guest continue to the rewarded-ad result gate', async () => {
     mockAuthStatus = 'guest';
-    await render(
+    mockIsPro = false;
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
+    const screen = await render(
       <CombinationDraftProvider>
         <SeededCombinationScreen />
       </CombinationDraftProvider>,
     );
 
-    await waitFor(() => expect(mockOpenLogin).toHaveBeenCalledWith('combination-analysis'));
+    await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
+    expect(mockOpenLogin).not.toHaveBeenCalled();
   });
 
   test('skips the number selector while a generated combination is being authorized', async () => {
@@ -157,25 +158,18 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
   });
 
-  test('blocks direct manual analysis before showing the selector when no analysis is available', async () => {
+  test('keeps manual number selection available for free members', async () => {
     mockSearchParams.mockReturnValue({ returnTo: 'draw' });
     mockIsPro = false;
-    mockBonusAnalysisCredits = 0;
-    mockWeeklyFreeAvailable = false;
     const screen = await render(
       <CombinationDraftProvider>
         <SeededCombinationScreen />
       </CombinationDraftProvider>,
     );
 
-    expect(screen.getByText('분석 이용권이 필요해요')).toBeTruthy();
-    expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
-    expect(screen.getByTestId('access-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
-    expect(screen.getAllByTestId(
-      /access-number-shuffle-number-/,
-      { includeHiddenElements: true },
-    )).toHaveLength(6);
-    expect(screen.queryByTestId('combination-number-grid')).toBeNull();
+    expect(screen.getByTestId('combination-number-grid')).toBeTruthy();
+    expect(screen.getByText('무료회원 · 광고 후 결과 공개')).toBeTruthy();
+    expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
     expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
   });
 
@@ -224,10 +218,10 @@ describe('CombinationScreen', () => {
       </CombinationDraftProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('분석 이용권이 필요해요')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
     expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pro 살펴보기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '광고 보고 이번 결과 보기, 연결 준비 중' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '광고 보고 이번 결과 보기, 광고 연결 준비 중' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '다음에 하기' })).toBeTruthy();
     expect(screen.getByTestId('access-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText('이용 방법 보기')).toBeNull();
@@ -252,25 +246,23 @@ describe('CombinationScreen', () => {
       fireEvent.press(screen.getByRole('button', { name: '분석하기' }));
     });
 
-    await waitFor(() => expect(screen.getByText('분석 이용권이 필요해요')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
     expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
     expect(screen.queryByTestId('combination-number-grid')).toBeNull();
     expect(screen.queryByText('이번 주 무료 분석을 모두 사용했어요')).toBeNull();
   });
 
-  test('restores an already unlocked requested analysis even with no new analysis credits', async () => {
+  test('requires another ad when a free member reopens a saved combination', async () => {
     mockIsPro = false;
-    mockBonusAnalysisCredits = 0;
-    mockWeeklyFreeAvailable = false;
-    mockAuthorizationDecision = 'UNLOCKED_EXISTING';
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
     const screen = await render(
       <CombinationDraftProvider>
         <SeededCombinationScreen />
       </CombinationDraftProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId('result-section-prize')).toBeTruthy());
-    expect(screen.queryByText('분석 이용권이 필요해요')).toBeNull();
+    await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
+    expect(screen.queryByTestId('result-section-prize')).toBeNull();
   });
 
   test('hides an open analysis result after sign-out', async () => {
@@ -290,20 +282,20 @@ describe('CombinationScreen', () => {
       );
     });
 
-    await waitFor(() => expect(screen.getByText('로그인이 필요해요')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
     expect(screen.queryByTestId('result-section-prize')).toBeNull();
   });
 
   test('opens Pro when a free user requests combination comparison', async () => {
     mockIsPro = false;
-    mockAuthorizationDecision = 'AUTHORIZED_WEEKLY';
+    mockAuthorizationDecision = 'AUTHORIZED_PRO';
     const screen = await render(
       <CombinationDraftProvider>
         <SeededCombinationScreen />
       </CombinationDraftProvider>,
     );
 
-    const compareButton = await waitFor(() => screen.getByRole('button', { name: '비교할 조합 추가' }));
+    const compareButton = await waitFor(() => screen.getByRole('button', { name: '비교할 조합 추가, Pro 전용' }));
     fireEvent.press(compareButton);
     expect(mockOpenPaywall).toHaveBeenCalledWith('combination-comparison');
   });

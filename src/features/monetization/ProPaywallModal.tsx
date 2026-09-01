@@ -4,13 +4,18 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
 
 const BENEFITS = [
-  '조합 분석 무제한',
+  '모든 분석 결과를 광고 없이 바로 확인',
   'AI 조합 해설과 후속 질문',
-  '두 조합 비교와 Custom 기간',
-  '새 회차 자동 재분석',
-  '최대 200개 저장과 클라우드 동기화',
-  '리워드 광고 없음',
+  '두 조합 비교와 회차 범위 직접 선택',
+  '내 번호 클라우드 저장과 기기간 동기화',
 ] as const;
+
+const SOURCE_TITLES: Record<string, string> = {
+  'ai-combination-explanation': 'AI가 조합 통계를 쉽게 풀어드려요',
+  'combination-comparison': '두 조합의 차이를 한눈에 비교하세요',
+  'custom-period': '원하는 회차만 골라서 분석하세요',
+  'library-cloud': '내 번호를 모든 기기에서 이어보세요',
+};
 
 export function ProPaywallModal({
   onClose,
@@ -23,6 +28,7 @@ export function ProPaywallModal({
 }) {
   const styles = useThemedStyles(createStyles);
   const isAiExplanation = source === 'ai-combination-explanation';
+  const title = source ? SOURCE_TITLES[source] : undefined;
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -32,13 +38,13 @@ export function ProPaywallModal({
           <View style={styles.handle} />
           <View style={styles.badge}><Text style={styles.badgeText}>PRO</Text></View>
           <Text style={styles.title}>
-            {isAiExplanation ? 'AI 조합 해설은 Pro 기능이에요' : '조합을 제한 없이 비교하고 관리하세요'}
+            {title ?? '광고 없이 더 깊게 분석하세요'}
           </Text>
-          {isAiExplanation ? (
-            <Text style={styles.description}>
-              계산된 통계를 AI가 알기 쉽게 해설하고, 궁금한 내용을 이어서 질문할 수 있습니다.
-            </Text>
-          ) : null}
+          <Text style={styles.description}>
+            {isAiExplanation
+              ? '계산된 통계를 AI가 알기 쉽게 해설하고, 궁금한 내용을 이어서 질문할 수 있어요.'
+              : '무료 기능의 결과는 그대로 유지하면서, 기다림 없이 더 깊은 분석 도구를 사용할 수 있어요.'}
+          </Text>
           <View style={styles.benefits}>
             {BENEFITS.map((benefit) => (
               <View key={benefit} style={styles.benefitRow}>

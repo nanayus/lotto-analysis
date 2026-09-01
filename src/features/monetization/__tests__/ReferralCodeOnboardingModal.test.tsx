@@ -11,7 +11,7 @@ describe('ReferralCodeOnboardingModal', () => {
         error={null}
         isApplying={false}
         onApply={onApply}
-        onSkip={jest.fn()}
+        onClose={jest.fn()}
         requiresLogin
         visible
       />,
@@ -32,19 +32,19 @@ describe('ReferralCodeOnboardingModal', () => {
   });
 
   test('allows the user to permanently skip referral entry', async () => {
-    const onSkip = jest.fn();
+    const onClose = jest.fn();
     const screen = await render(
       <ReferralCodeOnboardingModal
         error={null}
         isApplying={false}
         onApply={jest.fn()}
-        onSkip={onSkip}
+        onClose={onClose}
         requiresLogin={false}
         visible
       />,
     );
 
-    fireEvent.press(screen.getByRole('button', { name: '초대 코드 없이 시작' }));
-    expect(onSkip).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByRole('button', { name: '다음에 입력' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

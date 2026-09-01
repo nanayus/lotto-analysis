@@ -51,7 +51,7 @@ describe('AllNumberComparison', () => {
     expect(items).toHaveLength(45);
     expect(items[0].props.testID).toBe('all-number-item-1');
     expect(items[44].props.testID).toBe('all-number-item-45');
-    expect(getByText('전체 번호')).toBeTruthy();
+    expect(getByText('전체 번호 비교')).toBeTruthy();
     expect(getByText('101회')).toBeTruthy();
     expect(getByTestId('all-number-ball-1')).toBeTruthy();
     expect(getByTestId('all-number-item-23').props.accessibilityState).toEqual({ selected: true });

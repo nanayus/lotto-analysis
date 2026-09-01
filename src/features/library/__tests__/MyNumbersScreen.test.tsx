@@ -11,6 +11,7 @@ import { describeGeneratorConditions } from '@/domain/generator/describeGenerato
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { productAccessFor } from '@/features/monetization/policy';
 
 import { MyNumbersScreen } from '../MyNumbersScreen';
 
@@ -34,8 +35,8 @@ const mockUseMonetization = useMonetization as jest.MockedFunction<typeof useMon
 describe('MyNumbersScreen', () => {
   beforeEach(() => {
     mockUseMonetization.mockReturnValue({
-      analysisUnlocksReady: true,
-      unlockedCombinationKeys: new Set<string>(),
+      openPaywall: jest.fn(),
+      productAccess: productAccessFor('free'),
     } as unknown as ReturnType<typeof useMonetization>);
   });
 
@@ -55,6 +56,7 @@ describe('MyNumbersScreen', () => {
     });
     mockUseNumberLibrary.mockReturnValue({
       addCombination,
+      canSave: true,
       combinations: [{
         createdAt: '2026-08-31T22:15:00.000Z',
         favorite: false,
@@ -66,6 +68,7 @@ describe('MyNumbersScreen', () => {
         source: 'ai',
       }],
       isReady: true,
+      storageMode: 'device',
       toggleFavorite: jest.fn(),
       togglePurchased: jest.fn(),
     });
@@ -98,7 +101,7 @@ describe('MyNumbersScreen', () => {
     });
   });
 
-  test('distinguishes unlocked results from analyses that will use one ticket', async () => {
+  test('labels every free-member result as requiring an ad', async () => {
     const setNumbers = jest.fn();
     mockUseCombinationDraft.mockReturnValue({
       addNumber: jest.fn(),
@@ -109,11 +112,12 @@ describe('MyNumbersScreen', () => {
       toggleNumber: jest.fn(),
     });
     mockUseMonetization.mockReturnValue({
-      analysisUnlocksReady: true,
-      unlockedCombinationKeys: new Set(['3-16-20-23-29-45']),
+      openPaywall: jest.fn(),
+      productAccess: productAccessFor('free'),
     } as unknown as ReturnType<typeof useMonetization>);
     mockUseNumberLibrary.mockReturnValue({
       addCombination: jest.fn(() => undefined),
+      canSave: true,
       combinations: [{
         createdAt: '2026-08-31T23:09:00.000Z',
         favorite: false,
@@ -130,16 +134,16 @@ describe('MyNumbersScreen', () => {
         source: 'random',
       }],
       isReady: true,
+      storageMode: 'device',
       toggleFavorite: jest.fn(),
       togglePurchased: jest.fn(),
     });
 
     const screen = await render(<MyNumbersScreen />);
 
-    expect(screen.getByText('분석 완료')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '3, 16, 20, 23, 29, 45 분석 결과 보기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '5, 18, 25, 27, 30, 32 분석하기, 분석권 1개 사용' })).toBeTruthy();
-    expect(screen.getByText('결과 보기')).toBeTruthy();
-    expect(screen.getByText('분석하기')).toBeTruthy();
+    expect(screen.queryByText('분석 완료')).toBeNull();
+    expect(screen.getByRole('button', { name: '3, 16, 20, 23, 29, 45 광고 후 분석 결과 보기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '5, 18, 25, 27, 30, 32 광고 후 분석 결과 보기' })).toBeTruthy();
+    expect(screen.getAllByText('광고 후 결과 보기')).toHaveLength(2);
   });
 });

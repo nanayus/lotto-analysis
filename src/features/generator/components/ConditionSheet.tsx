@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SubScreenBackButton } from '@/components/ui/SubScreenBackButton';
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import {
   activeConditionCount,
@@ -92,12 +92,13 @@ const MULTIPLE_SECTION_KEYS = {
 const MAX_VISIBLE_CONDITION_LABELS = 6;
 
 type ConditionSheetProps = {
-  applyAccess: 'checking' | 'guest' | 'pro' | 'ticket' | 'ticket-required';
+  applyAccess: 'free' | 'guest' | 'pro';
   conditions: GeneratorConditions;
   history: readonly LottoHistoryDraw[];
   onApply: (conditions: GeneratorConditions) => void;
   onClose: () => void;
   onRecommendationPromptDismiss?: () => void;
+  presentation?: 'modal' | 'screen';
   recommendationPromptVisible?: boolean;
   visible: boolean;
 };
@@ -583,6 +584,7 @@ export function ConditionSheet({
   onApply,
   onClose,
   onRecommendationPromptDismiss,
+  presentation = 'modal',
   recommendationPromptVisible = false,
   visible,
 }: ConditionSheetProps) {
@@ -709,90 +711,26 @@ export function ConditionSheet({
     />
   );
   const applyAccessLabel = applyAccess === 'pro'
-    ? 'PRO · 무제한'
-    : applyAccess === 'ticket'
-      ? '티켓 1장 사용'
-      : applyAccess === 'ticket-required'
-        ? '티켓 필요'
-        : applyAccess === 'guest'
-          ? '로그인 필요'
-          : '이용 정보 확인 중';
+    ? '결과 바로 보기'
+    : '광고 후 결과 보기';
 
-  return (
-    <Modal
-      animationType={reduceMotion ? 'none' : 'slide'}
-      onRequestClose={() => activeHelp ? setActiveHelp(null) : onClose()}
-      presentationStyle="fullScreen"
-      visible={visible}>
-      <SafeAreaView style={styles.editorSafeArea}>
+  const editorContent = (
+      <SafeAreaView edges={presentation === 'screen' ? [] : undefined} style={styles.editorSafeArea}>
         <View style={[styles.editor, { width: sheetWidth }]} testID="condition-editor">
-          <View style={styles.editorHeader}>
-            <SubScreenBackButton
-              accessibilityLabel="조건 선택 취소"
-              onPress={onClose}
-            />
-            <View style={styles.editorHeadingCopy}>
-              <Text style={styles.editorTitle}>조합 선택하기</Text>
-              <Text style={styles.editorSubtitle}>선택하지 않은 항목은 제한 없이 적용돼요.</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setDraft(buildGeneratorConditionDefaults(history))}
-              style={styles.resetButton}>
-              <Text style={styles.resetText}>초기화</Text>
-            </Pressable>
-          </View>
-          <View style={[
-            styles.recommendedPreset,
-            recommendedPresetActive && styles.recommendedPresetActive,
-          ]}>
-            <View style={styles.recommendedPresetCopy}>
-              <Text style={styles.recommendedPresetSummary}>
-                {conditionSummary}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityLabel={recommendedPresetActive ? '추천 조건 적용됨' : '추천 조건 적용'}
-              accessibilityRole="button"
-              accessibilityState={{ selected: recommendedPresetActive }}
-              onPress={applyRecommendedPreset}
-              style={[
-                styles.recommendedPresetButton,
-                recommendedPresetActive && styles.recommendedPresetButtonActive,
-              ]}>
-              <Text style={[
-                styles.recommendedPresetButtonText,
-                recommendedPresetActive && styles.recommendedPresetButtonTextActive,
-              ]}>
-                {recommendedPresetActive ? '✓ 적용됨' : '추천 조건 적용'}
-              </Text>
-            </Pressable>
-          </View>
-          <ScrollView
-            contentContainerStyle={styles.pageTabsContent}
-            horizontal
-            onLayout={(event) => {
-              pageTabsViewportWidthRef.current = event.nativeEvent.layout.width;
-              revealPageTab(pageRef.current);
-            }}
-            ref={pageTabsRef}
-            showsHorizontalScrollIndicator={false}
-            style={styles.pageTabs}>
-            {PAGE_LABELS.map((label, index) => (
+          <SubScreenHeader
+            backAccessibilityLabel="조건 선택 취소"
+            onBack={onClose}
+            right={(
               <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected: page === index }}
-                key={label}
-                onLayout={(event) => {
-                  pageTabLayoutsRef.current[index] = event.nativeEvent.layout;
-                }}
-                onPress={() => goToPage(index)}
-                style={[styles.pageTab, page === index && styles.pageTabActive]}>
-                <Text style={[styles.pageTabText, page === index && styles.pageTabTextActive]}>{label}</Text>
+                accessibilityLabel="조건 초기화"
+                accessibilityRole="button"
+                onPress={() => setDraft(buildGeneratorConditionDefaults(history))}
+                style={({ pressed }) => [styles.resetButton, pressed && styles.pressed]}>
+                <Ionicons color={styles.resetIcon.color} name="refresh-outline" size={20} />
               </Pressable>
-            ))}
-          </ScrollView>
-
+            )}
+            title="조건 선택"
+          />
           <ScrollView
             contentContainerStyle={styles.conditionContent}
             onScroll={syncPageWithScroll}
@@ -801,6 +739,57 @@ export function ConditionSheet({
             showsVerticalScrollIndicator={false}
             style={styles.conditionScroll}
             testID="condition-content">
+            <View style={[
+              styles.recommendedPreset,
+              recommendedPresetActive && styles.recommendedPresetActive,
+            ]}>
+              <View style={styles.recommendedPresetCopy}>
+                <Text style={styles.recommendedPresetSummary}>
+                  {conditionSummary}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel={recommendedPresetActive ? '추천 조건 적용됨' : '추천 조건 적용'}
+                accessibilityRole="button"
+                accessibilityState={{ selected: recommendedPresetActive }}
+                onPress={applyRecommendedPreset}
+                style={[
+                  styles.recommendedPresetButton,
+                  recommendedPresetActive && styles.recommendedPresetButtonActive,
+                ]}>
+                <Text style={[
+                  styles.recommendedPresetButtonText,
+                  recommendedPresetActive && styles.recommendedPresetButtonTextActive,
+                ]}>
+                  {recommendedPresetActive ? '✓ 적용됨' : '추천 조건 적용'}
+                </Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              contentContainerStyle={styles.pageTabsContent}
+              horizontal
+              onLayout={(event) => {
+                pageTabsViewportWidthRef.current = event.nativeEvent.layout.width;
+                revealPageTab(pageRef.current);
+              }}
+              ref={pageTabsRef}
+              showsHorizontalScrollIndicator={false}
+              style={styles.pageTabs}>
+              {PAGE_LABELS.map((label, index) => (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: page === index }}
+                  key={label}
+                  onLayout={(event) => {
+                    pageTabLayoutsRef.current[index] = event.nativeEvent.layout;
+                  }}
+                  onPress={() => goToPage(index)}
+                  style={[styles.pageTab, page === index && styles.pageTabActive]}>
+                  <Text style={[styles.pageTabText, page === index && styles.pageTabTextActive]}>{label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Text style={styles.editorSubtitle}>선택하지 않은 항목은 제한 없이 적용돼요.</Text>
             <View
               onLayout={(event) => { pageOffsetsRef.current[0] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
@@ -1082,12 +1071,10 @@ export function ConditionSheet({
               style={styles.applyButton}>
               <Text style={styles.applyText}>{activeConditionCount(draft)}개 조건 적용</Text>
               <View style={styles.applyAccessBadge}>
-                {applyAccess === 'ticket' || applyAccess === 'ticket-required' ? (
-                  <Ionicons color={styles.applyAccessText.color} name="ticket-outline" size={14} />
+                {applyAccess !== 'pro' ? (
+                  <Ionicons color={styles.applyAccessText.color} name="play-circle-outline" size={14} />
                 ) : null}
-                <Text style={styles.applyAccessText}>
-                  {applyAccess === 'ticket' ? '1장 사용' : applyAccessLabel}
-                </Text>
+                <Text style={styles.applyAccessText}>{applyAccessLabel}</Text>
               </View>
             </Pressable>
           </View>
@@ -1174,6 +1161,18 @@ export function ConditionSheet({
         ) : null}
         </View>
       </SafeAreaView>
+  );
+
+  if (presentation === 'screen') return editorContent;
+
+  return (
+    <Modal
+      animationType={reduceMotion ? 'none' : 'slide'}
+      onRequestClose={() => activeHelp ? setActiveHelp(null) : onClose()}
+      presentationStyle="fullScreen"
+      testID="condition-sheet-modal"
+      visible={visible}>
+      {editorContent}
     </Modal>
   );
 }
@@ -1181,15 +1180,16 @@ export function ConditionSheet({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   editorSafeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   editor: { flex: 1, maxWidth: 500, backgroundColor: colors.surface, overflow: 'hidden' },
-  editorHeader: {
-    minHeight: 72, flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider,
+  editorSubtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
-  editorHeadingCopy: { flex: 1, minWidth: 0, paddingHorizontal: spacing.xs },
-  editorTitle: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold },
-  editorSubtitle: { color: colors.textSecondary, fontSize: 11, marginTop: spacing.xs },
-  resetButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  resetText: { color: colors.hot, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  resetButton: { width: 52, height: 44, alignItems: 'center', justifyContent: 'center' },
+  resetIcon: { color: colors.textSecondary },
   recommendedPreset: {
     minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
@@ -1236,8 +1236,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pageTabText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
   pageTabTextActive: { color: colors.textPrimary, fontWeight: typography.weights.bold },
   conditionScroll: { flex: 1, minHeight: 0 },
-  conditionContent: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.huge },
-  conditionGroup: { gap: spacing.md, paddingBottom: spacing.xxxl },
+  conditionContent: { paddingBottom: spacing.huge },
+  conditionGroup: { gap: spacing.md, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },
   conditionGroupLast: { paddingBottom: 0 },
   conditionGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   conditionGroupTitle: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
@@ -1447,4 +1447,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.background, fontSize: typography.sizes.small,
     fontWeight: typography.weights.bold,
   },
+  pressed: { opacity: 0.66 },
 });

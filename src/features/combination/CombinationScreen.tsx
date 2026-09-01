@@ -103,6 +103,7 @@ export function CombinationScreen() {
   const {
     authorizeAnalysis,
     openPaywall,
+    productAccess,
     refresh: refreshMonetization,
     state: monetizationState,
   } = useMonetization();
@@ -115,6 +116,7 @@ export function CombinationScreen() {
   const [comparisonA, setComparisonA] = useState<CombinationAnalysis | null>(null);
   const [comparisonB, setComparisonB] = useState<CombinationAnalysis | null>(null);
   const [analysisAccessRequired, setAnalysisAccessRequired] = useState(false);
+  const [analysisLoginRequired, setAnalysisLoginRequired] = useState(false);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const [isAuthorizing, setAuthorizing] = useState(false);
   const [analysisLibraryId, setAnalysisLibraryId] = useState<string | null>(null);
@@ -165,6 +167,7 @@ export function CombinationScreen() {
     const transitionStartedAt = Date.now();
     setAuthorizing(true);
     setAnalysisAccessRequired(false);
+    setAnalysisLoginRequired(false);
     setAccessMessage(null);
     try {
       const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
@@ -182,14 +185,10 @@ export function CombinationScreen() {
   }, [analyzeToken, authorizeAnalysis, executeAnalysis, isAuthorizing, selectedNumbers]);
 
   const startAnalysis = useCallback(() => {
-    if (authState.status === 'authenticated') {
+    if (authState.status !== 'loading') {
       void authorizeAndExecute();
-      return;
     }
-    if (authState.status === 'guest') {
-      openLogin('combination-analysis');
-    }
-  }, [authState.status, authorizeAndExecute, openLogin]);
+  }, [authState.status, authorizeAndExecute]);
 
   const returnTarget = latestParam(returnTo) as CombinationReturnTarget | undefined;
   const returnGameCount = latestParam(returnCount);
@@ -217,12 +216,7 @@ export function CombinationScreen() {
       || authState.status === 'loading'
     ) return;
 
-    if (authState.status === 'guest') {
-      openLogin('combination-analysis');
-      return;
-    }
-
-    consumePendingIntent('combination-analysis');
+    if (authState.status === 'authenticated') consumePendingIntent('combination-analysis');
 
     handledAnalyzeTokenRef.current = analyzeToken;
     queueMicrotask(() => void authorizeAndExecute());
@@ -245,8 +239,9 @@ export function CombinationScreen() {
     setAnalysisLibraryId(null);
     setComparisonA(null);
     setComparisonB(null);
+    setAnalysisAccessRequired(Boolean(analyzeToken && selectedNumbers.length === 6));
     setMode({ kind: 'select' });
-  }, [authState.status]);
+  }, [analyzeToken, authState.status, selectedNumbers.length]);
 
   const commitFilters = useCallback((filters: AnalysisFilters) => {
     if (selectedNumbers.length !== 6) return;
@@ -263,14 +258,14 @@ export function CombinationScreen() {
   }, [comparisonA, comparisonB, mode.kind, selectedNumbers]);
 
   const changePeriod = useCallback((period: AnalysisPeriod) => {
-    if (period.kind === 'custom' && !(monetizationState.status === 'ready' && monetizationState.access.isPro)) {
+    if (period.kind === 'custom' && !productAccess.canUseCustomPeriod) {
       openPaywall('custom-period');
       return;
     }
     const current = analysisStateRef.current;
     if (!current) return;
     commitFilters({ includeBonus: current.includeBonus, period });
-  }, [commitFilters, monetizationState, openPaywall]);
+  }, [commitFilters, openPaywall, productAccess.canUseCustomPeriod]);
 
   const changeBonus = useCallback((includeBonus: boolean) => {
     const current = analysisStateRef.current;
@@ -289,7 +284,7 @@ export function CombinationScreen() {
   }, [clear]);
 
   const startComparison = useCallback(() => {
-    if (!(monetizationState.status === 'ready' && monetizationState.access.isPro)) {
+    if (!productAccess.canCompareCombinations) {
       openPaywall('combination-comparison');
       return;
     }
@@ -299,47 +294,36 @@ export function CombinationScreen() {
     clear();
     setExcludedNumbers([]);
     setMode({ kind: 'compareSelect' });
-  }, [analysisState, clear, monetizationState, openPaywall]);
+  }, [analysisState, clear, openPaywall, productAccess.canCompareCombinations]);
 
-  const analysisAvailabilityLabel = monetizationState.status === 'ready'
-    ? monetizationState.access.isPro
-      ? 'Pro · 무제한'
-      : monetizationState.access.weeklyFreeAvailable
-        ? '이번 주 무료 1회'
-        : monetizationState.access.bonusAnalysisCredits > 0
-          ? `분석권 ${monetizationState.access.bonusAnalysisCredits}회`
-          : '사용 가능한 분석 없음'
-    : authState.status === 'guest'
-      ? '로그인 후 웰컴 3회'
-      : monetizationState.status === 'loading' ? '이용 정보 확인 중' : undefined;
+  const analysisAvailabilityLabel = productAccess.tier === 'pro'
+    ? 'Pro · 광고 없이 결과 보기'
+    : productAccess.tier === 'free'
+      ? '무료회원 · 광고 후 결과 공개'
+      : '게스트 · 광고 후 결과 공개';
   const requestedAnalysisHasNumbers = Boolean(analyzeToken && selectedNumbers.length === 6);
-  const hasNewAnalysisAccess = monetizationState.status === 'ready' && (
-    monetizationState.access.isPro
-    || monetizationState.access.weeklyFreeAvailable
-    || monetizationState.access.bonusAnalysisCredits > 0
-  );
   const authorizationPhase: GeneratedAnalysisPhase = accessMessage
     ? 'error'
+    : analysisLoginRequired
+      ? 'login'
     : analysisAccessRequired
       ? 'access'
-      : authState.status === 'guest'
-        ? 'login'
-        : 'loading';
+      : 'loading';
   const manualEntryPhase: GeneratedAnalysisPhase | null = authState.status === 'loading'
     ? 'loading'
-    : authState.status === 'guest'
-      ? 'login'
-      : monetizationState.status === 'loading'
-        ? 'loading'
-        : monetizationState.status === 'error'
-          ? 'error'
-          : hasNewAnalysisAccess ? null : 'access';
+    : authState.status === 'authenticated' && monetizationState.status === 'loading'
+      ? 'loading'
+      : monetizationState.status === 'error'
+        ? 'error'
+        : null;
   const analysisTransitionPhase: GeneratedAnalysisPhase | null = requestedAnalysisHasNumbers
     ? authorizationPhase
     : accessMessage
       ? 'error'
       : analysisAccessRequired
         ? 'access'
+        : analysisLoginRequired
+          ? 'login'
         : manualEntryPhase ?? (analyzeToken ? 'invalid' : null);
   const transitionErrorMessage = accessMessage
     ?? (monetizationState.status === 'error' ? monetizationState.error : null);
@@ -431,7 +415,8 @@ export function CombinationScreen() {
                 bonusIncluded={analysisState.includeBonus}
                 favorite={savedAnalysisCombination?.favorite}
                 firstRound={firstRound}
-                isPro={monetizationState.status === 'ready' && monetizationState.access.isPro}
+                isPro={productAccess.tier === 'pro'}
+                onOpenLogin={() => openLogin('result-storage')}
                 latestRound={latestRound}
                 onBack={leaveCombination}
                 onBonusChange={changeBonus}
@@ -445,6 +430,7 @@ export function CombinationScreen() {
                 onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}
                 purchased={savedAnalysisCombination?.purchased}
+                showAccountPrompt={authState.status === 'guest'}
               />
             </Animated.View>
           ) : mode.kind === 'history' || mode.kind === 'prizeRank' ? (

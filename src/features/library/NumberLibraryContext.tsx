@@ -28,6 +28,7 @@ import {
 import type { GeneratorConditions } from '@/domain/generator/types';
 import { useAuth } from '@/features/auth/AuthContext';
 import { db } from '@/features/auth/firebaseClient';
+import { useMonetization } from '@/features/monetization/MonetizationContext';
 
 export type CombinationSource = 'ai' | 'random';
 
@@ -52,7 +53,9 @@ type NumberLibraryValue = {
     },
   ) => string | undefined;
   combinations: SavedCombination[];
+  canSave: boolean;
   isReady: boolean;
+  storageMode: 'cloud' | 'device' | 'unavailable';
   toggleFavorite: (id: string) => void;
   togglePurchased: (id: string) => void;
 };
@@ -66,8 +69,10 @@ function userStorageKey(uid: string) {
 
 const fallbackValue: NumberLibraryValue = {
   addCombination: () => undefined,
+  canSave: false,
   combinations: [],
   isReady: true,
+  storageMode: 'unavailable',
   toggleFavorite: () => undefined,
   togglePurchased: () => undefined,
 };
@@ -182,7 +187,7 @@ function cloudDocumentId(id: string) {
   return encodeURIComponent(id);
 }
 
-async function migrateGuestLibrary(uid: string, combinations: SavedCombination[]) {
+async function migrateDeviceLibrary(uid: string, combinations: SavedCombination[]) {
   if (!db) return;
   const database = db;
   const cloudCollection = collection(database, 'users', uid, 'savedCombinations');
@@ -208,6 +213,7 @@ async function migrateGuestLibrary(uid: string, combinations: SavedCombination[]
 
 export function NumberLibraryProvider({ children }: PropsWithChildren) {
   const { state: authState } = useAuth();
+  const { productAccess } = useMonetization();
   const [combinations, setCombinations] = useState<SavedCombination[]>([]);
   const [isReady, setIsReady] = useState(false);
   const idSequence = useRef(0);
@@ -225,7 +231,16 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     });
     if (authState.status === 'loading') return () => { active = false; };
 
-    const storageKey = activeUid ? userStorageKey(activeUid) : NUMBER_LIBRARY_STORAGE_KEY;
+    if (!activeUid) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setCombinations([]);
+        setIsReady(true);
+      });
+      return () => { active = false; };
+    }
+
+    const storageKey = userStorageKey(activeUid);
     void AsyncStorage.getItem(storageKey)
       .then((stored) => {
         if (!active) return;
@@ -246,20 +261,17 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
   }, [activeUid, authState.status]);
 
   useEffect(() => {
-    if (!activeUid || !db || !isReady) return;
+    if (!activeUid || !db || !isReady || productAccess.storageMode !== 'cloud') return;
     let active = true;
     let unsubscribe: () => void = () => undefined;
 
-    void AsyncStorage.getItem(NUMBER_LIBRARY_STORAGE_KEY)
+    void AsyncStorage.getItem(userStorageKey(activeUid))
       .then((stored) => {
         if (!active) return;
         const parsed = stored ? JSON.parse(stored) as unknown : [];
-        const guestItems = Array.isArray(parsed) ? normalizeStoredCombinations(parsed) : [];
-        const itemsById = new Map([...combinationsRef.current, ...guestItems].map((item) => [item.id, item]));
-        return migrateGuestLibrary(activeUid, [...itemsById.values()]).then(() => {
-          if (stored) return AsyncStorage.removeItem(NUMBER_LIBRARY_STORAGE_KEY);
-          return undefined;
-        });
+        const deviceItems = Array.isArray(parsed) ? normalizeStoredCombinations(parsed) : [];
+        const itemsById = new Map([...combinationsRef.current, ...deviceItems].map((item) => [item.id, item]));
+        return migrateDeviceLibrary(activeUid, [...itemsById.values()]);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -279,23 +291,23 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
       active = false;
       unsubscribe();
     };
-  }, [activeUid, isReady]);
+  }, [activeUid, isReady, productAccess.storageMode]);
 
   useEffect(() => {
-    if (!isReady) return;
-    const storageKey = activeUid ? userStorageKey(activeUid) : NUMBER_LIBRARY_STORAGE_KEY;
+    if (!isReady || !activeUid) return;
+    const storageKey = userStorageKey(activeUid);
     void AsyncStorage.setItem(storageKey, JSON.stringify(combinations))
       .catch(() => undefined);
   }, [activeUid, combinations, isReady]);
 
   const syncCombination = useCallback((item: SavedCombination) => {
-    if (!activeUid || !db) return;
+    if (!activeUid || !db || productAccess.storageMode !== 'cloud') return;
     void setDoc(
       doc(db, 'users', activeUid, 'savedCombinations', cloudDocumentId(item.id)),
       toCloudCombination(item, activeUid),
       { merge: true },
     ).catch(() => undefined);
-  }, [activeUid]);
+  }, [activeUid, productAccess.storageMode]);
 
   const addCombination = useCallback((
     numbers: readonly number[],
@@ -305,6 +317,7 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
       generatorConditions?: GeneratorConditions;
     },
   ) => {
+    if (!productAccess.canSaveNumbers) return;
     const normalized = normalizeDraftNumbers(numbers);
     if (normalized.length !== 6) return;
     idSequence.current += 1;
@@ -326,7 +339,7 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     setCombinations((current) => [nextItem, ...current].slice(0, 200));
     syncCombination(nextItem);
     return nextItem.id;
-  }, [syncCombination]);
+  }, [productAccess.canSaveNumbers, syncCombination]);
 
   const toggleFavorite = useCallback((id: string) => {
     setCombinations((current) => current.map((item) => {
@@ -348,11 +361,21 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(() => ({
     addCombination,
+    canSave: productAccess.canSaveNumbers,
     combinations,
     isReady,
+    storageMode: productAccess.storageMode,
     toggleFavorite,
     togglePurchased,
-  }), [addCombination, combinations, isReady, toggleFavorite, togglePurchased]);
+  }), [
+    addCombination,
+    combinations,
+    isReady,
+    productAccess.canSaveNumbers,
+    productAccess.storageMode,
+    toggleFavorite,
+    togglePurchased,
+  ]);
 
   return <NumberLibraryContext.Provider value={value}>{children}</NumberLibraryContext.Provider>;
 }

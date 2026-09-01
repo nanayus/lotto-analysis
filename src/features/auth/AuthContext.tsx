@@ -20,7 +20,6 @@ import {
   reauthenticateProvider,
 } from './providerCredential';
 import type { AppUser, AuthProviderId, AuthState } from './types';
-import { LoginModal } from './LoginModal';
 
 const PENDING_INTENT_KEY = 'lotto.auth.pendingIntent';
 
@@ -253,7 +252,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <LoginModal />
     </AuthContext.Provider>
   );
 }

@@ -1,130 +1,100 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthContext';
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
 
 import { useMonetization } from './MonetizationContext';
 
-function resetLabel(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '다음 주';
-  return new Intl.DateTimeFormat('ko-KR', {
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'long',
-    timeZone: 'Asia/Seoul',
-  }).format(date);
-}
+const FREE_FEATURES = [
+  { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
+  { icon: 'phone-portrait-outline', label: '내 번호를 이 기기에 저장' },
+] as const;
+
+const GUEST_FEATURES = [
+  { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
+  { icon: 'layers-outline', label: '한 번에 최대 2개 조합 생성' },
+] as const;
+
+const PRO_FEATURES = [
+  { icon: 'ban-outline', label: '모든 결과를 광고 없이 바로 확인' },
+  { icon: 'sparkles-outline', label: 'AI 조합 해설과 추가 질문' },
+  { icon: 'git-compare-outline', label: '조합 비교와 회차 직접 선택' },
+  { icon: 'cloud-done-outline', label: '클라우드 저장과 기기간 동기화' },
+] as const;
 
 export function MonetizationSettingsSection() {
   const styles = useThemedStyles(createStyles);
   const { state: authState } = useAuth();
-  const { openPaywall, refresh, state } = useMonetization();
-  const [referralMessage, setReferralMessage] = useState<string | null>(null);
-  const access = state.status === 'ready' ? state.access : null;
-  const availableCount = useMemo(() => access
-    ? access.bonusAnalysisCredits + (access.weeklyFreeAvailable ? 1 : 0)
-    : 0, [access]);
-
-  const shareInvite = () => {
-    if (!access?.inviteCode) return;
-    void Share.share({
-      message: `Lotto Insight에서 과거 조합을 분석해 보세요. 초대 코드 ${access.inviteCode}\nhttps://lotto.wondly.net/?ref=${access.inviteCode}`,
-      title: 'Lotto Insight 친구 초대',
-    }).catch(() => setReferralMessage(`초대 코드 ${access.inviteCode}를 친구에게 알려주세요.`));
-  };
+  const { openPaywall, productAccess, refresh, state } = useMonetization();
+  const authenticated = authState.status === 'authenticated';
+  const isPro = productAccess.tier === 'pro';
+  const features = isPro ? PRO_FEATURES : authenticated ? FREE_FEATURES : GUEST_FEATURES;
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>이용 플랜</Text>
       <View style={styles.card}>
-        {authState.status !== 'authenticated' ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.rowLabel}>무료 플랜</Text>
-            <Text style={styles.rowDescription}>로그인하면 웰컴 분석 3회와 이용 현황을 확인할 수 있어요.</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => openPaywall('settings-guest')}
-              style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}>
-              <Text style={styles.secondaryActionText}>Pro 살펴보기</Text>
-            </Pressable>
-          </View>
-        ) : state.status === 'loading' ? (
-          <ActivityIndicator color="#2997FF" style={styles.loading} />
-        ) : state.status === 'error' ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.rowLabel}>이용 정보를 불러오지 못했어요</Text>
-            <Text style={styles.rowDescription}>{state.error}</Text>
+        {authenticated && state.status === 'loading' ? (
+          <ActivityIndicator color={styles.accent.color} style={styles.loading} />
+        ) : authenticated && state.status === 'error' ? (
+          <View style={styles.errorState}>
+            <Text style={styles.planName}>이용 정보를 불러오지 못했어요</Text>
+            <Text style={styles.planDescription}>{state.error}</Text>
             <Pressable onPress={() => void refresh()} style={styles.retryButton}>
               <Text style={styles.retryText}>다시 시도</Text>
             </Pressable>
           </View>
-        ) : access ? (
+        ) : (
           <>
-            <View style={styles.planRow}>
+            <View style={styles.planHeader}>
               <View style={styles.planCopy}>
                 <View style={styles.planTitleRow}>
-                  <Text style={styles.rowLabel}>{access.isPro ? 'Pro' : '무료 플랜'}</Text>
-                  {access.isPro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
+                  <Text style={styles.planName}>
+                    {isPro ? 'Pro' : authenticated ? '무료회원' : '게스트'}
+                  </Text>
+                  {isPro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
                 </View>
-                <Text style={styles.rowDescription}>
-                  {access.isPro ? '조합 분석을 제한 없이 이용 중이에요.' : `지금 분석 ${availableCount}회 가능`}
+                <Text style={styles.planDescription}>
+                  {isPro
+                    ? '광고 없이 더 깊게 분석하고 모든 기기에서 이어보세요.'
+                    : authenticated
+                      ? '광고 후 결과를 보고, 내 번호는 이 기기에 저장돼요.'
+                      : '두 조합까지 선택할 수 있으며 번호는 저장되지 않아요.'}
                 </Text>
               </View>
-              {!access.isPro ? (
+              {!isPro ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => openPaywall('settings')}
                   style={({ pressed }) => [styles.proAction, pressed && styles.pressed]}>
                   <Text style={styles.proActionText}>Pro</Text>
                 </Pressable>
-              ) : <Ionicons color="#2997FF" name="checkmark-circle" size={25} />}
+              ) : <Ionicons color={styles.accent.color} name="checkmark-circle" size={25} />}
             </View>
-            {!access.isPro ? (
-              <>
-                <View style={styles.separator} />
-                <View style={styles.allowanceRow}>
-                  <View><Text style={styles.allowanceLabel}>주간 무료 분석</Text><Text style={styles.allowanceHint}>{resetLabel(access.nextWeeklyResetAt)} 갱신</Text></View>
-                  <Text style={styles.allowanceValue}>{access.weeklyFreeAvailable ? '1회' : '사용 완료'}</Text>
+
+            <View style={styles.separator} />
+            <View style={styles.featureList}>
+              {features.map((feature) => (
+                <View key={feature.label} style={styles.featureRow}>
+                  <Ionicons color={styles.featureIcon.color} name={feature.icon} size={18} />
+                  <Text style={styles.featureText}>{feature.label}</Text>
                 </View>
-                <View style={styles.separator} />
-                <View style={styles.allowanceRow}>
-                  <Text style={styles.allowanceLabel}>보너스 분석권</Text>
-                  <Text style={styles.allowanceValue}>{access.bonusAnalysisCredits}회</Text>
-                </View>
-              </>
+              ))}
+            </View>
+
+            {!isPro ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => openPaywall('settings-benefits')}
+                style={({ pressed }) => [styles.benefitAction, pressed && styles.pressed]}>
+                <Text style={styles.benefitActionText}>Pro 혜택 전체 보기</Text>
+                <Ionicons color={styles.accent.color} name="chevron-forward" size={15} />
+              </Pressable>
             ) : null}
           </>
-        ) : null}
+        )}
       </View>
-
-      {access ? (
-        <View style={styles.inviteCard}>
-          <View style={styles.inviteHeader}>
-            <View style={styles.inviteIcon}><Ionicons color="#2997FF" name="people-outline" size={21} /></View>
-            <View style={styles.inviteCopy}>
-              <Text style={styles.rowLabel}>친구 초대</Text>
-              <Text style={styles.rowDescription}>친구가 첫 분석을 마치면 친구 +1회, 나 +2회</Text>
-            </View>
-          </View>
-          <View style={styles.codeRow}>
-            <View style={styles.codeBox}><Text selectable style={styles.codeText}>{access.inviteCode}</Text></View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={shareInvite}
-              style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}>
-              <Ionicons color="#FFFFFF" name="share-outline" size={17} />
-              <Text style={styles.shareButtonText}>초대하기</Text>
-            </Pressable>
-          </View>
-          {referralMessage ? (
-            <Text accessibilityLiveRegion="polite" style={styles.referralMessage}>{referralMessage}</Text>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -133,35 +103,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   section: { marginBottom: spacing.xxl },
   sectionLabel: { marginBottom: spacing.sm, marginLeft: spacing.xs, color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   card: { overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.lg, backgroundColor: colors.surface },
-  emptyState: { padding: spacing.lg },
   loading: { marginVertical: spacing.xl },
-  rowLabel: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
-  rowDescription: { marginTop: 3, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
-  secondaryAction: { alignSelf: 'flex-start', marginTop: spacing.md, minHeight: 38, paddingHorizontal: spacing.md, borderRadius: radius.round, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAccent },
-  secondaryActionText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  retryButton: { alignSelf: 'flex-start', marginTop: spacing.md },
-  retryText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  planRow: { minHeight: 74, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  accent: { color: colors.accentPrimary },
+  errorState: { padding: spacing.lg },
+  planHeader: { minHeight: 88, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   planCopy: { flex: 1 },
   planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  planName: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
+  planDescription: { marginTop: 4, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
   proBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
-  proBadgeText: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold },
+  proBadgeText: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 0.8 },
   proAction: { minWidth: 58, height: 34, borderRadius: radius.round, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary },
   proActionText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: spacing.lg, backgroundColor: colors.divider },
-  allowanceRow: { minHeight: 58, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  allowanceLabel: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
-  allowanceHint: { marginTop: 2, color: colors.textTertiary, fontSize: 10 },
-  allowanceValue: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  inviteCard: { marginTop: spacing.md, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.lg, backgroundColor: colors.surface },
-  inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  inviteIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAccent },
-  inviteCopy: { flex: 1 },
-  codeRow: { marginTop: spacing.lg, flexDirection: 'row', gap: spacing.sm },
-  codeBox: { flex: 1, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated },
-  codeText: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.bold, letterSpacing: 2 },
-  shareButton: { height: 42, paddingHorizontal: spacing.md, borderRadius: radius.round, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.accentPrimary },
-  shareButtonText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  referralMessage: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
-  pressed: { opacity: 0.72 },
+  featureList: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  featureIcon: { color: colors.accentPrimary },
+  featureText: { flex: 1, color: colors.textPrimary, fontSize: typography.sizes.small, lineHeight: 20 },
+  benefitAction: { minHeight: 48, paddingHorizontal: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  benefitActionText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  retryButton: { alignSelf: 'flex-start', marginTop: spacing.md },
+  retryText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  pressed: { opacity: 0.7 },
 });

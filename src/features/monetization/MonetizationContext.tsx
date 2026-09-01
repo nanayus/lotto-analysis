@@ -1,16 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
 import { useAuth } from '@/features/auth/AuthContext';
-import { db, functions } from '@/features/auth/firebaseClient';
+import { functions } from '@/features/auth/firebaseClient';
+import { LoginModal } from '@/features/auth/LoginModal';
 
 import { ProPaywallModal } from './ProPaywallModal';
 import { ReferralCodeOnboardingModal } from './ReferralCodeOnboardingModal';
-import { isAnalysisAuthorized, type AnalysisAuthorization, type MonetizationAccessState } from './types';
+import {
+  normalizeMonetizationAccessState,
+  type AnalysisAuthorization,
+  type MonetizationAccessState,
+} from './types';
+import { accountTier, productAccessFor, type ProductAccess } from './policy';
 
-export const REFERRAL_ONBOARDING_SEEN_KEY = 'lotto.referralOnboarding.seen.v1';
 export const REFERRAL_ONBOARDING_PENDING_KEY = 'lotto.referralOnboarding.pending.v1';
 
 type MonetizationState =
@@ -20,45 +24,46 @@ type MonetizationState =
   | { access: MonetizationAccessState; status: 'ready' };
 
 type MonetizationValue = {
-  analysisUnlocksReady: boolean;
   applyReferral: (code: string) => Promise<void>;
   authorizeAnalysis: (numbers: readonly number[], dataVersion: string) => Promise<AnalysisAuthorization>;
   closePaywall: () => void;
+  closeReferralCode: () => void;
   isPaywallVisible: boolean;
+  isReferralCodeVisible: boolean;
   openPaywall: (source?: string) => void;
+  openReferralCode: () => void;
   paywallSource: string | null;
+  productAccess: ProductAccess;
   refresh: () => Promise<void>;
+  rewardedAdsAvailable: boolean;
   state: MonetizationState;
-  unlockedCombinationKeys: ReadonlySet<string>;
 };
 
-const EMPTY_UNLOCKS = new Set<string>();
+const EMPTY_ACCESS_STATE: MonetizationAccessState = {
+  canApplyReferralCode: false,
+  inviteCode: '',
+  isPro: false,
+  proExpiresAt: null,
+};
 
 const fallbackValue: MonetizationValue = {
-  analysisUnlocksReady: true,
   applyReferral: async () => undefined,
   authorizeAnalysis: async (numbers) => ({
-    accessState: {
-      bonusAnalysisCredits: 0,
-      canApplyReferralCode: false,
-      inviteCode: '',
-      isPro: false,
-      nextWeeklyResetAt: '',
-      proExpiresAt: null,
-      rewardedUnlocksLimit: 3,
-      rewardedUnlocksUsedThisWeek: 0,
-      weeklyFreeAvailable: false,
-    },
+    accessState: EMPTY_ACCESS_STATE,
     combinationKey: [...numbers].sort((left, right) => left - right).join('-'),
     decision: 'REWARD_OR_PRO_REQUIRED',
   }),
   closePaywall: () => undefined,
+  closeReferralCode: () => undefined,
   isPaywallVisible: false,
+  isReferralCodeVisible: false,
   openPaywall: () => undefined,
+  openReferralCode: () => undefined,
   paywallSource: null,
+  productAccess: productAccessFor('guest'),
   refresh: async () => undefined,
+  rewardedAdsAvailable: false,
   state: { status: 'guest' },
-  unlockedCombinationKeys: EMPTY_UNLOCKS,
 };
 
 const MonetizationContext = createContext<MonetizationValue>(fallbackValue);
@@ -83,61 +88,11 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<MonetizationState>({ status: 'guest' });
   const [isPaywallVisible, setPaywallVisible] = useState(false);
   const [paywallSource, setPaywallSource] = useState<string | null>(null);
-  const [isReferralPromptChecked, setReferralPromptChecked] = useState(false);
-  const [hasSeenReferralPrompt, setHasSeenReferralPrompt] = useState(false);
+  const [isReferralCodeVisible, setReferralCodeVisible] = useState(false);
   const [pendingReferralCode, setPendingReferralCode] = useState('');
   const [referralPromptError, setReferralPromptError] = useState<string | null>(null);
   const [isApplyingReferral, setApplyingReferral] = useState(false);
   const referralApplicationInFlight = useRef(false);
-  const [analysisUnlocksReady, setAnalysisUnlocksReady] = useState(false);
-  const [unlockedCombinationKeys, setUnlockedCombinationKeys] = useState<ReadonlySet<string>>(
-    EMPTY_UNLOCKS,
-  );
-
-  useEffect(() => {
-    let active = true;
-    if (authState.status === 'loading') {
-      queueMicrotask(() => {
-        if (active) setAnalysisUnlocksReady(false);
-      });
-      return () => { active = false; };
-    }
-    if (authState.status !== 'authenticated' || !db) {
-      queueMicrotask(() => {
-        if (!active) return;
-        setUnlockedCombinationKeys(EMPTY_UNLOCKS);
-        setAnalysisUnlocksReady(true);
-      });
-      return () => { active = false; };
-    }
-
-    queueMicrotask(() => {
-      if (active) setAnalysisUnlocksReady(false);
-    });
-    const unsubscribe = onSnapshot(
-      collection(db, 'users', authState.user.uid, 'analysisUnlocks'),
-      (snapshot) => {
-        if (!active) return;
-        const keys = new Set<string>();
-        snapshot.docs.forEach((item) => {
-          const combinationKey = item.data().combinationKey;
-          if (typeof combinationKey === 'string') keys.add(combinationKey);
-        });
-        setUnlockedCombinationKeys(keys);
-        setAnalysisUnlocksReady(true);
-      },
-      () => {
-        if (!active) return;
-        setUnlockedCombinationKeys(EMPTY_UNLOCKS);
-        setAnalysisUnlocksReady(true);
-      },
-    );
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [authState]);
-
   const refresh = useCallback(async () => {
     if (authState.status !== 'authenticated') {
       setState({ status: authState.status === 'loading' ? 'loading' : 'guest' });
@@ -154,7 +109,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
         'getMonetizationAccessState',
       );
       const result = await getAccessState({});
-      setState({ access: result.data, status: 'ready' });
+      setState({ access: normalizeMonetizationAccessState(result.data), status: 'ready' });
     } catch (error) {
       setState({ error: messageForError(error), status: 'error' });
     }
@@ -166,25 +121,16 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
 
   const authorizeAnalysis = useCallback(async (
     numbers: readonly number[],
-    dataVersion: string,
+    _dataVersion: string,
   ) => {
-    if (authState.status !== 'authenticated' || !functions) {
-      throw new Error('로그인과 Firebase Functions 연결이 필요해요.');
-    }
-    const authorize = httpsCallable<
-      { dataVersion: string; numbers: readonly number[] },
-      AnalysisAuthorization
-    >(functions, 'authorizeCombinationAnalysis');
-    const result = await authorize({ dataVersion, numbers });
-    setState({ access: result.data.accessState, status: 'ready' });
-    if (isAnalysisAuthorized(result.data.decision)) {
-      setUnlockedCombinationKeys((current) => {
-        if (current.has(result.data.combinationKey)) return current;
-        return new Set([...current, result.data.combinationKey]);
-      });
-    }
-    return result.data;
-  }, [authState.status]);
+    const combinationKey = [...numbers].sort((left, right) => left - right).join('-');
+    const accessState = state.status === 'ready' ? state.access : EMPTY_ACCESS_STATE;
+    return {
+      accessState,
+      combinationKey,
+      decision: accessState.isPro ? 'AUTHORIZED_PRO' as const : 'REWARD_OR_PRO_REQUIRED' as const,
+    };
+  }, [state]);
 
   const applyReferral = useCallback(async (code: string) => {
     if (authState.status !== 'authenticated' || !functions) {
@@ -199,14 +145,11 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     }
   }, [authState.status, refresh]);
 
-  const finishReferralOnboarding = useCallback(async () => {
-    setHasSeenReferralPrompt(true);
+  const finishReferralCode = useCallback(async () => {
     setPendingReferralCode('');
     setReferralPromptError(null);
-    await Promise.all([
-      AsyncStorage.setItem(REFERRAL_ONBOARDING_SEEN_KEY, '1'),
-      AsyncStorage.removeItem(REFERRAL_ONBOARDING_PENDING_KEY),
-    ]).catch(() => undefined);
+    setReferralCodeVisible(false);
+    await AsyncStorage.removeItem(REFERRAL_ONBOARDING_PENDING_KEY).catch(() => undefined);
   }, []);
 
   const applyOnboardingReferral = useCallback(async (code: string) => {
@@ -216,14 +159,15 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setReferralPromptError(null);
     try {
       await applyReferral(code);
-      await finishReferralOnboarding();
+      await finishReferralCode();
     } catch (error) {
       setReferralPromptError((error as Error).message);
+      setReferralCodeVisible(true);
     } finally {
       referralApplicationInFlight.current = false;
       setApplyingReferral(false);
     }
-  }, [applyReferral, finishReferralOnboarding]);
+  }, [applyReferral, finishReferralCode]);
 
   const submitOnboardingReferral = useCallback((code: string) => {
     const normalizedCode = code.trim().toUpperCase();
@@ -231,7 +175,8 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setReferralPromptError(null);
     void AsyncStorage.setItem(REFERRAL_ONBOARDING_PENDING_KEY, normalizedCode).catch(() => undefined);
     if (authState.status !== 'authenticated') {
-      openLogin();
+      setReferralCodeVisible(false);
+      openLogin('referral-code');
       return;
     }
     void applyOnboardingReferral(normalizedCode);
@@ -239,52 +184,29 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      AsyncStorage.getItem(REFERRAL_ONBOARDING_SEEN_KEY),
-      AsyncStorage.getItem(REFERRAL_ONBOARDING_PENDING_KEY),
-    ]).then(([seen, pending]) => {
-      if (!active) return;
-      setHasSeenReferralPrompt(seen === '1');
-      setPendingReferralCode(pending ?? '');
-    }).catch(() => undefined).finally(() => {
-      if (active) setReferralPromptChecked(true);
-    });
-    return () => {
-      active = false;
-    };
+    void AsyncStorage.getItem(REFERRAL_ONBOARDING_PENDING_KEY)
+      .then((pending) => {
+        if (active) setPendingReferralCode(pending ?? '');
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
   }, []);
-
-  useEffect(() => {
-    if (!isReferralPromptChecked || hasSeenReferralPrompt) return;
-    if (authState.status === 'guest') return;
-    if (authState.status !== 'authenticated' || state.status !== 'ready') return;
-    if (state.access.canApplyReferralCode) return;
-    queueMicrotask(() => void finishReferralOnboarding());
-  }, [
-    authState.status,
-    finishReferralOnboarding,
-    hasSeenReferralPrompt,
-    isReferralPromptChecked,
-    state,
-  ]);
 
   useEffect(() => {
     if (
       !pendingReferralCode
-      || hasSeenReferralPrompt
       || authState.status !== 'authenticated'
       || state.status !== 'ready'
     ) return;
     if (!state.access.canApplyReferralCode) {
-      queueMicrotask(() => void finishReferralOnboarding());
+      queueMicrotask(() => void finishReferralCode());
       return;
     }
     queueMicrotask(() => void applyOnboardingReferral(pendingReferralCode));
   }, [
     applyOnboardingReferral,
     authState.status,
-    finishReferralOnboarding,
-    hasSeenReferralPrompt,
+    finishReferralCode,
     pendingReferralCode,
     state,
   ]);
@@ -294,45 +216,54 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setPaywallVisible(true);
   }, []);
   const closePaywall = useCallback(() => setPaywallVisible(false), []);
-  const isReferralPromptVisible = isReferralPromptChecked
-    && !hasSeenReferralPrompt
-    && (
-      authState.status === 'guest'
-      || pendingReferralCode.length > 0
-      || (
-        authState.status === 'authenticated'
-        && state.status === 'ready'
-        && state.access.canApplyReferralCode
-      )
-    );
+  const openReferralCode = useCallback(() => {
+    setReferralPromptError(null);
+    setReferralCodeVisible(true);
+  }, []);
+  const closeReferralCode = useCallback(() => {
+    if (isApplyingReferral) return;
+    setReferralPromptError(null);
+    setReferralCodeVisible(false);
+  }, [isApplyingReferral]);
+  const tier = accountTier({
+    authenticated: authState.status === 'authenticated',
+    isPro: state.status === 'ready' && state.access.isPro,
+  });
+  const productAccess = productAccessFor(tier);
 
   const value = useMemo<MonetizationValue>(() => ({
-    analysisUnlocksReady,
     applyReferral,
     authorizeAnalysis,
     closePaywall,
+    closeReferralCode,
     isPaywallVisible,
+    isReferralCodeVisible,
     openPaywall,
+    openReferralCode,
     paywallSource,
+    productAccess,
     refresh,
+    rewardedAdsAvailable: false,
     state,
-    unlockedCombinationKeys,
   }), [
-    analysisUnlocksReady,
     applyReferral,
     authorizeAnalysis,
     closePaywall,
+    closeReferralCode,
     isPaywallVisible,
+    isReferralCodeVisible,
     openPaywall,
+    openReferralCode,
     paywallSource,
+    productAccess,
     refresh,
     state,
-    unlockedCombinationKeys,
   ]);
 
   return (
     <MonetizationContext.Provider value={value}>
       {children}
+      <LoginModal />
       <ProPaywallModal
         onClose={closePaywall}
         source={paywallSource}
@@ -342,9 +273,9 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
         error={referralPromptError}
         isApplying={isApplyingReferral}
         onApply={submitOnboardingReferral}
-        onSkip={() => void finishReferralOnboarding()}
+        onClose={closeReferralCode}
         requiresLogin={authState.status !== 'authenticated'}
-        visible={isReferralPromptVisible}
+        visible={isReferralCodeVisible}
       />
     </MonetizationContext.Provider>
   );

@@ -8,7 +8,7 @@ type ReferralCodeOnboardingModalProps = {
   error: string | null;
   isApplying: boolean;
   onApply: (code: string) => void;
-  onSkip: () => void;
+  onClose: () => void;
   requiresLogin: boolean;
   visible: boolean;
 };
@@ -21,7 +21,7 @@ export function ReferralCodeOnboardingModal({
   error,
   isApplying,
   onApply,
-  onSkip,
+  onClose,
   requiresLogin,
   visible,
 }: ReferralCodeOnboardingModalProps) {
@@ -30,17 +30,17 @@ export function ReferralCodeOnboardingModal({
   const canApply = code.length === 8 && !isApplying;
 
   return (
-    <Modal animationType="fade" onRequestClose={onSkip} transparent visible={visible}>
+    <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.root}>
-        <View style={styles.backdrop} />
+        <Pressable accessibilityLabel="초대코드 입력 닫기" onPress={onClose} style={styles.backdrop} />
         <View style={styles.sheet}>
           <View style={styles.icon}>
             <Ionicons color={styles.iconColor.color} name="people-outline" size={24} />
           </View>
-          <Text style={styles.eyebrow}>WELCOME</Text>
-          <Text style={styles.title}>친구에게 초대 코드를 받았나요?</Text>
+          <Text style={styles.eyebrow}>INVITATION</Text>
+          <Text style={styles.title}>받은 초대코드를 입력하세요</Text>
           <Text style={styles.description}>
-            받은 코드가 있다면 지금 등록해 주세요. 첫 실행과 첫 분석 전에만 등록할 수 있어요.
+            로그인 후 7일 이내에 한 번 등록할 수 있어요. 로그인 전이라면 코드를 보관한 뒤 계정 연결을 이어갑니다.
           </Text>
           <TextInput
             accessibilityLabel="친구에게 받은 초대 코드"
@@ -75,11 +75,11 @@ export function ReferralCodeOnboardingModal({
           <Pressable
             accessibilityRole="button"
             disabled={isApplying}
-            onPress={onSkip}
+            onPress={onClose}
             style={({ pressed }) => [styles.skipButton, pressed && styles.pressed]}>
-            <Text style={styles.skipButtonText}>초대 코드 없이 시작</Text>
+            <Text style={styles.skipButtonText}>다음에 입력</Text>
           </Pressable>
-          <Text style={styles.notice}>이 화면을 닫으면 나중에 코드를 입력할 수 없어요.</Text>
+          <Text style={styles.notice}>설정에서도 입력할 수 있습니다.</Text>
         </View>
       </View>
     </Modal>

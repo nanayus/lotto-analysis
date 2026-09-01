@@ -1,5 +1,6 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
 import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
@@ -23,17 +24,11 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityLabel="분석 결과로 돌아가기"
-          accessibilityRole="button"
-          onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-          <Text style={styles.backIcon}>‹</Text>
-        </Pressable>
-        <Text style={styles.title}>{title}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <SubScreenHeader
+        backAccessibilityLabel="분석 결과로 돌아가기"
+        onBack={onBack}
+        title={title}
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.listSummary}>
@@ -66,39 +61,6 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  header: {
-    height: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-    paddingHorizontal: spacing.sm,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    color: colors.textPrimary,
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: typography.weights.regular,
-  },
-  title: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  pressed: {
-    opacity: 0.6,
   },
   content: {
     paddingHorizontal: spacing.md,

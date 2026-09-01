@@ -6,12 +6,14 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, u
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
+import { MainTabHeader } from '@/components/ui/AppTopBar';
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import { generateCombination } from '@/domain/generator/combinationGenerator';
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
+import { useAuth } from '@/features/auth/AuthContext';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -41,8 +43,9 @@ export function MyNumbersScreen() {
   const tabBarScrollProps = useAutoHideTabBar();
   const { width } = useWindowDimensions();
   const useStackedAnalysisAction = width < 430;
-  const { addCombination, combinations, isReady, toggleFavorite, togglePurchased } = useNumberLibrary();
-  const { analysisUnlocksReady, unlockedCombinationKeys } = useMonetization();
+  const { openLogin } = useAuth();
+  const { addCombination, canSave, combinations, isReady, storageMode, toggleFavorite, togglePurchased } = useNumberLibrary();
+  const { openPaywall, productAccess } = useMonetization();
   const { setNumbers } = useCombinationDraft();
   const [activeTab, setActiveTab] = useState<LibraryTab>('all');
   const [expandedConditionId, setExpandedConditionId] = useState<string | null>(null);
@@ -105,45 +108,87 @@ export function MyNumbersScreen() {
       ? ['즐겨찾기한 조합이 없어요', '마음에 드는 조합을 따로 모아볼 수 있어요.']
       : ['아직 뽑은 번호가 없어요', '번호뽑기에서 첫 조합을 만들어보세요.'];
 
+  if (!canSave) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+        <View style={styles.container}>
+          <MainTabHeader />
+          <ScrollView contentContainerStyle={styles.guestContent}>
+            <View style={styles.guestIcon}>
+              <Ionicons color={colors.accentPrimary} name="bookmark-outline" size={27} />
+            </View>
+            <Text style={styles.guestTitle}>내 번호는 로그인 후 저장돼요</Text>
+            <Text style={styles.guestDescription}>
+              로그인하면 뽑은 조합과 즐겨찾기를 이 기기에 보관할 수 있어요.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => openLogin('number-library')}
+              style={({ pressed }) => [styles.loginButton, pressed && styles.pressed]}>
+              <Text style={styles.loginButtonText}>무료로 로그인</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => openPaywall('library-cloud')}
+              style={({ pressed }) => [styles.cloudAction, pressed && styles.pressed]}>
+              <Ionicons color={colors.accentPrimary} name="cloud-outline" size={16} />
+              <Text style={styles.cloudActionText}>Pro 클라우드 저장 알아보기</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>MY NUMBERS</Text>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>내번호보기</Text>
-            <Text style={styles.totalCount}>{combinations.length}개</Text>
-          </View>
-        </View>
-
-        <View accessibilityRole="tablist" style={styles.tabs}>
-          {TABS.map((tab) => {
-            const selected = activeTab === tab.value;
-            return (
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                key={tab.value}
-                onPress={() => setActiveTab(tab.value)}
-                style={[styles.tab, selected && styles.tabSelected]}>
-                <Text style={[styles.tabText, selected && styles.tabTextSelected]}>{tab.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
+        <MainTabHeader />
         <ScrollView
           {...tabBarScrollProps}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          {!isReady ? (
+          <View style={styles.storageNotice}>
+            <Ionicons
+              color={colors.accentPrimary}
+              name={storageMode === 'cloud' ? 'cloud-done-outline' : 'phone-portrait-outline'}
+              size={16}
+            />
+            <Text style={styles.storageNoticeText}>
+              {storageMode === 'cloud'
+                ? '클라우드에 저장되어 다른 기기와 동기화돼요.'
+                : '이 기기에만 저장돼요.'}
+            </Text>
+            {storageMode === 'device' ? (
+              <Pressable onPress={() => openPaywall('library-cloud')}>
+                <Text style={styles.storageNoticeAction}>Pro</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <View accessibilityRole="tablist" style={styles.tabs}>
+            {TABS.map((tab) => {
+              const selected = activeTab === tab.value;
+              return (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  key={tab.value}
+                  onPress={() => setActiveTab(tab.value)}
+                  style={[styles.tab, selected && styles.tabSelected]}>
+                  <Text style={[styles.tabText, selected && styles.tabTextSelected]}>{tab.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.content}>
+            {!isReady ? (
             <Text style={styles.loading}>저장된 번호를 불러오고 있어요.</Text>
           ) : visibleItems.length ? (
             <View style={styles.list}>
               {visibleItems.map((item, index) => {
                 const conditionsExpanded = expandedConditionId === item.id;
                 const conditionCount = item.generationConditions?.length;
-                const analysisComplete = unlockedCombinationKeys.has(item.numbers.join('-'));
                 return (
                   <View key={`${item.id}-${index}`} style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -153,12 +198,6 @@ export function MyNumbersScreen() {
                             {item.source === 'ai' ? 'AI 뽑기' : '랜덤조합'}
                           </Text>
                         </View>
-                        {analysisComplete ? (
-                          <View style={styles.analysisCompleteBadge}>
-                            <Ionicons color={colors.accentSecondary} name="checkmark" size={11} />
-                            <Text style={styles.analysisCompleteText}>분석 완료</Text>
-                          </View>
-                        ) : null}
                         <Text style={styles.dateText}>{formatSavedDate(item.createdAt)}</Text>
                       </View>
                       <LibraryStatusActions
@@ -241,14 +280,8 @@ export function MyNumbersScreen() {
                       </>
                     ) : null}
                     <Pressable
-                      accessibilityLabel={analysisUnlocksReady
-                        ? analysisComplete
-                          ? `${item.numbers.join(', ')} 분석 결과 보기`
-                          : `${item.numbers.join(', ')} 분석하기, 분석권 1개 사용`
-                        : `${item.numbers.join(', ')} 분석 상태 확인 중`}
+                      accessibilityLabel={`${item.numbers.join(', ')} ${productAccess.tier === 'pro' ? '분석 결과 보기' : '광고 후 분석 결과 보기'}`}
                       accessibilityRole="button"
-                      accessibilityState={{ disabled: !analysisUnlocksReady }}
-                      disabled={!analysisUnlocksReady}
                       onPress={() => analyze(item)}
                       style={({ pressed }) => [
                         styles.numberAction,
@@ -260,22 +293,10 @@ export function MyNumbersScreen() {
                         styles.analysisLink,
                         useStackedAnalysisAction && styles.analysisLinkStacked,
                       ]}>
-                        {analysisUnlocksReady ? (
-                          <>
-                            <Text style={styles.analysisLinkText}>
-                              {analysisComplete ? '결과 보기' : '분석하기'}
-                            </Text>
-                            {!analysisComplete ? (
-                              <View style={styles.ticketCost}>
-                                <Ionicons color={colors.accentPrimary} name="ticket-outline" size={13} />
-                                <Text style={styles.ticketCostText}>1</Text>
-                              </View>
-                            ) : null}
-                            <Ionicons color={colors.accentPrimary} name="chevron-forward" size={15} />
-                          </>
-                        ) : (
-                          <ActivityIndicator color={colors.accentPrimary} size="small" />
-                        )}
+                        <Text style={styles.analysisLinkText}>
+                          {productAccess.tier === 'pro' ? '결과 보기' : '광고 후 결과 보기'}
+                        </Text>
+                        <Ionicons color={colors.accentPrimary} name="chevron-forward" size={15} />
                       </View>
                     </Pressable>
                   </View>
@@ -295,7 +316,8 @@ export function MyNumbersScreen() {
                 </Pressable>
               ) : null}
             </View>
-          )}
+            )}
+          </View>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -305,16 +327,23 @@ export function MyNumbersScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
-  eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.7, marginBottom: spacing.xs },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  title: { color: colors.textPrimary, fontSize: typography.sizes.title, fontWeight: typography.weights.bold, letterSpacing: -0.8 },
-  totalCount: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  tabs: { marginHorizontal: spacing.xl, marginTop: spacing.xxl, padding: 4, flexDirection: 'row', borderRadius: radius.md, backgroundColor: colors.surface },
+  guestContent: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.huge, alignItems: 'center', justifyContent: 'center' },
+  guestIcon: { width: 58, height: 58, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAccent },
+  guestTitle: { marginTop: spacing.lg, color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold, textAlign: 'center' },
+  guestDescription: { maxWidth: 320, marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 21, textAlign: 'center' },
+  loginButton: { width: '100%', minHeight: 46, marginTop: spacing.xl, borderRadius: radius.round, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary },
+  loginButtonText: { color: '#FFFFFF', fontSize: typography.sizes.body, fontWeight: typography.weights.bold },
+  cloudAction: { minHeight: 42, marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+  cloudActionText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  storageNotice: { marginHorizontal: spacing.xl, marginTop: spacing.lg, paddingHorizontal: spacing.md, minHeight: 42, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceAccent },
+  storageNoticeText: { flex: 1, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
+  storageNoticeAction: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
+  tabs: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: 4, flexDirection: 'row', borderRadius: radius.md, backgroundColor: colors.surface },
   tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
   tabSelected: { backgroundColor: colors.surfaceElevated, boxShadow: colors.cardShadow, elevation: 2 },
   tabText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
   tabTextSelected: { color: colors.textPrimary, fontWeight: typography.weights.bold },
+  scrollContent: { flexGrow: 1 },
   content: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
   loading: { color: colors.textSecondary, fontSize: typography.sizes.small, textAlign: 'center', marginTop: spacing.huge },
   list: { gap: spacing.md },
@@ -325,8 +354,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sourceBadgeAi: { backgroundColor: colors.surfaceAccent },
   sourceText: { color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.bold },
   sourceTextAi: { color: colors.accentPrimary },
-  analysisCompleteBadge: { paddingHorizontal: spacing.sm, paddingVertical: 5, borderRadius: radius.round, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.surfaceSuccess },
-  analysisCompleteText: { color: colors.accentSecondary, fontSize: 10, fontWeight: typography.weights.bold },
   dateText: { color: colors.textTertiary, fontSize: 10 },
   conditionToggle: { minHeight: 38, marginTop: spacing.md, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.sm, backgroundColor: colors.surfaceElevated },
   conditionToggleCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
@@ -347,8 +374,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   analysisLink: { flexShrink: 1, marginLeft: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 },
   analysisLinkStacked: { alignSelf: 'flex-end', marginTop: spacing.sm, marginLeft: 0 },
   analysisLinkText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
-  ticketCost: { flexDirection: 'row', alignItems: 'center', gap: 1 },
-  ticketCostText: { color: colors.accentPrimary, fontSize: 10, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   emptyState: { flex: 1, minHeight: 360, alignItems: 'center', justifyContent: 'center' },
   emptyIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: radius.lg, backgroundColor: colors.surface },
   emptyTitle: { color: colors.textPrimary, fontSize: typography.sizes.label, fontWeight: typography.weights.bold, marginTop: spacing.lg },
