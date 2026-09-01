@@ -64,10 +64,10 @@ export function DrawHomeScreen() {
               <Text style={styles.aiDescription}>원하는 조건을 직접 정하고{`\n`}하나의 조합을 만들어보세요.</Text>
               <Text style={styles.aiPolicy}>
                 {productAccess.tier === 'guest'
-                  ? '게스트 · 직접 조건 설정 가능 · 균형 프리셋은 로그인 후'
+                  ? '게스트 · 조건 최대 2개'
                   : productAccess.tier === 'free'
-                    ? '무료회원 · 균형 프리셋 사용 가능'
-                    : 'Pro · 균형 프리셋 사용 가능'}
+                    ? '무료회원 · 조건 최대 5개'
+                    : 'Pro · 조건 무제한 · 균형 프리셋'}
               </Text>
             </View>
             <View style={styles.aiAction}>

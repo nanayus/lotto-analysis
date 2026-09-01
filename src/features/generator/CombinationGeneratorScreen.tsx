@@ -262,6 +262,7 @@ export function CombinationGeneratorScreen({
           <ConditionSheet
             applyAccess={conditionApplyAccess}
             canUseBalancedPreset={productAccess.canUseBalancedPreset}
+            conditionSelectionLimit={productAccess.conditionSelectionLimit}
             conditions={conditions}
             history={lottoHistory}
             onApply={applyConditions}
@@ -271,7 +272,6 @@ export function CombinationGeneratorScreen({
             onRequestLogin={() => openLogin('balanced-preset')}
             presentation="screen"
             recommendationPromptVisible={recommendationPromptVisible}
-            selectionLimit={productAccess.combinationSelectionLimit}
             visible
           />
         ) : (
@@ -481,13 +481,13 @@ export function CombinationGeneratorScreen({
         <ConditionSheet
           applyAccess={conditionApplyAccess}
           canUseBalancedPreset={productAccess.canUseBalancedPreset}
+          conditionSelectionLimit={productAccess.conditionSelectionLimit}
           conditions={conditions}
           history={lottoHistory}
           onApply={applyConditions}
           onClose={() => setSheetVisible(false)}
           onOpenPro={() => openPaywall('condition-ai-explanation')}
           onRequestLogin={() => openLogin('balanced-preset')}
-          selectionLimit={productAccess.combinationSelectionLimit}
           visible
         />
       ) : null}

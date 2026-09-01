@@ -4,11 +4,15 @@ import { type ThemeColors, radius, useThemedStyles } from '@/theme';
 
 export function ConditionToggle({
   enabled,
+  locked = false,
   onChange,
+  onLockedPress,
   title,
 }: {
   enabled: boolean;
+  locked?: boolean;
   onChange: (enabled: boolean) => void;
+  onLockedPress?: () => void;
   title: string;
 }) {
   const styles = useThemedStyles(createStyles);
@@ -16,9 +20,9 @@ export function ConditionToggle({
     <Pressable
       accessibilityLabel={`${title} 조건`}
       accessibilityRole="switch"
-      accessibilityState={{ checked: enabled }}
-      onPress={() => onChange(!enabled)}
-      style={[styles.switch, enabled && styles.switchOn]}>
+      accessibilityState={{ checked: enabled, disabled: locked }}
+      onPress={() => locked ? onLockedPress?.() : onChange(!enabled)}
+      style={[styles.switch, enabled && styles.switchOn, locked && styles.switchLocked]}>
       <View style={[styles.switchKnob, enabled && styles.switchKnobOn]} />
     </Pressable>
   );
@@ -30,6 +34,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.divider, justifyContent: 'center',
   },
   switchOn: { backgroundColor: colors.accentPrimary },
+  switchLocked: { opacity: 0.42 },
   switchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.neutral },
   switchKnobOn: { alignSelf: 'flex-end', backgroundColor: colors.background },
 });

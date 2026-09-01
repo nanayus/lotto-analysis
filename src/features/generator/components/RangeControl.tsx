@@ -16,11 +16,13 @@ import { ConditionInfoButton } from './ConditionInfoButton';
 import { ConditionToggle } from './ConditionToggle';
 
 type RangeControlProps = {
+  activationLocked?: boolean;
   decimals?: number;
   historicalPreset?: { max: number; min: number };
   limits: { max: number; min: number };
   onChange: (value: NumericRangeCondition) => void;
   onHelpPress?: () => void;
+  onLockedPress?: () => void;
   step?: number;
   title: string;
   value: NumericRangeCondition;
@@ -140,11 +142,13 @@ function SliderThumb({
 }
 
 export function RangeControl({
+  activationLocked = false,
   decimals = 0,
   historicalPreset,
   limits,
   onChange,
   onHelpPress,
+  onLockedPress,
   step = 1,
   title,
   value,
@@ -177,7 +181,9 @@ export function RangeControl({
         </View>
         <ConditionToggle
           enabled={value.enabled}
+          locked={activationLocked && !value.enabled}
           onChange={(enabled) => onChange({ ...value, enabled })}
+          onLockedPress={onLockedPress}
           title={title}
         />
       </View>

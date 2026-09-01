@@ -31,10 +31,11 @@ jest.mock('../MonetizationContext', () => ({
     productAccess: {
       canCompareCombinations: false,
       canSaveNumbers: mockAuthenticated,
-      canUseBalancedPreset: mockAuthenticated,
+      canUseBalancedPreset: false,
       canUseAiExplanation: false,
       canUseCustomPeriod: false,
       combinationSelectionLimit: mockAuthenticated ? 5 : 2,
+      conditionSelectionLimit: mockAuthenticated ? 5 : 2,
       requiresRewardedAdForResults: true,
       storageMode: mockAuthenticated ? 'device' : 'unavailable',
       tier: mockAuthenticated ? 'free' : 'guest',
@@ -65,7 +66,7 @@ describe('MonetizationSettingsSection', () => {
     const screen = await render(<MonetizationSettingsSection />);
 
     expect(screen.getByText('게스트')).toBeTruthy();
-    expect(screen.getByText('광고 후 결과를 보고, 한 번에 최대 2개 조합을 만들 수 있어요.')).toBeTruthy();
+    expect(screen.getByText('광고 후 결과를 보고, 조건 2개로 조합을 만들 수 있어요.')).toBeTruthy();
     fireEvent.press(screen.getByText('로그인'));
 
     expect(mockOpenLogin).toHaveBeenCalledWith('settings-plan');

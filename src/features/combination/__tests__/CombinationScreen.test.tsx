@@ -64,10 +64,13 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     productAccess: {
       canCompareCombinations: mockAuthStatus === 'authenticated' && mockIsPro,
       canSaveNumbers: mockAuthStatus === 'authenticated',
-      canUseBalancedPreset: mockAuthStatus === 'authenticated',
+      canUseBalancedPreset: mockAuthStatus === 'authenticated' && mockIsPro,
       canUseAiExplanation: mockAuthStatus === 'authenticated' && mockIsPro,
       canUseCustomPeriod: mockAuthStatus === 'authenticated' && mockIsPro,
       combinationSelectionLimit: mockAuthStatus === 'authenticated' ? 5 : 2,
+      conditionSelectionLimit: mockAuthStatus === 'authenticated' && mockIsPro
+        ? null
+        : mockAuthStatus === 'authenticated' ? 5 : 2,
       requiresRewardedAdForResults: mockAuthStatus !== 'authenticated' || !mockIsPro,
       storageMode: mockAuthStatus === 'authenticated' && mockIsPro ? 'cloud' : mockAuthStatus === 'authenticated' ? 'device' : 'unavailable',
       tier: mockAuthStatus === 'authenticated' && mockIsPro ? 'pro' : mockAuthStatus === 'authenticated' ? 'free' : 'guest',

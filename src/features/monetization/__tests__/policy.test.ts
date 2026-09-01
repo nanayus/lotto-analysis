@@ -8,19 +8,21 @@ describe('membership tier policy', () => {
       canSaveNumbers: false,
       canUseBalancedPreset: false,
       combinationSelectionLimit: 2,
+      conditionSelectionLimit: 2,
       requiresRewardedAdForResults: true,
       storageMode: 'unavailable',
     });
   });
 
-  test('gives free members five combinations, balanced preset, and device storage', () => {
+  test('gives free members five combinations and conditions with device storage', () => {
     expect(productAccessFor('free')).toMatchObject({
       canCompareCombinations: false,
       canSaveNumbers: true,
       canUseAiExplanation: false,
-      canUseBalancedPreset: true,
+      canUseBalancedPreset: false,
       canUseCustomPeriod: false,
       combinationSelectionLimit: 5,
+      conditionSelectionLimit: 5,
       requiresRewardedAdForResults: true,
       storageMode: 'device',
     });
@@ -34,6 +36,7 @@ describe('membership tier policy', () => {
       canUseBalancedPreset: true,
       canUseCustomPeriod: true,
       combinationSelectionLimit: 5,
+      conditionSelectionLimit: null,
       requiresRewardedAdForResults: false,
       storageMode: 'cloud',
     });

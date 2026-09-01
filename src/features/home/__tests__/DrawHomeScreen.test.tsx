@@ -30,10 +30,11 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     productAccess: {
       canCompareCombinations: mockTier === 'pro',
       canSaveNumbers: mockTier !== 'guest',
-      canUseBalancedPreset: mockTier !== 'guest',
+      canUseBalancedPreset: mockTier === 'pro',
       canUseAiExplanation: mockTier === 'pro',
       canUseCustomPeriod: mockTier === 'pro',
       combinationSelectionLimit: mockTier === 'guest' ? 2 : 5,
+      conditionSelectionLimit: mockTier === 'pro' ? null : mockTier === 'guest' ? 2 : 5,
       requiresRewardedAdForResults: mockTier !== 'pro',
       storageMode: mockTier === 'pro' ? 'cloud' : mockTier === 'free' ? 'device' : 'unavailable',
       tier: mockTier,
@@ -90,11 +91,11 @@ describe('DrawHomeScreen', () => {
     });
   });
 
-  test('explains the guest game limit and member-only preset', async () => {
+  test('explains the guest game and condition limits', async () => {
     mockTier = 'guest';
     const screen = await render(<DrawHomeScreen />);
     expect(screen.getByText('게스트 · 한 번에 최대 2게임')).toBeTruthy();
-    expect(screen.getByText(/균형 프리셋은 로그인 후/)).toBeTruthy();
+    expect(screen.getByText('게스트 · 조건 최대 2개')).toBeTruthy();
   });
 
   test('opens the dedicated random draw route instead of drawing inline', async () => {

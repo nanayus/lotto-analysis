@@ -18,7 +18,7 @@ const PRIME_NUMBERS = new Set([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 4
 const SQUARE_NUMBERS = new Set([4, 9, 16, 25, 36]);
 const BAND_KEYS = ['1-9', '10-19', '20-29', '30-39', '40-45'] as const;
 const COUNT_VALUES = [0, 1, 2, 3, 4, 5, 6] as const;
-const GENERATOR_SECTION_KEYS: GeneratorSectionKey[] = [
+export const GENERATOR_SECTION_KEYS: GeneratorSectionKey[] = [
   'fixedExcluded',
   'sameEnding',
   'oddEven',
@@ -189,11 +189,11 @@ export function buildGeneratorConditionDefaults(history: readonly LottoHistoryDr
   const defaults = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
   const presets = buildGeneratorRangePresets(history);
   defaults.enabledSections = Object.fromEntries(
-    GENERATOR_SECTION_KEYS.map((key) => [key, true]),
+    GENERATOR_SECTION_KEYS.map((key) => [key, false]),
   ) as Record<GeneratorSectionKey, boolean>;
   defaults.standardDeviation = { enabled: true, min: presets.standardDeviation.min, max: presets.standardDeviation.max };
   defaults.sum = { enabled: true, min: presets.sum.min, max: presets.sum.max };
-  defaults.lastDigitSum = { enabled: true, min: presets.lastDigitSum.min, max: presets.lastDigitSum.max };
+  defaults.lastDigitSum = { enabled: false, min: presets.lastDigitSum.min, max: presets.lastDigitSum.max };
   return defaults;
 }
 
@@ -710,6 +710,15 @@ export function activeConditionCount(conditions: GeneratorConditions) {
     ...BAND_KEYS.map((key) => generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]) && conditions.bandCounts[key].length > 0),
     ...([3, 4, 5] as const).map((multiple) => generatorSectionEnabled(conditions, `multiple${multiple}`) && conditions.multipleCounts[multiple].length > 0),
     generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length > 0,
+  ].filter(Boolean).length;
+}
+
+export function enabledGeneratorConditionCount(conditions: GeneratorConditions) {
+  return [
+    conditions.standardDeviation.enabled,
+    conditions.sum.enabled,
+    conditions.lastDigitSum.enabled,
+    ...GENERATOR_SECTION_KEYS.map((key) => generatorSectionEnabled(conditions, key)),
   ].filter(Boolean).length;
 }
 

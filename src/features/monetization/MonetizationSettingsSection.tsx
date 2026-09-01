@@ -8,19 +8,21 @@ import { useMonetization } from './MonetizationContext';
 
 const FREE_FEATURES = [
   { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
-  { icon: 'options-outline', label: '한 번에 최대 5개 조합과 균형 프리셋' },
+  { icon: 'layers-outline', label: '한 번에 최대 5개 조합 생성' },
+  { icon: 'options-outline', label: '생성 조건을 최대 5개까지 선택' },
   { icon: 'phone-portrait-outline', label: '내 번호를 이 기기에 저장' },
 ] as const;
 
 const GUEST_FEATURES = [
   { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
-  { icon: 'options-outline', label: '조건을 직접 설정해 조합 생성' },
+  { icon: 'options-outline', label: '생성 조건을 최대 2개까지 선택' },
   { icon: 'layers-outline', label: '한 번에 최대 2개 조합 생성' },
 ] as const;
 
 const PRO_FEATURES = [
   { icon: 'ban-outline', label: '모든 결과를 광고 없이 바로 확인' },
-  { icon: 'options-outline', label: '한 번에 최대 5개 조합과 균형 프리셋' },
+  { icon: 'layers-outline', label: '한 번에 최대 5개 조합 생성' },
+  { icon: 'options-outline', label: '조건 제한 없음과 균형 프리셋' },
   { icon: 'sparkles-outline', label: 'AI 조합 해설과 추가 질문' },
   { icon: 'git-compare-outline', label: '조합 비교와 회차 직접 선택' },
   { icon: 'cloud-done-outline', label: '클라우드 저장과 기기간 동기화' },
@@ -63,7 +65,7 @@ export function MonetizationSettingsSection() {
                     ? '광고 없이 더 깊게 분석하고 모든 기기에서 이어보세요.'
                     : authenticated
                       ? '광고 후 결과를 보고, 내 번호는 이 기기에 저장돼요.'
-                      : '광고 후 결과를 보고, 한 번에 최대 2개 조합을 만들 수 있어요.'}
+                      : '광고 후 결과를 보고, 조건 2개로 조합을 만들 수 있어요.'}
                 </Text>
               </View>
               {!isPro ? (

@@ -24,6 +24,7 @@ import {
   cloneGeneratorConditions,
   conditionDerivedExclusions,
   CONSECUTIVE_LABELS,
+  enabledGeneratorConditionCount,
   GENERATOR_BAND_KEYS,
   GENERATOR_COUNT_VALUES,
   generatorSectionEnabled,
@@ -97,6 +98,7 @@ type ConditionSheetProps = {
   applyAccess: 'free' | 'guest' | 'pro';
   canUseBalancedPreset: boolean;
   conditions: GeneratorConditions;
+  conditionSelectionLimit: number | null;
   history: readonly LottoHistoryDraw[];
   onApply: (conditions: GeneratorConditions) => void;
   onClose: () => void;
@@ -105,7 +107,6 @@ type ConditionSheetProps = {
   onRequestLogin: () => void;
   presentation?: 'modal' | 'screen';
   recommendationPromptVisible?: boolean;
-  selectionLimit: number;
   visible: boolean;
 };
 
@@ -175,18 +176,22 @@ function ConditionGroupHeader({ label }: { label: string }) {
 }
 
 function Section({
+  activationLocked = false,
   children,
   enabled,
   headerAction,
   hint,
+  onActivationLocked,
   onEnabledChange,
   onHelpPress,
   title,
 }: {
+  activationLocked?: boolean;
   children: React.ReactNode;
   enabled?: boolean;
   headerAction?: React.ReactNode;
   hint?: string;
+  onActivationLocked?: () => void;
   onEnabledChange?: (enabled: boolean) => void;
   onHelpPress?: () => void;
   title: string;
@@ -212,7 +217,13 @@ function Section({
               </View>
             ) : null}
             {enabled !== undefined && onEnabledChange ? (
-              <ConditionToggle enabled={enabled} onChange={onEnabledChange} title={title} />
+              <ConditionToggle
+                enabled={enabled}
+                locked={activationLocked && !enabled}
+                onChange={onEnabledChange}
+                onLockedPress={onActivationLocked}
+                title={title}
+              />
             ) : null}
           </View>
         ) : null}
@@ -586,6 +597,7 @@ function PreviewNumber({
 export function ConditionSheet({
   applyAccess,
   canUseBalancedPreset,
+  conditionSelectionLimit,
   conditions,
   history,
   onApply,
@@ -595,7 +607,6 @@ export function ConditionSheet({
   onRequestLogin,
   presentation = 'modal',
   recommendationPromptVisible = false,
-  selectionLimit,
   visible,
 }: ConditionSheetProps) {
   const styles = useThemedStyles(createStyles);
@@ -624,6 +635,7 @@ export function ConditionSheet({
   const [numberMode, setNumberMode] = useState<'fixed' | 'excluded'>('fixed');
   const [activeHelp, setActiveHelp] = useState<ConditionHelpKey | null>(null);
   const [accessBannerVisible, setAccessBannerVisible] = useState(true);
+  const [conditionLimitPromptVisible, setConditionLimitPromptVisible] = useState(false);
   const [page, setPage] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const contentScrollRef = useRef<ScrollView>(null);
@@ -653,14 +665,33 @@ export function ConditionSheet({
   const historicalSameEnding = SAME_ENDING_OPTIONS.find(([, label]) => label === conditionHelp.sameEnding.historicalLabel)?.[0];
   const historicalConsecutive = CONSECUTIVE_OPTIONS.find(([, label]) => label === conditionHelp.consecutivePattern.historicalLabel)?.[0];
   const helpContent = activeHelp ? conditionHelp[activeHelp] : null;
-  const update = (partial: Partial<GeneratorConditions>) => setDraft((current) => ({ ...current, ...partial }));
+  const enabledConditionCount = enabledGeneratorConditionCount(draft);
+  const conditionLimitReached = conditionSelectionLimit !== null
+    && enabledConditionCount >= conditionSelectionLimit;
+  const commitDraft = (next: GeneratorConditions) => {
+    const nextEnabledCount = enabledGeneratorConditionCount(next);
+    if (
+      conditionSelectionLimit !== null
+      && nextEnabledCount > conditionSelectionLimit
+      && nextEnabledCount > enabledConditionCount
+    ) {
+      setConditionLimitPromptVisible(true);
+      return;
+    }
+    setDraft(next);
+  };
+  const update = (partial: Partial<GeneratorConditions>) => commitDraft({ ...draft, ...partial });
   const sectionEnabled = (key: GeneratorSectionKey) => generatorSectionEnabled(draft, key);
   const setSectionEnabled = (key: GeneratorSectionKey, enabled: boolean) => {
-    setDraft((current) => ({
-      ...current,
-      enabledSections: { ...current.enabledSections, [key]: enabled },
-    }));
+    commitDraft({
+      ...draft,
+      enabledSections: { ...draft.enabledSections, [key]: enabled },
+    });
   };
+  const sectionAccessProps = (key: GeneratorSectionKey) => ({
+    activationLocked: conditionLimitReached && !sectionEnabled(key),
+    onActivationLocked: () => setConditionLimitPromptVisible(true),
+  });
   const revealPageTab = (nextPage: number) => {
     const layout = pageTabLayoutsRef.current[nextPage];
     const viewportWidth = pageTabsViewportWidthRef.current;
@@ -705,7 +736,7 @@ export function ConditionSheet({
   };
   const requestRecommendedPreset = () => {
     if (!canUseBalancedPreset) {
-      onRequestLogin();
+      onOpenPro();
       return;
     }
     applyRecommendedPreset();
@@ -743,25 +774,35 @@ export function ConditionSheet({
   const applyAccessLabel = applyAccess === 'pro'
     ? '결과 바로 보기'
     : '광고 후 결과 보기';
+  const handleApply = () => {
+    if (
+      conditionSelectionLimit !== null
+      && enabledGeneratorConditionCount(draft) > conditionSelectionLimit
+    ) {
+      setConditionLimitPromptVisible(true);
+      return;
+    }
+    onApply(cloneGeneratorConditions(draft));
+  };
   const accessBanner = applyAccess === 'guest'
     ? {
       action: '로그인',
-      description: '균형 프리셋과 기기 저장도 함께 이용할 수 있어요.',
+      description: '로그인하면 조건을 5개까지 선택하고 조합을 기기에 저장해요.',
       icon: 'person-outline' as const,
       onPress: onRequestLogin,
-      title: '로그인하고 최대 5개 조합 만들기',
+      title: '로그인하고 조건 5개 선택하기',
     }
     : applyAccess === 'free'
       ? {
         action: 'Pro 보기',
-        description: '광고 없이 결과를 보고 AI 해설에 이어서 질문하세요.',
+        description: '조건 제한 없이 균형 프리셋과 AI 해설을 이용해요.',
         icon: 'sparkles-outline' as const,
         onPress: onOpenPro,
-        title: 'Pro에서 AI에게 물어보기',
+        title: 'Pro로 조건 제한 없이 선택하기',
       }
       : {
         action: null,
-        description: '광고 없이 결과를 보고 AI 해설과 추가 질문을 이용해요.',
+        description: '조건 제한 없이 균형 프리셋과 AI 해설을 이용 중이에요.',
         icon: 'checkmark-circle-outline' as const,
         onPress: onOpenPro,
         title: 'Pro 이용 중',
@@ -855,14 +896,16 @@ export function ConditionSheet({
                 </Text>
                 {!canUseBalancedPreset ? (
                   <Text style={styles.recommendedPresetAccess}>
-                    게스트는 조건을 직접 설정할 수 있어요 · 균형 프리셋은 로그인 후 사용
+                    {applyAccess === 'guest'
+                      ? '로그인하면 조건 5개 · Pro는 조건 무제한과 균형 프리셋'
+                      : 'Pro에서 조건 제한 없이 균형 프리셋 사용'}
                   </Text>
                 ) : null}
               </View>
               <Pressable
                 accessibilityLabel={recommendedPresetActive
                   ? '균형 프리셋 적용됨'
-                  : canUseBalancedPreset ? '균형 프리셋 적용' : '로그인 후 균형 프리셋 사용'}
+                  : canUseBalancedPreset ? '균형 프리셋 적용' : 'Pro에서 균형 프리셋 사용'}
                 accessibilityRole="button"
                 accessibilityState={{ selected: recommendedPresetActive }}
                 onPress={requestRecommendedPreset}
@@ -879,7 +922,7 @@ export function ConditionSheet({
                 ]}>
                   {recommendedPresetActive
                     ? '✓ 적용됨'
-                    : canUseBalancedPreset ? '균형 프리셋' : '로그인 후 사용'}
+                    : canUseBalancedPreset ? '균형 프리셋' : 'Pro 전용'}
                 </Text>
               </Pressable>
             </View>
@@ -889,6 +932,7 @@ export function ConditionSheet({
               testID="condition-group-0">
               <ConditionGroupHeader label={PAGE_LABELS[0]} />
               <Section
+                {...sectionAccessProps('fixedExcluded')}
                 enabled={sectionEnabled('fixedExcluded')}
                 onEnabledChange={(enabled) => setSectionEnabled('fixedExcluded', enabled)}
                 onHelpPress={() => setActiveHelp('fixedExcluded')}
@@ -943,6 +987,7 @@ export function ConditionSheet({
               testID="condition-group-1">
               <ConditionGroupHeader label={PAGE_LABELS[1]} />
               <Section
+                {...sectionAccessProps('sameEnding')}
                 enabled={sectionEnabled('sameEnding')}
                 onEnabledChange={(enabled) => setSectionEnabled('sameEnding', enabled)}
                 onHelpPress={() => setActiveHelp('sameEnding')}
@@ -957,32 +1002,39 @@ export function ConditionSheet({
                 />
               </Section>
               <RangeControl
+                activationLocked={conditionLimitReached && !draft.standardDeviation.enabled}
                 decimals={1}
                 historicalPreset={rangePresets.standardDeviation}
                 limits={{ min: 1.7, max: 21.1 }}
                 onChange={(standardDeviation) => update({ standardDeviation })}
                 onHelpPress={() => setActiveHelp('standardDeviation')}
+                onLockedPress={() => setConditionLimitPromptVisible(true)}
                 step={0.1}
                 title="표준편차"
                 value={draft.standardDeviation}
               />
               <RangeControl
+                activationLocked={conditionLimitReached && !draft.sum.enabled}
                 historicalPreset={rangePresets.sum}
                 limits={{ min: 21, max: 255 }}
                 onChange={(sum) => update({ sum })}
                 onHelpPress={() => setActiveHelp('sum')}
+                onLockedPress={() => setConditionLimitPromptVisible(true)}
                 title="번호 총합"
                 value={draft.sum}
               />
               <RangeControl
+                activationLocked={conditionLimitReached && !draft.lastDigitSum.enabled}
                 historicalPreset={rangePresets.lastDigitSum}
                 limits={{ min: 2, max: 52 }}
                 onChange={(lastDigitSum) => update({ lastDigitSum })}
                 onHelpPress={() => setActiveHelp('lastDigitSum')}
+                onLockedPress={() => setConditionLimitPromptVisible(true)}
                 title="끝수 총합"
                 value={draft.lastDigitSum}
               />
               <Section
+                {...sectionAccessProps('oddEven')}
                 enabled={sectionEnabled('oddEven')}
                 onEnabledChange={(enabled) => setSectionEnabled('oddEven', enabled)}
                 onHelpPress={() => setActiveHelp('oddEven')}
@@ -996,6 +1048,7 @@ export function ConditionSheet({
                 />
               </Section>
               <Section
+                {...sectionAccessProps('lowHigh')}
                 enabled={sectionEnabled('lowHigh')}
                 onEnabledChange={(enabled) => setSectionEnabled('lowHigh', enabled)}
                 onHelpPress={() => setActiveHelp('lowHigh')}
@@ -1016,6 +1069,7 @@ export function ConditionSheet({
               testID="condition-group-2">
               <ConditionGroupHeader label={PAGE_LABELS[2]} />
               <Section
+                {...sectionAccessProps('acValue')}
                 enabled={sectionEnabled('acValue')}
                 hint="과거 1,237회 본번호 기준 8~10: 70.7%"
                 onEnabledChange={(enabled) => setSectionEnabled('acValue', enabled)}
@@ -1029,6 +1083,7 @@ export function ConditionSheet({
                 />
               </Section>
               <Section
+                {...sectionAccessProps('primeCount')}
                 enabled={sectionEnabled('primeCount')}
                 onEnabledChange={(enabled) => setSectionEnabled('primeCount', enabled)}
                 onHelpPress={() => setActiveHelp('primeCount')}
@@ -1037,6 +1092,7 @@ export function ConditionSheet({
                 <CountSelector label="소수 개수" onChange={(primeCounts) => update({ primeCounts })} selected={draft.primeCounts} visual />
               </Section>
               <Section
+                {...sectionAccessProps('squareCount')}
                 enabled={sectionEnabled('squareCount')}
                 onEnabledChange={(enabled) => setSectionEnabled('squareCount', enabled)}
                 onHelpPress={() => setActiveHelp('squareCount')}
@@ -1045,6 +1101,7 @@ export function ConditionSheet({
                 <CountSelector label="완전제곱수 개수" onChange={(squareCounts) => update({ squareCounts })} selected={draft.squareCounts} visual />
               </Section>
               <Section
+                {...sectionAccessProps('compositeCount')}
                 enabled={sectionEnabled('compositeCount')}
                 hint="1과 소수를 제외한 수"
                 onEnabledChange={(enabled) => setSectionEnabled('compositeCount', enabled)}
@@ -1055,6 +1112,7 @@ export function ConditionSheet({
               </Section>
               {([3, 4, 5] as const).map((multiple) => (
                 <Section
+                  {...sectionAccessProps(MULTIPLE_SECTION_KEYS[multiple])}
                   enabled={sectionEnabled(MULTIPLE_SECTION_KEYS[multiple])}
                   key={multiple}
                   onEnabledChange={(enabled) => setSectionEnabled(MULTIPLE_SECTION_KEYS[multiple], enabled)}
@@ -1077,6 +1135,7 @@ export function ConditionSheet({
               testID="condition-group-3">
               <ConditionGroupHeader label={PAGE_LABELS[3]} />
               <Section
+                {...sectionAccessProps('carryCount')}
                 enabled={sectionEnabled('carryCount')}
                 headerAction={(
                   <BonusToggle
@@ -1093,6 +1152,7 @@ export function ConditionSheet({
                 <CountSelector label="이월수 개수" onChange={(allowed) => update({ carry: { ...draft.carry, allowed } })} selected={draft.carry.allowed} visual />
               </Section>
               <Section
+                {...sectionAccessProps('neighborCount')}
                 enabled={sectionEnabled('neighborCount')}
                 headerAction={(
                   <BonusToggle
@@ -1109,6 +1169,7 @@ export function ConditionSheet({
                 <CountSelector label="이웃수 개수" onChange={(allowed) => update({ neighbor: { ...draft.neighbor, allowed } })} selected={draft.neighbor.allowed} visual />
               </Section>
               <Section
+                {...sectionAccessProps('consecutivePattern')}
                 enabled={sectionEnabled('consecutivePattern')}
                 hint="가장 긴 연속그룹 기준"
                 onEnabledChange={(enabled) => setSectionEnabled('consecutivePattern', enabled)}
@@ -1132,6 +1193,7 @@ export function ConditionSheet({
               <ConditionGroupHeader label={PAGE_LABELS[4]} />
               {GENERATOR_BAND_KEYS.map((band) => (
                 <Section
+                  {...sectionAccessProps(BAND_SECTION_KEYS[band])}
                   enabled={sectionEnabled(BAND_SECTION_KEYS[band])}
                   key={band}
                   onEnabledChange={(enabled) => setSectionEnabled(BAND_SECTION_KEYS[band], enabled)}
@@ -1146,6 +1208,7 @@ export function ConditionSheet({
                 </Section>
               ))}
               <Section
+                {...sectionAccessProps('pastRanks')}
                 enabled={sectionEnabled('pastRanks')}
                 hint="전체 과거 회차와 비교"
                 onEnabledChange={(enabled) => setSectionEnabled('pastRanks', enabled)}
@@ -1168,7 +1231,7 @@ export function ConditionSheet({
             <Pressable
               accessibilityLabel={`${activeConditionCount(draft)}개 조건 적용, ${applyAccessLabel}`}
               accessibilityRole="button"
-              onPress={() => onApply(cloneGeneratorConditions(draft))}
+              onPress={handleApply}
               style={styles.applyButton}>
               <Text style={styles.applyText}>{activeConditionCount(draft)}개 조건 적용</Text>
               <View style={styles.applyAccessBadge}>
@@ -1227,6 +1290,55 @@ export function ConditionSheet({
             </View>
           </View>
         ) : null}
+        {conditionLimitPromptVisible ? (
+          <View accessibilityViewIsModal style={styles.recommendationOverlay}>
+            <Pressable
+              accessibilityLabel="조건 선택 제한 안내 닫기"
+              onPress={() => setConditionLimitPromptVisible(false)}
+              style={styles.helpBackdrop}
+            />
+            <View
+              style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
+              testID="condition-limit-prompt">
+              <Text style={styles.recommendationEyebrow}>CONDITION LIMIT</Text>
+              <Text style={styles.recommendationTitle}>
+                {applyAccess === 'guest'
+                  ? '게스트는 조건을 2개까지 선택할 수 있어요'
+                  : '무료회원은 조건을 5개까지 선택할 수 있어요'}
+              </Text>
+              <Text style={styles.recommendationDescription}>
+                {applyAccess === 'guest'
+                  ? '로그인하면 조건을 5개까지 선택할 수 있어요. Pro에서는 조건을 제한 없이 선택하고 균형 프리셋도 사용할 수 있어요.'
+                  : 'Pro에서는 조건을 제한 없이 선택하고 균형 프리셋과 AI 조합 해설을 이용할 수 있어요.'}
+              </Text>
+              <Text style={styles.recommendationDisclaimer}>
+                지금 선택한 조건을 하나 끄면 다른 조건으로 바꿀 수 있어요.
+              </Text>
+              <View style={styles.recommendationActions}>
+                <Pressable
+                  accessibilityLabel="현재 회원 조건으로 계속 설정"
+                  accessibilityRole="button"
+                  onPress={() => setConditionLimitPromptVisible(false)}
+                  style={styles.recommendationCancelButton}>
+                  <Text style={styles.recommendationCancelText}>계속 설정</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={applyAccess === 'guest' ? '로그인하고 조건 5개 선택' : 'Pro 살펴보기'}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setConditionLimitPromptVisible(false);
+                    if (applyAccess === 'guest') onRequestLogin();
+                    else onOpenPro();
+                  }}
+                  style={styles.recommendationApplyButton}>
+                  <Text style={styles.recommendationApplyText}>
+                    {applyAccess === 'guest' ? '무료로 로그인' : 'Pro 살펴보기'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        ) : null}
         {recommendationPromptVisible ? (
           <View accessibilityViewIsModal style={styles.recommendationOverlay}>
             <View style={styles.helpBackdrop} />
@@ -1237,12 +1349,16 @@ export function ConditionSheet({
               <Text style={styles.recommendationTitle}>
                 {canUseBalancedPreset
                   ? '균형 프리셋을 적용할까요?'
-                  : '균형 프리셋은 로그인 후 사용할 수 있어요'}
+                  : applyAccess === 'guest'
+                    ? '게스트는 조건 2개로 직접 설정할 수 있어요'
+                    : '균형 프리셋은 Pro 전용이에요'}
               </Text>
               <Text style={styles.recommendationDescription}>
                 {canUseBalancedPreset
                   ? '표준편차·합계·홀짝·저고·A/C·연번을 과거 분포의 넓은 범위로 설정해요.'
-                  : `게스트도 조건을 직접 설정할 수 있고 한 번에 최대 ${selectionLimit}게임을 만들 수 있어요. 로그인하면 균형 프리셋과 최대 5게임을 이용할 수 있어요.`}
+                  : applyAccess === 'guest'
+                    ? '로그인하면 조건을 5개까지 직접 설정할 수 있어요. Pro에서는 조건 제한 없이 균형 프리셋을 사용할 수 있어요.'
+                    : 'Pro에서는 조건을 제한 없이 선택하고 균형 프리셋을 한 번에 적용할 수 있어요.'}
               </Text>
               <Text style={styles.recommendationDisclaimer}>
                 과거 통계를 참고한 탐색용 설정이며 당첨을 예측하지 않습니다.
@@ -1258,12 +1374,18 @@ export function ConditionSheet({
                   </Text>
                 </Pressable>
                 <Pressable
-                  accessibilityLabel={canUseBalancedPreset ? '균형 프리셋 적용' : '균형 프리셋 사용을 위해 로그인'}
+                  accessibilityLabel={canUseBalancedPreset
+                    ? '균형 프리셋 적용'
+                    : applyAccess === 'guest' ? '로그인하고 조건 5개 선택' : 'Pro 살펴보기'}
                   accessibilityRole="button"
-                  onPress={canUseBalancedPreset ? acceptRecommendedPreset : onRequestLogin}
+                  onPress={canUseBalancedPreset
+                    ? acceptRecommendedPreset
+                    : applyAccess === 'guest' ? onRequestLogin : onOpenPro}
                   style={styles.recommendationApplyButton}>
                   <Text style={styles.recommendationApplyText}>
-                    {canUseBalancedPreset ? '적용' : '무료로 로그인'}
+                    {canUseBalancedPreset
+                      ? '적용'
+                      : applyAccess === 'guest' ? '무료로 로그인' : 'Pro 살펴보기'}
                   </Text>
                 </Pressable>
               </View>

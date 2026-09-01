@@ -7,6 +7,7 @@ export type ProductAccess = {
   canUseAiExplanation: boolean;
   canUseCustomPeriod: boolean;
   combinationSelectionLimit: number;
+  conditionSelectionLimit: number | null;
   requiresRewardedAdForResults: boolean;
   storageMode: 'cloud' | 'device' | 'unavailable';
   tier: AccountTier;
@@ -14,6 +15,8 @@ export type ProductAccess = {
 
 export const GUEST_COMBINATION_SELECTION_LIMIT = 2;
 export const MEMBER_COMBINATION_SELECTION_LIMIT = 5;
+export const GUEST_CONDITION_SELECTION_LIMIT = 2;
+export const MEMBER_CONDITION_SELECTION_LIMIT = 5;
 
 export function accountTier({
   authenticated,
@@ -32,12 +35,15 @@ export function productAccessFor(tier: AccountTier): ProductAccess {
   return {
     canCompareCombinations: isPro,
     canSaveNumbers: authenticated,
-    canUseBalancedPreset: authenticated,
+    canUseBalancedPreset: isPro,
     canUseAiExplanation: isPro,
     canUseCustomPeriod: isPro,
     combinationSelectionLimit: authenticated
       ? MEMBER_COMBINATION_SELECTION_LIMIT
       : GUEST_COMBINATION_SELECTION_LIMIT,
+    conditionSelectionLimit: isPro
+      ? null
+      : authenticated ? MEMBER_CONDITION_SELECTION_LIMIT : GUEST_CONDITION_SELECTION_LIMIT,
     requiresRewardedAdForResults: !isPro,
     storageMode: isPro ? 'cloud' : authenticated ? 'device' : 'unavailable',
     tier,
