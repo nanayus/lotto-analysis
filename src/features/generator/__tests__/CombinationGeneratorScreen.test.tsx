@@ -30,6 +30,7 @@ let mockMonetizationState = { access: freeAccess, status: 'ready' as const };
 let mockIsPro = false;
 let mockIsGuest = false;
 const mockOpenLogin = jest.fn();
+const mockOpenPaywall = jest.fn();
 
 jest.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
@@ -40,6 +41,7 @@ jest.mock('@/features/auth/AuthContext', () => ({
 
 jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
+    openPaywall: mockOpenPaywall,
     productAccess: {
       canCompareCombinations: mockIsPro,
       canSaveNumbers: !mockIsGuest,
@@ -111,6 +113,7 @@ describe('CombinationGeneratorScreen', () => {
     mockIsPro = false;
     mockIsGuest = false;
     mockOpenLogin.mockClear();
+    mockOpenPaywall.mockClear();
   });
 
   test.each(PATTERN_CASES)('expands the %s visual pattern into six grouped numbers', (pattern, expected) => {
@@ -126,6 +129,25 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByRole('button', { name: '3개 조건 적용, 광고 후 결과 보기' })).toBeTruthy();
     expect(screen.getByText('광고 후 결과 보기')).toBeTruthy();
+  });
+
+  test('keeps the header, access banner, and tabs outside the vertical condition scroller', async () => {
+    const screen = await renderScreen();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+
+    const conditionContent = screen.getByTestId('condition-content');
+    expect(screen.getAllByTestId('sub-screen-header').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('condition-access-banner')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '번호' })).toBeTruthy();
+    expect(within(conditionContent).queryByRole('tab', { name: '번호' })).toBeNull();
+
+    expect(screen.getByText('Pro에서 AI에게 물어보기')).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByText('Pro 보기')); });
+    expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
+
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '회원 혜택 안내 닫기' })); });
+    expect(screen.queryByTestId('condition-access-banner')).toBeNull();
+    expect(screen.getByRole('tab', { name: '번호' })).toBeTruthy();
   });
 
   test('shows unlimited access for Pro users', async () => {
@@ -238,6 +260,8 @@ describe('CombinationGeneratorScreen', () => {
 
     expect(screen.getByText('균형 프리셋은 로그인 후 사용할 수 있어요')).toBeTruthy();
     expect(screen.getByText(/게스트도 조건을 직접 설정할 수 있고 한 번에 최대 2게임/)).toBeTruthy();
+    expect(screen.getByText('로그인하고 최대 5개 조합 만들기', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText('균형 프리셋과 기기 저장도 함께 이용할 수 있어요.', { includeHiddenElements: true })).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: '균형 프리셋 사용을 위해 로그인' }));

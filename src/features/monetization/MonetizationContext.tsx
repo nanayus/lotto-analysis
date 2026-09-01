@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
+import { Platform } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthContext';
 import { functions } from '@/features/auth/firebaseClient';
@@ -36,8 +37,11 @@ type MonetizationValue = {
   productAccess: ProductAccess;
   refresh: () => Promise<void>;
   rewardedAdsAvailable: boolean;
+  showRewardedAd: () => Promise<boolean>;
   state: MonetizationState;
 };
+
+const rewardedAdTestFallbackAvailable = Platform.OS === 'web' || __DEV__;
 
 const EMPTY_ACCESS_STATE: MonetizationAccessState = {
   canApplyReferralCode: false,
@@ -63,6 +67,7 @@ const fallbackValue: MonetizationValue = {
   productAccess: productAccessFor('guest'),
   refresh: async () => undefined,
   rewardedAdsAvailable: false,
+  showRewardedAd: async () => false,
   state: { status: 'guest' },
 };
 
@@ -225,6 +230,12 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setReferralPromptError(null);
     setReferralCodeVisible(false);
   }, [isApplyingReferral]);
+  const showRewardedAd = useCallback(async () => {
+    if (!rewardedAdTestFallbackAvailable) return false;
+    // Native AdMob 연결 전에도 웹과 개발 빌드에서 결과 공개 흐름을 끝까지 검증한다.
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    return true;
+  }, []);
   const tier = accountTier({
     authenticated: authState.status === 'authenticated',
     isPro: state.status === 'ready' && state.access.isPro,
@@ -243,7 +254,8 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     paywallSource,
     productAccess,
     refresh,
-    rewardedAdsAvailable: false,
+    rewardedAdsAvailable: rewardedAdTestFallbackAvailable,
+    showRewardedAd,
     state,
   }), [
     applyReferral,
@@ -257,6 +269,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     paywallSource,
     productAccess,
     refresh,
+    showRewardedAd,
     state,
   ]);
 

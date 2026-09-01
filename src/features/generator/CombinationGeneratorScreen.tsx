@@ -90,7 +90,7 @@ export function CombinationGeneratorScreen({
   const { setNumbers } = useCombinationDraft();
   const { openLogin } = useAuth();
   const { addCombination } = useNumberLibrary();
-  const { productAccess } = useMonetization();
+  const { openPaywall, productAccess } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
   const [conditions, setConditions] = useState(
     () => restoreConditions(sessionToken) ?? buildGeneratorConditionDefaults(lottoHistory),
@@ -266,6 +266,7 @@ export function CombinationGeneratorScreen({
             history={lottoHistory}
             onApply={applyConditions}
             onClose={leaveDirectConditionSelection}
+            onOpenPro={() => openPaywall('condition-ai-explanation')}
             onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
             onRequestLogin={() => openLogin('balanced-preset')}
             presentation="screen"
@@ -484,6 +485,7 @@ export function CombinationGeneratorScreen({
           history={lottoHistory}
           onApply={applyConditions}
           onClose={() => setSheetVisible(false)}
+          onOpenPro={() => openPaywall('condition-ai-explanation')}
           onRequestLogin={() => openLogin('balanced-preset')}
           selectionLimit={productAccess.combinationSelectionLimit}
           visible

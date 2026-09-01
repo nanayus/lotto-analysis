@@ -105,6 +105,8 @@ export function CombinationScreen() {
     openPaywall,
     productAccess,
     refresh: refreshMonetization,
+    rewardedAdsAvailable,
+    showRewardedAd,
     state: monetizationState,
   } = useMonetization();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
@@ -118,7 +120,9 @@ export function CombinationScreen() {
   const [analysisAccessRequired, setAnalysisAccessRequired] = useState(false);
   const [analysisLoginRequired, setAnalysisLoginRequired] = useState(false);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
+  const [rewardedAdMessage, setRewardedAdMessage] = useState<string | null>(null);
   const [isAuthorizing, setAuthorizing] = useState(false);
+  const [isWatchingRewardedAd, setWatchingRewardedAd] = useState(false);
   const [analysisLibraryId, setAnalysisLibraryId] = useState<string | null>(null);
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
@@ -169,6 +173,7 @@ export function CombinationScreen() {
     setAnalysisAccessRequired(false);
     setAnalysisLoginRequired(false);
     setAccessMessage(null);
+    setRewardedAdMessage(null);
     try {
       const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
       if (analyzeToken) await waitForGeneratedTransition(transitionStartedAt);
@@ -325,7 +330,8 @@ export function CombinationScreen() {
         : analysisLoginRequired
           ? 'login'
         : manualEntryPhase ?? (analyzeToken ? 'invalid' : null);
-  const transitionErrorMessage = accessMessage
+  const transitionErrorMessage = rewardedAdMessage
+    ?? accessMessage
     ?? (monetizationState.status === 'error' ? monetizationState.error : null);
 
   const restartInvalidAnalysis = useCallback(() => {
@@ -360,6 +366,27 @@ export function CombinationScreen() {
     restartInvalidAnalysis,
   ]);
 
+  const watchRewardedAd = useCallback(async () => {
+    if (isWatchingRewardedAd) return;
+    setWatchingRewardedAd(true);
+    setRewardedAdMessage(null);
+    try {
+      const completed = await showRewardedAd();
+      if (!completed) {
+        setRewardedAdMessage('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      executeAnalysis();
+      if (Platform.OS !== 'web') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setRewardedAdMessage('광고 재생을 완료하지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      setWatchingRewardedAd(false);
+    }
+  }, [executeAnalysis, isWatchingRewardedAd, showRewardedAd]);
+
   const savedAnalysisCombination = analysisLibraryId
     ? combinations.find((item) => item.id === analysisLibraryId)
     : undefined;
@@ -383,7 +410,10 @@ export function CombinationScreen() {
               onContinue={continueGeneratedAnalysis}
               onLater={leaveCombination}
               onOpenPro={() => openPaywall('analysis-limit')}
+              onWatchAd={() => void watchRewardedAd()}
               phase={analysisTransitionPhase}
+              rewardedAdAvailable={rewardedAdsAvailable}
+              rewardedAdLoading={isWatchingRewardedAd}
             />
           ) : (
             <NumberSelector

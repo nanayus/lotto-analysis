@@ -28,7 +28,7 @@ const PRO_FEATURES = [
 
 export function MonetizationSettingsSection() {
   const styles = useThemedStyles(createStyles);
-  const { state: authState } = useAuth();
+  const { openLogin, state: authState } = useAuth();
   const { openPaywall, productAccess, refresh, state } = useMonetization();
   const authenticated = authState.status === 'authenticated';
   const isPro = productAccess.tier === 'pro';
@@ -63,15 +63,17 @@ export function MonetizationSettingsSection() {
                     ? '광고 없이 더 깊게 분석하고 모든 기기에서 이어보세요.'
                     : authenticated
                       ? '광고 후 결과를 보고, 내 번호는 이 기기에 저장돼요.'
-                      : '두 조합까지 선택할 수 있으며 번호는 저장되지 않아요.'}
+                      : '광고 후 결과를 보고, 한 번에 최대 2개 조합을 만들 수 있어요.'}
                 </Text>
               </View>
               {!isPro ? (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => openPaywall('settings')}
+                  onPress={() => authenticated
+                    ? openPaywall('settings')
+                    : openLogin('settings-plan')}
                   style={({ pressed }) => [styles.proAction, pressed && styles.pressed]}>
-                  <Text style={styles.proActionText}>Pro</Text>
+                  <Text style={styles.proActionText}>{authenticated ? 'Pro' : '로그인'}</Text>
                 </Pressable>
               ) : <Ionicons color={styles.accent.color} name="checkmark-circle" size={25} />}
             </View>

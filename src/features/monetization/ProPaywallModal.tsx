@@ -13,6 +13,7 @@ const BENEFITS = [
 const SOURCE_TITLES: Record<string, string> = {
   'ai-combination-explanation': 'AI가 조합 통계를 쉽게 풀어드려요',
   'combination-comparison': '두 조합의 차이를 한눈에 비교하세요',
+  'condition-ai-explanation': '만든 조합을 AI에게 물어보세요',
   'custom-period': '원하는 회차만 골라서 분석하세요',
   'library-cloud': '내 번호를 모든 기기에서 이어보세요',
 };

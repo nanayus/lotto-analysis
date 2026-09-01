@@ -11,6 +11,7 @@ import {
 
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
+const mockShowRewardedAd = jest.fn(async () => true);
 let mockIsPro = true;
 let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'REWARD_OR_PRO_REQUIRED' = 'AUTHORIZED_PRO';
 const mockAuthorizeAnalysis = jest.fn(async () => ({
@@ -72,6 +73,8 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
       tier: mockAuthStatus === 'authenticated' && mockIsPro ? 'pro' : mockAuthStatus === 'authenticated' ? 'free' : 'guest',
     },
     refresh: jest.fn(async () => undefined),
+    rewardedAdsAvailable: true,
+    showRewardedAd: mockShowRewardedAd,
     state: {
       status: 'ready',
       access: {
@@ -109,6 +112,7 @@ describe('CombinationScreen', () => {
     mockAuthStatus = 'authenticated';
     mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
+    mockShowRewardedAd.mockClear();
     mockAuthorizeAnalysis.mockClear();
     mockIsPro = true;
     mockAuthorizationDecision = 'AUTHORIZED_PRO';
@@ -210,7 +214,7 @@ describe('CombinationScreen', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/draw');
   });
 
-  test('shows the access choices without calculating when free analysis is exhausted', async () => {
+  test('offers an active rewarded-ad path without calculating early', async () => {
     mockIsPro = false;
     mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
     const screen = await render(
@@ -222,7 +226,8 @@ describe('CombinationScreen', () => {
     await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
     expect(screen.getByTestId('generated-analysis-transition')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pro 살펴보기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '광고 보고 이번 결과 보기, 광고 연결 준비 중' })).toBeDisabled();
+    const rewardButton = screen.getByRole('button', { name: '광고 보고 이번 결과 보기' });
+    expect(rewardButton).toBeEnabled();
     expect(screen.getByRole('button', { name: '다음에 하기' })).toBeTruthy();
     expect(screen.getByTestId('access-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText('이용 방법 보기')).toBeNull();
@@ -231,6 +236,8 @@ describe('CombinationScreen', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' }));
     expect(mockOpenPaywall).toHaveBeenCalledWith('analysis-limit');
+
+    expect(mockShowRewardedAd).not.toHaveBeenCalled();
   });
 
   test('uses the full access page when a direct manual analysis is denied', async () => {

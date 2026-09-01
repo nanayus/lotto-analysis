@@ -18,7 +18,10 @@ type GeneratedAnalysisTransitionProps = {
   onContinue: () => void;
   onLater: () => void;
   onOpenPro: () => void;
+  onWatchAd: () => void;
   phase: GeneratedAnalysisPhase;
+  rewardedAdAvailable: boolean;
+  rewardedAdLoading: boolean;
 };
 
 const COPY = {
@@ -51,7 +54,10 @@ export function GeneratedAnalysisTransition({
   onContinue,
   onLater,
   onOpenPro,
+  onWatchAd,
   phase,
+  rewardedAdAvailable,
+  rewardedAdLoading,
 }: GeneratedAnalysisTransitionProps) {
   const styles = useThemedStyles(createStyles);
   const copy = COPY[phase];
@@ -100,14 +106,26 @@ export function GeneratedAnalysisTransition({
           <View style={styles.accessActions}>
             <AppButton label="Pro 살펴보기" onPress={onOpenPro} />
             <Pressable
-              accessibilityLabel="광고 보고 이번 결과 보기, 광고 연결 준비 중"
+              accessibilityLabel={rewardedAdLoading
+                ? '광고 확인 중'
+                : rewardedAdAvailable ? '광고 보고 이번 결과 보기' : '광고를 불러올 수 없음'}
               accessibilityRole="button"
-              accessibilityState={{ disabled: true }}
-              disabled
-              style={styles.rewardButtonDisabled}>
-              <Ionicons color={styles.rewardIcon.color} name="play-circle-outline" size={20} />
-              <Text style={styles.rewardButtonText}>광고 보고 이번 결과 보기</Text>
-              <Text style={styles.rewardStatus}>준비 중</Text>
+              accessibilityState={{ disabled: rewardedAdLoading || !rewardedAdAvailable }}
+              disabled={rewardedAdLoading || !rewardedAdAvailable}
+              onPress={onWatchAd}
+              style={({ pressed }) => [
+                styles.rewardButton,
+                (!rewardedAdAvailable || rewardedAdLoading) && styles.rewardButtonDisabled,
+                pressed && styles.pressed,
+              ]}>
+              {rewardedAdLoading ? (
+                <ActivityIndicator color={styles.rewardIcon.color} size="small" />
+              ) : (
+                <Ionicons color={styles.rewardIcon.color} name="play-circle-outline" size={20} />
+              )}
+              <Text style={styles.rewardButtonText}>
+                {rewardedAdLoading ? '광고 확인 중' : '광고 보고 이번 결과 보기'}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -135,10 +153,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberCard: { width: '100%', marginTop: spacing.xl, padding: spacing.lg },
   action: { width: '100%', marginTop: spacing.xl },
   accessActions: { width: '100%', marginTop: spacing.xl, gap: spacing.sm },
-  rewardButtonDisabled: { minHeight: 44, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.accentBorder, borderRadius: radius.round, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.surfaceAccent, opacity: 0.68 },
+  rewardButton: { minHeight: 44, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.accentBorder, borderRadius: radius.round, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.surfaceAccent },
+  rewardButtonDisabled: { opacity: 0.52 },
   rewardIcon: { color: colors.accentPrimary },
   rewardButtonText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  rewardStatus: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.round, color: colors.textTertiary, fontSize: 10, fontWeight: typography.weights.semibold, backgroundColor: colors.surface },
   laterButton: { height: 42, alignItems: 'center', justifyContent: 'center' },
   laterText: { color: colors.textSecondary, fontSize: typography.sizes.small },
   pressed: { opacity: 0.7 },

@@ -98,6 +98,7 @@ type ConditionSheetProps = {
   history: readonly LottoHistoryDraw[];
   onApply: (conditions: GeneratorConditions) => void;
   onClose: () => void;
+  onOpenPro: () => void;
   onRecommendationPromptDismiss?: () => void;
   onRequestLogin: () => void;
   presentation?: 'modal' | 'screen';
@@ -587,6 +588,7 @@ export function ConditionSheet({
   history,
   onApply,
   onClose,
+  onOpenPro,
   onRecommendationPromptDismiss,
   onRequestLogin,
   presentation = 'modal',
@@ -607,6 +609,7 @@ export function ConditionSheet({
   const [draft, setDraft] = useState(() => cloneGeneratorConditions(conditions));
   const [numberMode, setNumberMode] = useState<'fixed' | 'excluded'>('fixed');
   const [activeHelp, setActiveHelp] = useState<ConditionHelpKey | null>(null);
+  const [accessBannerVisible, setAccessBannerVisible] = useState(true);
   const [page, setPage] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const contentScrollRef = useRef<ScrollView>(null);
@@ -726,6 +729,29 @@ export function ConditionSheet({
   const applyAccessLabel = applyAccess === 'pro'
     ? '결과 바로 보기'
     : '광고 후 결과 보기';
+  const accessBanner = applyAccess === 'guest'
+    ? {
+      action: '로그인',
+      description: '균형 프리셋과 기기 저장도 함께 이용할 수 있어요.',
+      icon: 'person-outline' as const,
+      onPress: onRequestLogin,
+      title: '로그인하고 최대 5개 조합 만들기',
+    }
+    : applyAccess === 'free'
+      ? {
+        action: 'Pro 보기',
+        description: '광고 없이 결과를 보고 AI 해설에 이어서 질문하세요.',
+        icon: 'sparkles-outline' as const,
+        onPress: onOpenPro,
+        title: 'Pro에서 AI에게 물어보기',
+      }
+      : {
+        action: null,
+        description: '광고 없이 결과를 보고 AI 해설과 추가 질문을 이용해요.',
+        icon: 'checkmark-circle-outline' as const,
+        onPress: onOpenPro,
+        title: 'Pro 이용 중',
+      };
 
   const editorContent = (
       <SafeAreaView edges={presentation === 'screen' ? [] : undefined} style={styles.editorSafeArea}>
@@ -744,6 +770,57 @@ export function ConditionSheet({
             )}
             title="조건 선택"
           />
+          {accessBannerVisible ? (
+            <View style={styles.accessBanner} testID="condition-access-banner">
+              <View style={styles.accessBannerIcon}>
+                <Ionicons color={styles.accessBannerIconColor.color} name={accessBanner.icon} size={18} />
+              </View>
+              <View style={styles.accessBannerCopy}>
+                <Text style={styles.accessBannerTitle}>{accessBanner.title}</Text>
+                <Text style={styles.accessBannerDescription}>{accessBanner.description}</Text>
+              </View>
+              {accessBanner.action ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={accessBanner.onPress}
+                  style={({ pressed }) => [styles.accessBannerAction, pressed && styles.pressed]}>
+                  <Text style={styles.accessBannerActionText}>{accessBanner.action}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityLabel="회원 혜택 안내 닫기"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setAccessBannerVisible(false)}
+                style={({ pressed }) => [styles.accessBannerClose, pressed && styles.pressed]}>
+                <Ionicons color={styles.accessBannerCloseColor.color} name="close" size={18} />
+              </Pressable>
+            </View>
+          ) : null}
+          <ScrollView
+            contentContainerStyle={styles.pageTabsContent}
+            horizontal
+            onLayout={(event) => {
+              pageTabsViewportWidthRef.current = event.nativeEvent.layout.width;
+              revealPageTab(pageRef.current);
+            }}
+            ref={pageTabsRef}
+            showsHorizontalScrollIndicator={false}
+            style={styles.pageTabs}>
+            {PAGE_LABELS.map((label, index) => (
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: page === index }}
+                key={label}
+                onLayout={(event) => {
+                  pageTabLayoutsRef.current[index] = event.nativeEvent.layout;
+                }}
+                onPress={() => goToPage(index)}
+                style={[styles.pageTab, page === index && styles.pageTabActive]}>
+                <Text style={[styles.pageTabText, page === index && styles.pageTabTextActive]}>{label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
           <ScrollView
             contentContainerStyle={styles.conditionContent}
             onScroll={syncPageWithScroll}
@@ -752,6 +829,7 @@ export function ConditionSheet({
             showsVerticalScrollIndicator={false}
             style={styles.conditionScroll}
             testID="condition-content">
+            <Text style={styles.editorSubtitle}>선택하지 않은 항목은 제한 없이 적용돼요.</Text>
             <View style={[
               styles.recommendedPreset,
               recommendedPresetActive && styles.recommendedPresetActive,
@@ -791,31 +869,6 @@ export function ConditionSheet({
                 </Text>
               </Pressable>
             </View>
-            <ScrollView
-              contentContainerStyle={styles.pageTabsContent}
-              horizontal
-              onLayout={(event) => {
-                pageTabsViewportWidthRef.current = event.nativeEvent.layout.width;
-                revealPageTab(pageRef.current);
-              }}
-              ref={pageTabsRef}
-              showsHorizontalScrollIndicator={false}
-              style={styles.pageTabs}>
-              {PAGE_LABELS.map((label, index) => (
-                <Pressable
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: page === index }}
-                  key={label}
-                  onLayout={(event) => {
-                    pageTabLayoutsRef.current[index] = event.nativeEvent.layout;
-                  }}
-                  onPress={() => goToPage(index)}
-                  style={[styles.pageTab, page === index && styles.pageTabActive]}>
-                  <Text style={[styles.pageTabText, page === index && styles.pageTabTextActive]}>{label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <Text style={styles.editorSubtitle}>선택하지 않은 항목은 제한 없이 적용돼요.</Text>
             <View
               onLayout={(event) => { pageOffsetsRef.current[0] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
@@ -1221,18 +1274,43 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.caption,
     lineHeight: 18,
     marginTop: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     paddingHorizontal: spacing.xl,
   },
   resetButton: { width: 52, height: 44, alignItems: 'center', justifyContent: 'center' },
   resetIcon: { color: colors.textSecondary },
+  accessBanner: {
+    minHeight: 74, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingLeft: spacing.xl, paddingRight: spacing.sm, paddingVertical: spacing.md,
+    borderBottomWidth: 1, borderBottomColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
+  },
+  accessBannerIcon: {
+    width: 34, height: 34, flexShrink: 0, borderRadius: radius.round,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface,
+  },
+  accessBannerIconColor: { color: colors.accentPrimary },
+  accessBannerCopy: { flex: 1, minWidth: 0 },
+  accessBannerTitle: {
+    color: colors.textPrimary, fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold, lineHeight: 18,
+  },
+  accessBannerDescription: { marginTop: 2, color: colors.textSecondary, fontSize: 9, lineHeight: 14 },
+  accessBannerAction: {
+    minHeight: 34, flexShrink: 0, paddingHorizontal: spacing.md, borderRadius: radius.round,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary,
+  },
+  accessBannerActionText: { color: '#FFFFFF', fontSize: 10, fontWeight: typography.weights.bold },
+  accessBannerClose: { width: 34, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
+  accessBannerCloseColor: { color: colors.textSecondary },
   recommendedPreset: {
     minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    paddingHorizontal: spacing.xl, paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider,
+    marginHorizontal: spacing.xl, marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.md,
     backgroundColor: colors.surface,
   },
-  recommendedPresetActive: { borderBottomColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
+  recommendedPresetActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   recommendedPresetCopy: { flex: 1, minWidth: 0 },
   recommendedPresetEyebrow: {
     marginBottom: 3, color: colors.accentPrimary, fontSize: 8,
