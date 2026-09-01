@@ -73,7 +73,7 @@ function TabsNavigator() {
   const styles = useThemedStyles(createStyles);
   const { hidden, show } = useTabBarVisibility();
   const [hiddenProgress] = useState(() => new Animated.Value(0));
-  const tabBarBottom = Math.max(insets.bottom, spacing.md);
+  const tabBarBottom = Math.max(insets.bottom - spacing.lg, spacing.sm);
 
   useEffect(() => {
     Animated.timing(hiddenProgress, {
@@ -86,6 +86,7 @@ function TabsNavigator() {
 
   return (
     <Tabs
+      safeAreaInsets={{ bottom: 0 }}
       screenListeners={{
         focus: show,
         state: show,
@@ -99,7 +100,9 @@ function TabsNavigator() {
         headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.neutral,
+        tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: styles.tabLabel,
+        tabBarShowLabel: true,
         tabBarStyle: [
           styles.tabBar,
           {
