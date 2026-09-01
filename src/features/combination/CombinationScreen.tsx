@@ -303,9 +303,7 @@ export function CombinationScreen() {
 
   const analysisAvailabilityLabel = productAccess.tier === 'pro'
     ? 'Pro · 광고 없이 결과 보기'
-    : productAccess.tier === 'free'
-      ? '무료회원 · 광고 후 결과 공개'
-      : '게스트 · 광고 후 결과 공개';
+    : '게스트 · 광고 후 결과 공개';
   const requestedAnalysisHasNumbers = Boolean(analyzeToken && selectedNumbers.length === 6);
   const authorizationPhase: GeneratedAnalysisPhase = accessMessage
     ? 'error'
@@ -446,7 +444,6 @@ export function CombinationScreen() {
                 favorite={savedAnalysisCombination?.favorite}
                 firstRound={firstRound}
                 isPro={productAccess.tier === 'pro'}
-                onOpenLogin={() => openLogin('result-storage')}
                 latestRound={latestRound}
                 onBack={leaveCombination}
                 onBonusChange={changeBonus}
@@ -460,7 +457,6 @@ export function CombinationScreen() {
                 onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}
                 purchased={savedAnalysisCombination?.purchased}
-                showAccountPrompt={authState.status === 'guest'}
               />
             </Animated.View>
           ) : mode.kind === 'history' || mode.kind === 'prizeRank' ? (

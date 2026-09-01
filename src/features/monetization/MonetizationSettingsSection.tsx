@@ -1,81 +1,54 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useAuth } from '@/features/auth/AuthContext';
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
 
 import { useMonetization } from './MonetizationContext';
 
-const FREE_FEATURES = [
-  { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
-  { icon: 'layers-outline', label: '한 번에 최대 5개 조합 생성' },
-  { icon: 'options-outline', label: '생성 조건을 최대 5개까지 선택' },
-  { icon: 'phone-portrait-outline', label: '내 번호를 이 기기에 저장' },
-] as const;
-
 const GUEST_FEATURES = [
-  { icon: 'play-circle-outline', label: '광고 후 완전한 분석 결과 공개' },
-  { icon: 'options-outline', label: '생성 조건을 최대 2개까지 선택' },
-  { icon: 'layers-outline', label: '한 번에 최대 2개 조합 생성' },
+  { icon: 'play-circle-outline', label: '광고 후 분석 결과 확인' },
+  { icon: 'options-outline', label: '조건 2개 · 조합 2개' },
+  { icon: 'phone-portrait-outline', label: '내 번호 기기 저장' },
 ] as const;
 
 const PRO_FEATURES = [
-  { icon: 'ban-outline', label: '모든 결과를 광고 없이 바로 확인' },
-  { icon: 'layers-outline', label: '한 번에 최대 5개 조합 생성' },
-  { icon: 'options-outline', label: '조건 제한 없음과 균형 프리셋' },
-  { icon: 'sparkles-outline', label: 'AI 조합 해설과 추가 질문' },
-  { icon: 'git-compare-outline', label: '조합 비교와 회차 직접 선택' },
-  { icon: 'cloud-done-outline', label: '클라우드 저장과 기기간 동기화' },
+  { icon: 'ban-outline', label: '광고 없이 결과 확인' },
+  { icon: 'options-outline', label: '조건 무제한 · 균형 프리셋' },
+  { icon: 'sparkles-outline', label: 'AI 해설 · 조합 비교 · Custom' },
+  { icon: 'cloud-done-outline', label: '클라우드 저장 · 기기간 동기화' },
 ] as const;
 
 export function MonetizationSettingsSection() {
   const styles = useThemedStyles(createStyles);
-  const { openLogin, state: authState } = useAuth();
-  const { openPaywall, productAccess, refresh, state } = useMonetization();
-  const authenticated = authState.status === 'authenticated';
+  const { openPaywall, productAccess } = useMonetization();
   const isPro = productAccess.tier === 'pro';
-  const features = isPro ? PRO_FEATURES : authenticated ? FREE_FEATURES : GUEST_FEATURES;
+  const features = isPro ? PRO_FEATURES : GUEST_FEATURES;
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>이용 플랜</Text>
       <View style={styles.card}>
-        {authenticated && state.status === 'loading' ? (
-          <ActivityIndicator color={styles.accent.color} style={styles.loading} />
-        ) : authenticated && state.status === 'error' ? (
-          <View style={styles.errorState}>
-            <Text style={styles.planName}>이용 정보를 불러오지 못했어요</Text>
-            <Text style={styles.planDescription}>{state.error}</Text>
-            <Pressable onPress={() => void refresh()} style={styles.retryButton}>
-              <Text style={styles.retryText}>다시 시도</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <>
+        <>
             <View style={styles.planHeader}>
               <View style={styles.planCopy}>
                 <View style={styles.planTitleRow}>
                   <Text style={styles.planName}>
-                    {isPro ? 'Pro' : authenticated ? '무료회원' : '게스트'}
+                    {isPro ? 'Pro' : '게스트'}
                   </Text>
                   {isPro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
                 </View>
                 <Text style={styles.planDescription}>
                   {isPro
-                    ? '광고 없이 더 깊게 분석하고 모든 기기에서 이어보세요.'
-                    : authenticated
-                      ? '광고 후 결과를 보고, 내 번호는 이 기기에 저장돼요.'
-                      : '광고 후 결과를 보고, 조건 2개로 조합을 만들 수 있어요.'}
+                    ? '광고 없이 모든 기기에서 이어봐요.'
+                    : '광고 후 결과를 확인해요.'}
                 </Text>
               </View>
               {!isPro ? (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => authenticated
-                    ? openPaywall('settings')
-                    : openLogin('settings-plan')}
+                  onPress={() => openPaywall('settings')}
                   style={({ pressed }) => [styles.proAction, pressed && styles.pressed]}>
-                  <Text style={styles.proActionText}>{authenticated ? 'Pro' : '로그인'}</Text>
+                  <Text style={styles.proActionText}>Pro</Text>
                 </Pressable>
               ) : <Ionicons color={styles.accent.color} name="checkmark-circle" size={25} />}
             </View>
@@ -99,8 +72,7 @@ export function MonetizationSettingsSection() {
                 <Ionicons color={styles.accent.color} name="chevron-forward" size={15} />
               </Pressable>
             ) : null}
-          </>
-        )}
+        </>
       </View>
     </View>
   );
@@ -110,9 +82,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   section: { marginBottom: spacing.xxl },
   sectionLabel: { marginBottom: spacing.sm, marginLeft: spacing.xs, color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   card: { overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.lg, backgroundColor: colors.surface },
-  loading: { marginVertical: spacing.xl },
   accent: { color: colors.accentPrimary },
-  errorState: { padding: spacing.lg },
   planHeader: { minHeight: 88, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   planCopy: { flex: 1 },
   planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -129,7 +99,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   featureText: { flex: 1, color: colors.textPrimary, fontSize: typography.sizes.small, lineHeight: 20 },
   benefitAction: { minHeight: 48, paddingHorizontal: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   benefitActionText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  retryButton: { alignSelf: 'flex-start', marginTop: spacing.md },
-  retryText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   pressed: { opacity: 0.7 },
 });

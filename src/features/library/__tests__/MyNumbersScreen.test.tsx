@@ -36,7 +36,7 @@ describe('MyNumbersScreen', () => {
   beforeEach(() => {
     mockUseMonetization.mockReturnValue({
       openPaywall: jest.fn(),
-      productAccess: productAccessFor('free'),
+      productAccess: productAccessFor('guest'),
     } as unknown as ReturnType<typeof useMonetization>);
   });
 
@@ -101,7 +101,7 @@ describe('MyNumbersScreen', () => {
     });
   });
 
-  test('labels every free-member result as requiring an ad', async () => {
+  test('labels every guest result as requiring an ad', async () => {
     const setNumbers = jest.fn();
     mockUseCombinationDraft.mockReturnValue({
       addNumber: jest.fn(),
@@ -113,7 +113,7 @@ describe('MyNumbersScreen', () => {
     });
     mockUseMonetization.mockReturnValue({
       openPaywall: jest.fn(),
-      productAccess: productAccessFor('free'),
+      productAccess: productAccessFor('guest'),
     } as unknown as ReturnType<typeof useMonetization>);
     mockUseNumberLibrary.mockReturnValue({
       addCombination: jest.fn(() => undefined),

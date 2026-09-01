@@ -7,7 +7,7 @@ import { MainTabHeader, SubScreenHeader, TOP_BAR_HEIGHT } from '../AppTopBar';
 
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
-let mockTier: 'free' | 'pro' = 'free';
+let mockTier: 'guest' | 'pro' = 'guest';
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
@@ -72,7 +72,7 @@ describe('MainTabHeader', () => {
     mockNavigate.mockClear();
     mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
-    mockTier = 'free';
+    mockTier = 'guest';
   });
 
   test('opens settings when an authenticated user presses the account area', async () => {

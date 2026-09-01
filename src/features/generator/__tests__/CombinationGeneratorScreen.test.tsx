@@ -44,15 +44,15 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     openPaywall: mockOpenPaywall,
     productAccess: {
       canCompareCombinations: mockIsPro,
-      canSaveNumbers: !mockIsGuest,
+      canSaveNumbers: true,
       canUseBalancedPreset: mockIsPro,
       canUseAiExplanation: mockIsPro,
       canUseCustomPeriod: mockIsPro,
-      combinationSelectionLimit: mockIsGuest ? 2 : 5,
-      conditionSelectionLimit: mockIsPro ? null : mockIsGuest ? 2 : 5,
+      combinationSelectionLimit: mockIsPro ? 5 : 2,
+      conditionSelectionLimit: mockIsPro ? null : 2,
       requiresRewardedAdForResults: !mockIsPro,
-      storageMode: mockIsPro ? 'cloud' : mockIsGuest ? 'unavailable' : 'device',
-      tier: mockIsPro ? 'pro' : mockIsGuest ? 'guest' : 'free',
+      storageMode: mockIsPro ? 'cloud' : 'device',
+      tier: mockIsPro ? 'pro' : 'guest',
     },
     state: mockMonetizationState,
   }),
@@ -111,7 +111,7 @@ const PATTERN_CASES: [ConsecutivePattern, number[]][] = [
 describe('CombinationGeneratorScreen', () => {
   beforeEach(() => {
     mockMonetizationState = { access: freeAccess, status: 'ready' };
-    mockIsPro = false;
+    mockIsPro = true;
     mockIsGuest = false;
     mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
@@ -125,7 +125,8 @@ describe('CombinationGeneratorScreen', () => {
     expect(CONDITION_APPLY_MINIMUM_LOADING_MS).toBe(3000);
   });
 
-  test('explains that free users see results after an ad', async () => {
+  test('explains that guests see results after an ad', async () => {
+    mockIsPro = false;
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByRole('button', { name: '2개 조건 적용, 광고 후 결과 보기' })).toBeTruthy();
@@ -133,6 +134,7 @@ describe('CombinationGeneratorScreen', () => {
   });
 
   test('keeps the header, access banner, and tabs outside the vertical condition scroller', async () => {
+    mockIsPro = false;
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
@@ -142,7 +144,8 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('tab', { name: '번호' })).toBeTruthy();
     expect(within(conditionContent).queryByRole('tab', { name: '번호' })).toBeNull();
 
-    expect(screen.getByText('Pro로 조건 제한 없이 선택하기')).toBeTruthy();
+    expect(screen.getByText('Pro · 조건 무제한 · 균형 프리셋')).toBeTruthy();
+    expect(screen.queryByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByText('Pro 보기')); });
     expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
 
@@ -169,7 +172,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('button', { name: '조건 설정, 2개 적용 중' })).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
-    expect(screen.getByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeTruthy();
+    expect(screen.queryByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
     await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
     await act(async () => { fireEvent.press(screen.getByText('3개 조건 적용')); });
@@ -194,7 +197,6 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByTestId('condition-sheet-modal')).toBeNull();
     expect(screen.queryByTestId('direct-condition-shell')).toBeNull();
     expect(screen.queryByText('조건 뽑기')).toBeNull();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '직접 조건 설정' })); });
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
 
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
@@ -225,7 +227,6 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
 
     await act(async () => { fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '직접 조건 설정' })); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
   }, 7000);
 
@@ -233,8 +234,6 @@ describe('CombinationGeneratorScreen', () => {
     mockBack.mockClear();
     mockReplace.mockClear();
     const screen = await render(<DirectSessionHarness />);
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '직접 조건 설정' })); });
-
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: '조건 선택 취소' }));
     });
@@ -243,12 +242,12 @@ describe('CombinationGeneratorScreen', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  test('offers the balanced preset to members on direct entry and applies it after confirmation', async () => {
+  test('opens direct condition setup without a prompt and applies the preset explicitly', async () => {
     mockIsPro = true;
     const screen = await render(<DirectSessionHarness />);
 
-    expect(screen.getByTestId('recommendation-prompt')).toBeTruthy();
-    expect(screen.getByText('균형 프리셋을 적용할까요?')).toBeTruthy();
+    expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
+    expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '균형 프리셋 적용' })); });
 
@@ -258,20 +257,13 @@ describe('CombinationGeneratorScreen', () => {
       .toEqual({ selected: true });
   });
 
-  test('explains guest limits and opens login before direct condition setup', async () => {
-    mockIsGuest = true;
+  test('shows one concise Pro banner on direct guest entry', async () => {
+    mockIsPro = false;
     const screen = await render(<DirectSessionHarness />);
 
-    expect(screen.getByText('게스트는 조건 2개로 직접 설정할 수 있어요')).toBeTruthy();
-    expect(screen.getByText(/로그인하면 조건을 5개까지 직접 설정/)).toBeTruthy();
-    expect(screen.getByText('로그인하고 조건 5개 선택하기', { includeHiddenElements: true })).toBeTruthy();
-    expect(screen.getByText('로그인하면 조건을 5개까지 선택하고 조합을 기기에 저장해요.', { includeHiddenElements: true })).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '로그인하고 조건 5개 선택' }));
-    });
-
-    expect(mockOpenLogin).toHaveBeenCalledWith('balanced-preset');
+    expect(screen.getByText('Pro · 조건 무제한 · 균형 프리셋')).toBeTruthy();
+    expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
+    expect(screen.queryByText(/로그인하면 조건/)).toBeNull();
     expect(screen.queryByRole('button', { name: '균형 프리셋 적용됨' })).toBeNull();
   });
 
@@ -408,7 +400,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByLabelText('해당 번호: 4, 9, 16, 25, 36')).toBeTruthy();
   });
 
-  test('starts with two range conditions and leaves additional free-member conditions available', async () => {
+  test('starts with two range conditions and leaves Pro conditions available', async () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
@@ -422,8 +414,8 @@ describe('CombinationGeneratorScreen', () => {
       .toEqual({ checked: false, disabled: false });
   });
 
-  test('locks additional guest conditions at two and explains the login benefit', async () => {
-    mockIsGuest = true;
+  test('locks additional guest conditions at two and offers Pro', async () => {
+    mockIsPro = false;
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
@@ -432,29 +424,24 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(lockedCondition); });
 
     expect(screen.getByTestId('condition-limit-prompt')).toBeTruthy();
-    expect(screen.getByText('게스트는 조건을 2개까지 선택할 수 있어요')).toBeTruthy();
-    expect(screen.getByText(/로그인하면 조건을 5개까지 선택/)).toBeTruthy();
+    expect(screen.getByText('조건은 2개까지 선택할 수 있어요')).toBeTruthy();
+    expect(screen.getByText(/Pro에서는 제한 없이 선택/)).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '로그인하고 조건 5개 선택' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' }));
     });
-    expect(mockOpenLogin).toHaveBeenCalledWith('balanced-preset');
+    expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
   });
 
-  test('locks free members at five conditions and routes the next step to Pro', async () => {
+  test('lets Pro select more than two conditions without an upgrade prompt', async () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '끝수 총합 조건' })); });
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
 
-    const lockedCondition = screen.getByRole('switch', { name: 'A/C 값 조건' });
-    expect(lockedCondition.props.accessibilityState).toEqual({ checked: false, disabled: true });
-    await act(async () => { fireEvent.press(lockedCondition); });
-
-    expect(screen.getByText('무료회원은 조건을 5개까지 선택할 수 있어요')).toBeTruthy();
-    expect(screen.getByText(/Pro에서는 조건을 제한 없이 선택/)).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' })); });
-    expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
+    const nextCondition = screen.getByRole('switch', { name: 'A/C 값 조건' });
+    expect(nextCondition.props.accessibilityState).toEqual({ checked: false, disabled: false });
+    expect(screen.queryByTestId('condition-limit-prompt')).toBeNull();
   });
 
   test('collapses inactive filters and restores their previous selections when enabled again', async () => {
@@ -469,7 +456,7 @@ describe('CombinationGeneratorScreen', () => {
 
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
     expect(screen.queryByLabelText('홀짝 비율')).toBeNull();
-    expect(screen.getAllByText('비활성 · 제한 없이 적용').length).toBeGreaterThan(0);
+    expect(screen.queryByText('비활성 · 제한 없이 적용')).toBeNull();
 
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
     expect(screen.getByRole('checkbox', { name: '홀수 3개, 짝수 3개' }).props.accessibilityState)
@@ -492,7 +479,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByText('6개 조건 적용')).toBeTruthy();
     expect(screen.getByRole('button', { name: '균형 프리셋 적용됨' }).props.accessibilityState)
       .toEqual({ selected: true });
-    expect(screen.getByText('표준편차 · 번호 합계 · 홀짝 · 저고 · A/C · 연번')).toBeTruthy();
+    expect(screen.queryByText('표준편차 · 번호 합계 · 홀짝 · 저고 · A/C · 연번')).toBeNull();
     expect(screen.queryByText(/균형 조건 프리셋/)).toBeNull();
     expect(screen.queryByText('과거 형태를 넓게 포함하는 6개 조건 · 당첨 예측 아님')).toBeNull();
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
@@ -513,8 +500,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('button', { name: '균형 프리셋 적용' }).props.accessibilityState)
       .toEqual({ selected: false });
     expect(screen.getByText('5개 조건 적용')).toBeTruthy();
-    expect(screen.getByText('표준편차 · 번호 합계 · 저고 · A/C · 연번')).toBeTruthy();
-    expect(screen.queryByText('표준편차 · 번호 합계 · 홀짝 · 저고 · A/C · 연번')).toBeNull();
+    expect(screen.queryByText('표준편차 · 번호 합계 · 저고 · A/C · 연번')).toBeNull();
   });
 
   test('shows definitions, examples, and historical frequencies from distribution help buttons', async () => {

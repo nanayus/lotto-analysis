@@ -10,14 +10,14 @@ import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '
 
 type GameCount = 1 | 2 | 3 | 5;
 const GUEST_GAME_COUNTS: readonly GameCount[] = [1, 2];
-const MEMBER_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
+const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
 
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
   const { productAccess } = useMonetization();
   const gameCounts = useMemo(
-    () => productAccess.tier === 'guest' ? GUEST_GAME_COUNTS : MEMBER_GAME_COUNTS,
+    () => productAccess.tier === 'guest' ? GUEST_GAME_COUNTS : PRO_GAME_COUNTS,
     [productAccess.tier],
   );
   const [gameCount, setGameCount] = useState<GameCount>(1);
@@ -64,10 +64,8 @@ export function DrawHomeScreen() {
               <Text style={styles.aiDescription}>원하는 조건을 직접 정하고{`\n`}하나의 조합을 만들어보세요.</Text>
               <Text style={styles.aiPolicy}>
                 {productAccess.tier === 'guest'
-                  ? '게스트 · 조건 최대 2개'
-                  : productAccess.tier === 'free'
-                    ? '무료회원 · 조건 최대 5개'
-                    : 'Pro · 조건 무제한 · 균형 프리셋'}
+                  ? '게스트 · 조건 2개'
+                  : 'Pro · 조건 무제한 · 균형 프리셋'}
               </Text>
             </View>
             <View style={styles.aiAction}>
@@ -118,10 +116,8 @@ export function DrawHomeScreen() {
 
             <Text style={styles.countPolicy}>
               {productAccess.tier === 'guest'
-                ? '게스트 · 한 번에 최대 2게임'
-                : productAccess.tier === 'free'
-                  ? '무료회원 · 한 번에 최대 5게임'
-                  : 'Pro · 한 번에 최대 5게임'}
+                ? '게스트 · 최대 2게임'
+                : 'Pro · 최대 5게임'}
             </Text>
 
             <Pressable

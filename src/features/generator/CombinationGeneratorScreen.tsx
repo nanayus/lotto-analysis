@@ -26,7 +26,6 @@ import type { GenerationOutcome, GeneratorConditions } from '@/domain/generator/
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
-import { useAuth } from '@/features/auth/AuthContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -88,7 +87,6 @@ export function CombinationGeneratorScreen({
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
-  const { openLogin } = useAuth();
   const { addCombination } = useNumberLibrary();
   const { openPaywall, productAccess } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
@@ -98,7 +96,6 @@ export function CombinationGeneratorScreen({
   const [outcomes, setOutcomes] = useState<GenerationOutcome[]>([]);
   const outcome = outcomes[0] ?? null;
   const [sheetVisible, setSheetVisible] = useState(autoOpenConditions);
-  const [recommendationPromptVisible, setRecommendationPromptVisible] = useState(conditionOnly);
   const [generating, setGenerating] = useState(false);
   const [searchedCandidates, setSearchedCandidates] = useState(0);
   const [nearestNoticeVisible, setNearestNoticeVisible] = useState(false);
@@ -268,10 +265,7 @@ export function CombinationGeneratorScreen({
             onApply={applyConditions}
             onClose={leaveDirectConditionSelection}
             onOpenPro={() => openPaywall('condition-ai-explanation')}
-            onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
-            onRequestLogin={() => openLogin('balanced-preset')}
             presentation="screen"
-            recommendationPromptVisible={recommendationPromptVisible}
             visible
           />
         ) : (
@@ -487,7 +481,6 @@ export function CombinationGeneratorScreen({
           onApply={applyConditions}
           onClose={() => setSheetVisible(false)}
           onOpenPro={() => openPaywall('condition-ai-explanation')}
-          onRequestLogin={() => openLogin('balanced-preset')}
           visible
         />
       ) : null}

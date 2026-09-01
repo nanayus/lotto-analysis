@@ -18,7 +18,7 @@ const freeAccess = {
   weeklyFreeAvailable: true,
 };
 
-let mockTier: AccountTier = 'free';
+let mockTier: AccountTier = 'guest';
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
@@ -29,14 +29,14 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     openPaywall: jest.fn(),
     productAccess: {
       canCompareCombinations: mockTier === 'pro',
-      canSaveNumbers: mockTier !== 'guest',
+      canSaveNumbers: true,
       canUseBalancedPreset: mockTier === 'pro',
       canUseAiExplanation: mockTier === 'pro',
       canUseCustomPeriod: mockTier === 'pro',
       combinationSelectionLimit: mockTier === 'guest' ? 2 : 5,
-      conditionSelectionLimit: mockTier === 'pro' ? null : mockTier === 'guest' ? 2 : 5,
+      conditionSelectionLimit: mockTier === 'pro' ? null : 2,
       requiresRewardedAdForResults: mockTier !== 'pro',
-      storageMode: mockTier === 'pro' ? 'cloud' : mockTier === 'free' ? 'device' : 'unavailable',
+      storageMode: mockTier === 'pro' ? 'cloud' : 'device',
       tier: mockTier,
     },
     state: { access: { ...freeAccess, isPro: mockTier === 'pro' }, status: 'ready' },
@@ -47,10 +47,10 @@ const mockNavigate = router.navigate as jest.Mock;
 
 describe('DrawHomeScreen', () => {
   beforeEach(() => {
-    mockTier = 'free';
+    mockTier = 'guest';
   });
 
-  test('shows Pro entry instead of ticket balance for free users', async () => {
+  test('shows Pro entry instead of ticket balance for guests', async () => {
     const screen = await render(<DrawHomeScreen />);
 
     expect(screen.getByLabelText('Pro 살펴보기')).toBeTruthy();
@@ -63,12 +63,12 @@ describe('DrawHomeScreen', () => {
     const screen = await render(<DrawHomeScreen />);
 
     expect(screen.getByText('PRO')).toBeTruthy();
-    expect(screen.getByText('Pro · 한 번에 최대 5게임')).toBeTruthy();
-    expect(screen.queryByText(/무료회원 · 한 번에 최대 5게임/)).toBeNull();
+    expect(screen.getByText('Pro · 최대 5게임')).toBeTruthy();
     expect(screen.queryByLabelText('Pro 살펴보기')).toBeNull();
   });
 
   test('keeps the random game count independent from the single AI condition draw', async () => {
+    mockTier = 'pro';
     mockNavigate.mockClear();
     const screen = await render(<DrawHomeScreen />);
 
@@ -94,12 +94,12 @@ describe('DrawHomeScreen', () => {
   test('explains the guest game and condition limits', async () => {
     mockTier = 'guest';
     const screen = await render(<DrawHomeScreen />);
-    expect(screen.getByText('게스트 · 한 번에 최대 2게임')).toBeTruthy();
-    expect(screen.getByText('게스트 · 조건 최대 2개')).toBeTruthy();
+    expect(screen.getByText('게스트 · 최대 2게임')).toBeTruthy();
+    expect(screen.getByText('게스트 · 조건 2개')).toBeTruthy();
   });
 
   test('opens the dedicated random draw route instead of drawing inline', async () => {
-    mockTier = 'free';
+    mockTier = 'pro';
     mockNavigate.mockClear();
     const screen = await render(<DrawHomeScreen />);
 

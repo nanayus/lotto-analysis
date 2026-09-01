@@ -29,7 +29,6 @@ type CombinationResultProps = {
   onToggleFavorite?: () => void;
   onTogglePurchased?: () => void;
   onOpenHistory: () => void;
-  onOpenLogin?: () => void;
   onOpenPrizeRank: (rank: PrizeRank) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
   onOpenPro?: () => void;
@@ -39,7 +38,6 @@ type CombinationResultProps = {
   favorite?: boolean;
   isPro?: boolean;
   purchased?: boolean;
-  showAccountPrompt?: boolean;
 };
 
 const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
@@ -300,7 +298,6 @@ export function CombinationResult({
   onToggleFavorite = NOOP,
   onTogglePurchased = NOOP,
   onOpenHistory,
-  onOpenLogin = NOOP,
   onOpenPrizeRank,
   onPeriodChange,
   onOpenPro = NOOP,
@@ -310,7 +307,6 @@ export function CombinationResult({
   favorite = false,
   isPro = false,
   purchased = false,
-  showAccountPrompt = false,
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
   const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
@@ -383,17 +379,15 @@ export function CombinationResult({
         showsVerticalScrollIndicator={false}
         testID="combination-result-scroll">
       <AppCard style={styles.selectedProfile}>
-        {!showAccountPrompt ? (
-          <View style={styles.profileLibraryActions}>
-            <LibraryStatusActions
-              favorite={favoriteSelected}
-              onToggleFavorite={handleToggleFavorite}
-              onTogglePurchased={handleTogglePurchased}
-              purchased={purchasedSelected}
-              testID="result-card-actions"
-            />
-          </View>
-        ) : null}
+        <View style={styles.profileLibraryActions}>
+          <LibraryStatusActions
+            favorite={favoriteSelected}
+            onToggleFavorite={handleToggleFavorite}
+            onTogglePurchased={handleTogglePurchased}
+            purchased={purchasedSelected}
+            testID="result-card-actions"
+          />
+        </View>
         <CombinationNumberPills numbers={analysis.numbers} />
         <Text style={styles.profileMeta}>
           <Text style={styles.profileMetaMuted}>최근 </Text>
@@ -423,23 +417,6 @@ export function CombinationResult({
           {!isPro ? <View style={styles.compareProBadge}><Text style={styles.compareProText}>PRO</Text></View> : null}
         </Pressable>
       </AppCard>
-
-      {showAccountPrompt ? (
-        <AppCard style={styles.accountPrompt}>
-          <View style={styles.accountPromptCopy}>
-            <Text style={styles.accountPromptTitle}>이 번호를 기기에 저장하세요</Text>
-            <Text style={styles.accountPromptDescription}>
-              로그인하면 뽑은 번호와 즐겨찾기를 이 기기에 보관할 수 있어요.
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onOpenLogin}
-            style={({ pressed }) => [styles.accountPromptButton, pressed && styles.pressed]}>
-            <Text style={styles.accountPromptButtonText}>로그인</Text>
-          </Pressable>
-        </AppCard>
-      ) : null}
 
       <View style={styles.filterRow}>
         <AnalysisControls

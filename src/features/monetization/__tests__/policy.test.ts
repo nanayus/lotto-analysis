@@ -3,26 +3,12 @@ import { describe, expect, test } from '@jest/globals';
 import { accountTier, productAccessFor } from '../policy';
 
 describe('membership tier policy', () => {
-  test('keeps guests limited to two combinations without storage or balanced preset', () => {
+  test('keeps guests limited to two combinations with device storage', () => {
     expect(productAccessFor('guest')).toMatchObject({
-      canSaveNumbers: false,
+      canSaveNumbers: true,
       canUseBalancedPreset: false,
       combinationSelectionLimit: 2,
       conditionSelectionLimit: 2,
-      requiresRewardedAdForResults: true,
-      storageMode: 'unavailable',
-    });
-  });
-
-  test('gives free members five combinations and conditions with device storage', () => {
-    expect(productAccessFor('free')).toMatchObject({
-      canCompareCombinations: false,
-      canSaveNumbers: true,
-      canUseAiExplanation: false,
-      canUseBalancedPreset: false,
-      canUseCustomPeriod: false,
-      combinationSelectionLimit: 5,
-      conditionSelectionLimit: 5,
       requiresRewardedAdForResults: true,
       storageMode: 'device',
     });

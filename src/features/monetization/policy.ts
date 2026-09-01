@@ -1,4 +1,4 @@
-export type AccountTier = 'guest' | 'free' | 'pro';
+export type AccountTier = 'guest' | 'pro';
 
 export type ProductAccess = {
   canCompareCombinations: boolean;
@@ -14,9 +14,8 @@ export type ProductAccess = {
 };
 
 export const GUEST_COMBINATION_SELECTION_LIMIT = 2;
-export const MEMBER_COMBINATION_SELECTION_LIMIT = 5;
+export const PRO_COMBINATION_SELECTION_LIMIT = 5;
 export const GUEST_CONDITION_SELECTION_LIMIT = 2;
-export const MEMBER_CONDITION_SELECTION_LIMIT = 5;
 
 export function accountTier({
   authenticated,
@@ -26,26 +25,23 @@ export function accountTier({
   isPro: boolean;
 }): AccountTier {
   if (authenticated && isPro) return 'pro';
-  return authenticated ? 'free' : 'guest';
+  return 'guest';
 }
 
 export function productAccessFor(tier: AccountTier): ProductAccess {
   const isPro = tier === 'pro';
-  const authenticated = tier !== 'guest';
   return {
     canCompareCombinations: isPro,
-    canSaveNumbers: authenticated,
+    canSaveNumbers: true,
     canUseBalancedPreset: isPro,
     canUseAiExplanation: isPro,
     canUseCustomPeriod: isPro,
-    combinationSelectionLimit: authenticated
-      ? MEMBER_COMBINATION_SELECTION_LIMIT
+    combinationSelectionLimit: isPro
+      ? PRO_COMBINATION_SELECTION_LIMIT
       : GUEST_COMBINATION_SELECTION_LIMIT,
-    conditionSelectionLimit: isPro
-      ? null
-      : authenticated ? MEMBER_CONDITION_SELECTION_LIMIT : GUEST_CONDITION_SELECTION_LIMIT,
+    conditionSelectionLimit: isPro ? null : GUEST_CONDITION_SELECTION_LIMIT,
     requiresRewardedAdForResults: !isPro,
-    storageMode: isPro ? 'cloud' : authenticated ? 'device' : 'unavailable',
+    storageMode: isPro ? 'cloud' : 'device',
     tier,
   };
 }

@@ -63,17 +63,17 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     openPaywall: mockOpenPaywall,
     productAccess: {
       canCompareCombinations: mockAuthStatus === 'authenticated' && mockIsPro,
-      canSaveNumbers: mockAuthStatus === 'authenticated',
+      canSaveNumbers: true,
       canUseBalancedPreset: mockAuthStatus === 'authenticated' && mockIsPro,
       canUseAiExplanation: mockAuthStatus === 'authenticated' && mockIsPro,
       canUseCustomPeriod: mockAuthStatus === 'authenticated' && mockIsPro,
-      combinationSelectionLimit: mockAuthStatus === 'authenticated' ? 5 : 2,
+      combinationSelectionLimit: mockIsPro ? 5 : 2,
       conditionSelectionLimit: mockAuthStatus === 'authenticated' && mockIsPro
         ? null
-        : mockAuthStatus === 'authenticated' ? 5 : 2,
+        : 2,
       requiresRewardedAdForResults: mockAuthStatus !== 'authenticated' || !mockIsPro,
-      storageMode: mockAuthStatus === 'authenticated' && mockIsPro ? 'cloud' : mockAuthStatus === 'authenticated' ? 'device' : 'unavailable',
-      tier: mockAuthStatus === 'authenticated' && mockIsPro ? 'pro' : mockAuthStatus === 'authenticated' ? 'free' : 'guest',
+      storageMode: mockAuthStatus === 'authenticated' && mockIsPro ? 'cloud' : 'device',
+      tier: mockAuthStatus === 'authenticated' && mockIsPro ? 'pro' : 'guest',
     },
     refresh: jest.fn(async () => undefined),
     rewardedAdsAvailable: true,
@@ -166,7 +166,7 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
   });
 
-  test('keeps manual number selection available for free members', async () => {
+  test('keeps manual number selection available for non-Pro accounts', async () => {
     mockSearchParams.mockReturnValue({ returnTo: 'draw' });
     mockIsPro = false;
     const screen = await render(
@@ -176,7 +176,7 @@ describe('CombinationScreen', () => {
     );
 
     expect(screen.getByTestId('combination-number-grid')).toBeTruthy();
-    expect(screen.getByText('무료회원 · 광고 후 결과 공개')).toBeTruthy();
+    expect(screen.getByText('게스트 · 광고 후 결과 공개')).toBeTruthy();
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
     expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
   });

@@ -44,8 +44,8 @@ export function AccountSettingsSection() {
             onPress={() => openLogin()}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <View style={styles.loginCopy}>
-              <Text style={styles.rowLabel}>로그인</Text>
-              <Text style={styles.rowDescription}>최대 5게임, 생성 조건 5개, 내 번호 기기 저장을 이용해요.</Text>
+              <Text style={styles.rowLabel}>계정 연결</Text>
+              <Text style={styles.rowDescription}>Pro 동기화와 계정 복원에 사용해요.</Text>
             </View>
             <Ionicons color="#2997FF" name="person-circle-outline" size={25} />
           </Pressable>
@@ -122,7 +122,7 @@ export function AccountSettingsSection() {
           <View accessibilityRole="alert" style={styles.dialog}>
             <Text style={styles.dialogTitle}>계정을 삭제할까요?</Text>
             <Text style={styles.dialogDescription}>
-              저장한 번호와 계정 데이터가 영구 삭제됩니다. 본인 확인을 위해 로그인 화면이 한 번 더 표시될 수 있어요.
+              계정과 클라우드 저장 데이터가 삭제됩니다. 이 기기에 저장된 번호는 남아 있어요.
             </Text>
             <View style={styles.dialogActions}>
               <Pressable disabled={isWorking} onPress={() => setDeleteVisible(false)} style={styles.dialogButton}>

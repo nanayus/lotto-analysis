@@ -231,27 +231,21 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     });
     if (authState.status === 'loading') return () => { active = false; };
 
-    if (!activeUid) {
-      queueMicrotask(() => {
+    const storageKeys = activeUid
+      ? [NUMBER_LIBRARY_STORAGE_KEY, userStorageKey(activeUid)]
+      : [NUMBER_LIBRARY_STORAGE_KEY];
+    void Promise.all(storageKeys.map((key) => AsyncStorage.getItem(key)))
+      .then((storedValues) => {
         if (!active) return;
-        setCombinations([]);
-        setIsReady(true);
-      });
-      return () => { active = false; };
-    }
-
-    const storageKey = userStorageKey(activeUid);
-    void AsyncStorage.getItem(storageKey)
-      .then((stored) => {
-        if (!active) return;
-        if (!stored) {
-          setCombinations([]);
-          return;
-        }
-        const parsed = JSON.parse(stored) as unknown;
-        if (Array.isArray(parsed)) {
-          setCombinations(normalizeStoredCombinations(parsed));
-        }
+        const storedItems = storedValues.flatMap((stored) => {
+          if (!stored) return [];
+          const parsed = JSON.parse(stored) as unknown;
+          return Array.isArray(parsed) ? normalizeStoredCombinations(parsed) : [];
+        });
+        const itemsById = new Map(storedItems.map((item) => [item.id, item]));
+        setCombinations([...itemsById.values()].sort(
+          (left, right) => right.createdAt.localeCompare(left.createdAt),
+        ));
       })
       .catch(() => undefined)
       .finally(() => {
@@ -265,11 +259,16 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     let active = true;
     let unsubscribe: () => void = () => undefined;
 
-    void AsyncStorage.getItem(userStorageKey(activeUid))
-      .then((stored) => {
+    void Promise.all([
+      AsyncStorage.getItem(NUMBER_LIBRARY_STORAGE_KEY),
+      AsyncStorage.getItem(userStorageKey(activeUid)),
+    ])
+      .then((storedValues) => {
         if (!active) return;
-        const parsed = stored ? JSON.parse(stored) as unknown : [];
-        const deviceItems = Array.isArray(parsed) ? normalizeStoredCombinations(parsed) : [];
+        const deviceItems = storedValues.flatMap((stored) => {
+          const parsed = stored ? JSON.parse(stored) as unknown : [];
+          return Array.isArray(parsed) ? normalizeStoredCombinations(parsed) : [];
+        });
         const itemsById = new Map([...combinationsRef.current, ...deviceItems].map((item) => [item.id, item]));
         return migrateDeviceLibrary(activeUid, [...itemsById.values()]);
       })
@@ -294,11 +293,10 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
   }, [activeUid, isReady, productAccess.storageMode]);
 
   useEffect(() => {
-    if (!isReady || !activeUid) return;
-    const storageKey = userStorageKey(activeUid);
-    void AsyncStorage.setItem(storageKey, JSON.stringify(combinations))
+    if (!isReady || productAccess.storageMode !== 'device') return;
+    void AsyncStorage.setItem(NUMBER_LIBRARY_STORAGE_KEY, JSON.stringify(combinations))
       .catch(() => undefined);
-  }, [activeUid, combinations, isReady]);
+  }, [combinations, isReady, productAccess.storageMode]);
 
   const syncCombination = useCallback((item: SavedCombination) => {
     if (!activeUid || !db || productAccess.storageMode !== 'cloud') return;

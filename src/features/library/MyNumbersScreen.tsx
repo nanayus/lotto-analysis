@@ -13,7 +13,6 @@ import { generateCombination } from '@/domain/generator/combinationGenerator';
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
-import { useAuth } from '@/features/auth/AuthContext';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -43,8 +42,7 @@ export function MyNumbersScreen() {
   const tabBarScrollProps = useAutoHideTabBar();
   const { width } = useWindowDimensions();
   const useStackedAnalysisAction = width < 430;
-  const { openLogin } = useAuth();
-  const { addCombination, canSave, combinations, isReady, storageMode, toggleFavorite, togglePurchased } = useNumberLibrary();
+  const { addCombination, combinations, isReady, storageMode, toggleFavorite, togglePurchased } = useNumberLibrary();
   const { openPaywall, productAccess } = useMonetization();
   const { setNumbers } = useCombinationDraft();
   const [activeTab, setActiveTab] = useState<LibraryTab>('all');
@@ -107,38 +105,6 @@ export function MyNumbersScreen() {
     : activeTab === 'favorite'
       ? ['즐겨찾기한 조합이 없어요', '마음에 드는 조합을 따로 모아볼 수 있어요.']
       : ['아직 뽑은 번호가 없어요', '번호뽑기에서 첫 조합을 만들어보세요.'];
-
-  if (!canSave) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-        <View style={styles.container}>
-          <MainTabHeader />
-          <ScrollView contentContainerStyle={styles.guestContent}>
-            <View style={styles.guestIcon}>
-              <Ionicons color={colors.accentPrimary} name="bookmark-outline" size={27} />
-            </View>
-            <Text style={styles.guestTitle}>내 번호는 로그인 후 저장돼요</Text>
-            <Text style={styles.guestDescription}>
-              로그인하면 뽑은 조합과 즐겨찾기를 이 기기에 보관할 수 있어요.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => openLogin('number-library')}
-              style={({ pressed }) => [styles.loginButton, pressed && styles.pressed]}>
-              <Text style={styles.loginButtonText}>무료로 로그인</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => openPaywall('library-cloud')}
-              style={({ pressed }) => [styles.cloudAction, pressed && styles.pressed]}>
-              <Ionicons color={colors.accentPrimary} name="cloud-outline" size={16} />
-              <Text style={styles.cloudActionText}>Pro 클라우드 저장 알아보기</Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>

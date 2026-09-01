@@ -90,12 +90,11 @@ const MULTIPLE_SECTION_KEYS = {
   4: 'multiple4',
   5: 'multiple5',
 } as const satisfies Record<3 | 4 | 5, GeneratorSectionKey>;
-const MAX_VISIBLE_CONDITION_LABELS = 6;
 const NUMBER_GRID_COLUMN_COUNT = 7;
 const NUMBER_GRID_MAXIMUM_SIZE = 48;
 
 type ConditionSheetProps = {
-  applyAccess: 'free' | 'guest' | 'pro';
+  applyAccess: 'guest' | 'pro';
   canUseBalancedPreset: boolean;
   conditions: GeneratorConditions;
   conditionSelectionLimit: number | null;
@@ -103,10 +102,7 @@ type ConditionSheetProps = {
   onApply: (conditions: GeneratorConditions) => void;
   onClose: () => void;
   onOpenPro: () => void;
-  onRecommendationPromptDismiss?: () => void;
-  onRequestLogin: () => void;
   presentation?: 'modal' | 'screen';
-  recommendationPromptVisible?: boolean;
   visible: boolean;
 };
 
@@ -119,46 +115,6 @@ type Option<T extends string | number> = {
 
 function toggleValue<T>(values: readonly T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-}
-
-export function activeConditionLabels(conditions: GeneratorConditions) {
-  return [
-    generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.fixedNumbers.length > 0 ? '고정수' : null,
-    generatorSectionEnabled(conditions, 'fixedExcluded') && conditions.excludedNumbers.length > 0 ? '제외수' : null,
-    generatorSectionEnabled(conditions, 'sameEnding') && conditions.sameEndingPatterns.length > 0 ? '동끝수' : null,
-    conditions.standardDeviation.enabled ? '표준편차' : null,
-    conditions.sum.enabled ? '번호 합계' : null,
-    conditions.lastDigitSum.enabled ? '끝수 합계' : null,
-    generatorSectionEnabled(conditions, 'oddEven') && conditions.oddCounts.length > 0 ? '홀짝' : null,
-    generatorSectionEnabled(conditions, 'lowHigh') && conditions.highLowCounts.length > 0 ? '저고' : null,
-    generatorSectionEnabled(conditions, 'acValue') && conditions.acValues.length > 0 ? 'A/C' : null,
-    generatorSectionEnabled(conditions, 'primeCount') && conditions.primeCounts.length > 0 ? '소수' : null,
-    generatorSectionEnabled(conditions, 'squareCount') && conditions.squareCounts.length > 0 ? '완전제곱수' : null,
-    generatorSectionEnabled(conditions, 'compositeCount') && conditions.compositeCounts.length > 0 ? '합성수' : null,
-    generatorSectionEnabled(conditions, 'carryCount') && conditions.carry.allowed.length > 0 ? '이월수' : null,
-    generatorSectionEnabled(conditions, 'neighborCount') && conditions.neighbor.allowed.length > 0 ? '이웃수' : null,
-    generatorSectionEnabled(conditions, 'consecutivePattern') && conditions.consecutivePatterns.length > 0 ? '연번' : null,
-    ...GENERATOR_BAND_KEYS.map((band) => (
-      generatorSectionEnabled(conditions, BAND_SECTION_KEYS[band]) && conditions.bandCounts[band].length > 0
-        ? `${band} 번호대`
-        : null
-    )),
-    ...([3, 4, 5] as const).map((multiple) => (
-      generatorSectionEnabled(conditions, MULTIPLE_SECTION_KEYS[multiple]) && conditions.multipleCounts[multiple].length > 0
-        ? `${multiple}의 배수`
-        : null
-    )),
-    generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length > 0 ? '과거 등수' : null,
-  ].filter((label): label is string => label !== null);
-}
-
-function activeConditionSummary(conditions: GeneratorConditions) {
-  const labels = activeConditionLabels(conditions);
-  if (labels.length === 0) return '선택된 조건 없음';
-
-  const visibleLabels = labels.slice(0, MAX_VISIBLE_CONDITION_LABELS);
-  const hiddenCount = labels.length - visibleLabels.length;
-  return [...visibleLabels, ...(hiddenCount > 0 ? [`외 ${hiddenCount}개`] : [])].join(' · ');
 }
 
 function ConditionGroupHeader({ label }: { label: string }) {
@@ -207,7 +163,6 @@ function Section({
             {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
           </View>
           {expanded && hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
-          {!expanded ? <Text style={styles.sectionCollapsedHint}>비활성 · 제한 없이 적용</Text> : null}
         </View>
         {headerAction || enabled !== undefined ? (
           <View style={styles.sectionHeaderActions}>
@@ -603,10 +558,7 @@ export function ConditionSheet({
   onApply,
   onClose,
   onOpenPro,
-  onRecommendationPromptDismiss,
-  onRequestLogin,
   presentation = 'modal',
-  recommendationPromptVisible = false,
   visible,
 }: ConditionSheetProps) {
   const styles = useThemedStyles(createStyles);
@@ -661,7 +613,6 @@ export function ConditionSheet({
     () => JSON.stringify(draft) === JSON.stringify(recommendedPreset),
     [draft, recommendedPreset],
   );
-  const conditionSummary = useMemo(() => activeConditionSummary(draft), [draft]);
   const historicalSameEnding = SAME_ENDING_OPTIONS.find(([, label]) => label === conditionHelp.sameEnding.historicalLabel)?.[0];
   const historicalConsecutive = CONSECUTIVE_OPTIONS.find(([, label]) => label === conditionHelp.consecutivePattern.historicalLabel)?.[0];
   const helpContent = activeHelp ? conditionHelp[activeHelp] : null;
@@ -730,10 +681,6 @@ export function ConditionSheet({
   const applyRecommendedPreset = () => {
     setDraft(cloneGeneratorConditions(recommendedPreset));
   };
-  const acceptRecommendedPreset = () => {
-    applyRecommendedPreset();
-    onRecommendationPromptDismiss?.();
-  };
   const requestRecommendedPreset = () => {
     if (!canUseBalancedPreset) {
       onOpenPro();
@@ -784,29 +731,12 @@ export function ConditionSheet({
     }
     onApply(cloneGeneratorConditions(draft));
   };
-  const accessBanner = applyAccess === 'guest'
-    ? {
-      action: '로그인',
-      description: '로그인하면 조건을 5개까지 선택하고 조합을 기기에 저장해요.',
-      icon: 'person-outline' as const,
-      onPress: onRequestLogin,
-      title: '로그인하고 조건 5개 선택하기',
-    }
-    : applyAccess === 'free'
-      ? {
-        action: 'Pro 보기',
-        description: '조건 제한 없이 균형 프리셋과 AI 해설을 이용해요.',
-        icon: 'sparkles-outline' as const,
-        onPress: onOpenPro,
-        title: 'Pro로 조건 제한 없이 선택하기',
-      }
-      : {
-        action: null,
-        description: '조건 제한 없이 균형 프리셋과 AI 해설을 이용 중이에요.',
-        icon: 'checkmark-circle-outline' as const,
-        onPress: onOpenPro,
-        title: 'Pro 이용 중',
-      };
+  const accessBanner = {
+    action: 'Pro 보기',
+    icon: 'sparkles-outline' as const,
+    onPress: onOpenPro,
+    title: 'Pro · 조건 무제한 · 균형 프리셋',
+  };
 
   const editorContent = (
       <SafeAreaView edges={presentation === 'screen' ? [] : undefined} style={styles.editorSafeArea}>
@@ -825,23 +755,20 @@ export function ConditionSheet({
             )}
             title="조건 선택"
           />
-          {accessBannerVisible ? (
+          {applyAccess === 'guest' && accessBannerVisible ? (
             <View style={styles.accessBanner} testID="condition-access-banner">
               <View style={styles.accessBannerIcon}>
                 <Ionicons color={styles.accessBannerIconColor.color} name={accessBanner.icon} size={18} />
               </View>
               <View style={styles.accessBannerCopy}>
                 <Text style={styles.accessBannerTitle}>{accessBanner.title}</Text>
-                <Text style={styles.accessBannerDescription}>{accessBanner.description}</Text>
               </View>
-              {accessBanner.action ? (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={accessBanner.onPress}
-                  style={({ pressed }) => [styles.accessBannerAction, pressed && styles.pressed]}>
-                  <Text style={styles.accessBannerActionText}>{accessBanner.action}</Text>
-                </Pressable>
-              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={accessBanner.onPress}
+                style={({ pressed }) => [styles.accessBannerAction, pressed && styles.pressed]}>
+                <Text style={styles.accessBannerActionText}>{accessBanner.action}</Text>
+              </Pressable>
               <Pressable
                 accessibilityLabel="회원 혜택 안내 닫기"
                 accessibilityRole="button"
@@ -884,28 +811,16 @@ export function ConditionSheet({
             showsVerticalScrollIndicator={false}
             style={styles.conditionScroll}
             testID="condition-content">
-            <Text style={styles.editorSubtitle}>선택하지 않은 항목은 제한 없이 적용돼요.</Text>
-            <View style={[
-              styles.recommendedPreset,
-              recommendedPresetActive && styles.recommendedPresetActive,
-            ]}>
-              <View style={styles.recommendedPresetCopy}>
-                <Text style={styles.recommendedPresetEyebrow}>BALANCED PRESET</Text>
-                <Text style={styles.recommendedPresetSummary}>
-                  {conditionSummary}
-                </Text>
-                {!canUseBalancedPreset ? (
-                  <Text style={styles.recommendedPresetAccess}>
-                    {applyAccess === 'guest'
-                      ? '로그인하면 조건 5개 · Pro는 조건 무제한과 균형 프리셋'
-                      : 'Pro에서 조건 제한 없이 균형 프리셋 사용'}
-                  </Text>
-                ) : null}
-              </View>
+            {canUseBalancedPreset ? (
+              <View style={[
+                styles.recommendedPreset,
+                recommendedPresetActive && styles.recommendedPresetActive,
+              ]}>
+                <Text style={styles.recommendedPresetTitle}>균형 프리셋</Text>
               <Pressable
                 accessibilityLabel={recommendedPresetActive
                   ? '균형 프리셋 적용됨'
-                  : canUseBalancedPreset ? '균형 프리셋 적용' : 'Pro에서 균형 프리셋 사용'}
+                  : '균형 프리셋 적용'}
                 accessibilityRole="button"
                 accessibilityState={{ selected: recommendedPresetActive }}
                 onPress={requestRecommendedPreset}
@@ -913,19 +828,17 @@ export function ConditionSheet({
                   styles.recommendedPresetButton,
                   recommendedPresetActive && styles.recommendedPresetButtonActive,
                 ]}>
-                {!canUseBalancedPreset ? (
-                  <Ionicons color={styles.recommendedPresetButtonText.color} name="lock-closed-outline" size={13} />
-                ) : null}
                 <Text style={[
                   styles.recommendedPresetButtonText,
                   recommendedPresetActive && styles.recommendedPresetButtonTextActive,
                 ]}>
                   {recommendedPresetActive
                     ? '✓ 적용됨'
-                    : canUseBalancedPreset ? '균형 프리셋' : 'Pro 전용'}
+                    : '적용'}
                 </Text>
               </Pressable>
-            </View>
+              </View>
+            ) : null}
             <View
               onLayout={(event) => { pageOffsetsRef.current[0] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
@@ -1300,19 +1213,9 @@ export function ConditionSheet({
             <View
               style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
               testID="condition-limit-prompt">
-              <Text style={styles.recommendationEyebrow}>CONDITION LIMIT</Text>
-              <Text style={styles.recommendationTitle}>
-                {applyAccess === 'guest'
-                  ? '게스트는 조건을 2개까지 선택할 수 있어요'
-                  : '무료회원은 조건을 5개까지 선택할 수 있어요'}
-              </Text>
+              <Text style={styles.recommendationTitle}>조건은 2개까지 선택할 수 있어요</Text>
               <Text style={styles.recommendationDescription}>
-                {applyAccess === 'guest'
-                  ? '로그인하면 조건을 5개까지 선택할 수 있어요. Pro에서는 조건을 제한 없이 선택하고 균형 프리셋도 사용할 수 있어요.'
-                  : 'Pro에서는 조건을 제한 없이 선택하고 균형 프리셋과 AI 조합 해설을 이용할 수 있어요.'}
-              </Text>
-              <Text style={styles.recommendationDisclaimer}>
-                지금 선택한 조건을 하나 끄면 다른 조건으로 바꿀 수 있어요.
+                Pro에서는 제한 없이 선택하고 균형 프리셋도 사용할 수 있어요.
               </Text>
               <View style={styles.recommendationActions}>
                 <Pressable
@@ -1323,69 +1226,15 @@ export function ConditionSheet({
                   <Text style={styles.recommendationCancelText}>계속 설정</Text>
                 </Pressable>
                 <Pressable
-                  accessibilityLabel={applyAccess === 'guest' ? '로그인하고 조건 5개 선택' : 'Pro 살펴보기'}
+                  accessibilityLabel="Pro 살펴보기"
                   accessibilityRole="button"
                   onPress={() => {
                     setConditionLimitPromptVisible(false);
-                    if (applyAccess === 'guest') onRequestLogin();
-                    else onOpenPro();
+                    onOpenPro();
                   }}
                   style={styles.recommendationApplyButton}>
                   <Text style={styles.recommendationApplyText}>
-                    {applyAccess === 'guest' ? '무료로 로그인' : 'Pro 살펴보기'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
-        {recommendationPromptVisible ? (
-          <View accessibilityViewIsModal style={styles.recommendationOverlay}>
-            <View style={styles.helpBackdrop} />
-            <View
-              style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
-              testID="recommendation-prompt">
-              <Text style={styles.recommendationEyebrow}>BALANCED PRESET</Text>
-              <Text style={styles.recommendationTitle}>
-                {canUseBalancedPreset
-                  ? '균형 프리셋을 적용할까요?'
-                  : applyAccess === 'guest'
-                    ? '게스트는 조건 2개로 직접 설정할 수 있어요'
-                    : '균형 프리셋은 Pro 전용이에요'}
-              </Text>
-              <Text style={styles.recommendationDescription}>
-                {canUseBalancedPreset
-                  ? '표준편차·합계·홀짝·저고·A/C·연번을 과거 분포의 넓은 범위로 설정해요.'
-                  : applyAccess === 'guest'
-                    ? '로그인하면 조건을 5개까지 직접 설정할 수 있어요. Pro에서는 조건 제한 없이 균형 프리셋을 사용할 수 있어요.'
-                    : 'Pro에서는 조건을 제한 없이 선택하고 균형 프리셋을 한 번에 적용할 수 있어요.'}
-              </Text>
-              <Text style={styles.recommendationDisclaimer}>
-                과거 통계를 참고한 탐색용 설정이며 당첨을 예측하지 않습니다.
-              </Text>
-              <View style={styles.recommendationActions}>
-                <Pressable
-                  accessibilityLabel={canUseBalancedPreset ? '균형 프리셋 적용 안 함' : '직접 조건 설정'}
-                  accessibilityRole="button"
-                  onPress={onRecommendationPromptDismiss}
-                  style={styles.recommendationCancelButton}>
-                  <Text style={styles.recommendationCancelText}>
-                    {canUseBalancedPreset ? '아니요' : '직접 설정'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel={canUseBalancedPreset
-                    ? '균형 프리셋 적용'
-                    : applyAccess === 'guest' ? '로그인하고 조건 5개 선택' : 'Pro 살펴보기'}
-                  accessibilityRole="button"
-                  onPress={canUseBalancedPreset
-                    ? acceptRecommendedPreset
-                    : applyAccess === 'guest' ? onRequestLogin : onOpenPro}
-                  style={styles.recommendationApplyButton}>
-                  <Text style={styles.recommendationApplyText}>
-                    {canUseBalancedPreset
-                      ? '적용'
-                      : applyAccess === 'guest' ? '무료로 로그인' : 'Pro 살펴보기'}
+                    Pro 살펴보기
                   </Text>
                 </Pressable>
               </View>
@@ -1413,19 +1262,11 @@ export function ConditionSheet({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   editorSafeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   editor: { flex: 1, maxWidth: 500, backgroundColor: colors.surface, overflow: 'hidden' },
-  editorSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    lineHeight: 18,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
   resetButton: { width: 52, height: 44, alignItems: 'center', justifyContent: 'center' },
   resetIcon: { color: colors.textSecondary },
   accessBanner: {
-    minHeight: 74, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingLeft: spacing.xl, paddingRight: spacing.sm, paddingVertical: spacing.md,
+    minHeight: 58, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingLeft: spacing.xl, paddingRight: spacing.sm, paddingVertical: spacing.sm,
     borderBottomWidth: 1, borderBottomColor: colors.accentBorder,
     backgroundColor: colors.surfaceAccent,
   },
@@ -1439,7 +1280,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textPrimary, fontSize: typography.sizes.small,
     fontWeight: typography.weights.bold, lineHeight: 18,
   },
-  accessBannerDescription: { marginTop: 2, color: colors.textSecondary, fontSize: 9, lineHeight: 14 },
   accessBannerAction: {
     minHeight: 34, flexShrink: 0, paddingHorizontal: spacing.md, borderRadius: radius.round,
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary,
@@ -1448,20 +1288,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   accessBannerClose: { width: 34, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   accessBannerCloseColor: { color: colors.textSecondary },
   recommendedPreset: {
-    minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    marginHorizontal: spacing.xl, marginBottom: spacing.xl,
+    minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    marginHorizontal: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.xl,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.md,
     backgroundColor: colors.surface,
   },
   recommendedPresetActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
-  recommendedPresetCopy: { flex: 1, minWidth: 0 },
-  recommendedPresetEyebrow: {
-    marginBottom: 3, color: colors.accentPrimary, fontSize: 8,
-    fontWeight: typography.weights.bold, letterSpacing: 1.1,
+  recommendedPresetTitle: {
+    flex: 1, color: colors.textPrimary,
+    fontSize: typography.sizes.small, fontWeight: typography.weights.semibold,
   },
-  recommendedPresetSummary: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17 },
-  recommendedPresetAccess: { marginTop: 4, color: colors.textTertiary, fontSize: 9, lineHeight: 14 },
   recommendedPresetButton: {
     minHeight: 38, flexShrink: 0, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', gap: 5, paddingHorizontal: spacing.md,
@@ -1516,7 +1353,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   sectionHint: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
-  sectionCollapsedHint: { color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
   conditionDisabled: { opacity: 0.38, pointerEvents: 'none' },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   option: { minHeight: 40, minWidth: 46, paddingHorizontal: spacing.md, borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
@@ -1678,10 +1514,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: radius.xl, borderWidth: 1, borderColor: colors.divider,
     backgroundColor: colors.surfaceElevated, padding: spacing.xl,
   },
-  recommendationEyebrow: {
-    color: colors.accentPrimary, fontSize: 9, letterSpacing: 1.4,
-    fontWeight: typography.weights.semibold, marginBottom: spacing.sm,
-  },
   recommendationTitle: {
     color: colors.textPrimary, fontSize: typography.sizes.section,
     fontWeight: typography.weights.bold, lineHeight: 26,
@@ -1689,10 +1521,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   recommendationDescription: {
     color: colors.textPrimary, fontSize: typography.sizes.small,
     lineHeight: 21, marginTop: spacing.md,
-  },
-  recommendationDisclaimer: {
-    color: colors.textSecondary, fontSize: typography.sizes.caption,
-    lineHeight: 18, marginTop: spacing.sm,
   },
   recommendationActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   recommendationCancelButton: {

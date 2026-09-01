@@ -177,7 +177,6 @@ export function RangeControl({
             <Text style={styles.title}>{title}</Text>
             {onHelpPress ? <ConditionInfoButton onPress={onHelpPress} title={title} /> : null}
           </View>
-          {!value.enabled ? <Text style={styles.collapsedHint}>비활성 · 제한 없이 적용</Text> : null}
         </View>
         <ConditionToggle
           enabled={value.enabled}
@@ -272,7 +271,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headingCopy: { flex: 1, minWidth: 0, paddingRight: spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   title: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  collapsedHint: { color: colors.textSecondary, fontSize: 10, lineHeight: 15, marginTop: spacing.xs },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm },
   presetBadge: {
     color: colors.accentSecondary, fontSize: 10, fontWeight: typography.weights.semibold,

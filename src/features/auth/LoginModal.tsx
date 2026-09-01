@@ -24,10 +24,8 @@ export function LoginModal() {
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <Text style={styles.eyebrow}>ACCOUNT</Text>
-          <Text style={styles.title}>무료회원으로 이어서 사용하세요</Text>
-          <Text style={styles.description}>
-            로그인하면 한 번에 최대 5게임을 만들고, 생성 조건 5개와 내 번호 기기 저장을 이용할 수 있어요.
-          </Text>
+          <Text style={styles.title}>계정 연결</Text>
+          <Text style={styles.description}>Pro 동기화와 계정 복원에 사용해요.</Text>
 
           <View style={styles.buttons}>
             {Platform.OS === 'ios' ? (
