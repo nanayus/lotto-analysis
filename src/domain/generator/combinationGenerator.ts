@@ -45,6 +45,11 @@ export const GENERATOR_SECTION_KEYS: GeneratorSectionKey[] = [
   'band40To45',
   'pastRanks',
 ];
+const DIRECT_SETUP_RANGE_DEFAULTS = {
+  lastDigitSum: { min: 15, max: 40 },
+  standardDeviation: { min: 8, max: 16 },
+  sum: { min: 100, max: 180 },
+} as const;
 
 type PrizeIndex = {
   fiveMain: Map<string, { bonus: number; missing: number }[]>;
@@ -200,6 +205,17 @@ export function buildGeneratorConditionDefaults(history: readonly LottoHistoryDr
   defaults.sum = { enabled: true, min: presets.sum.min, max: presets.sum.max };
   defaults.lastDigitSum = { enabled: false, min: presets.lastDigitSum.min, max: presets.lastDigitSum.max };
   return defaults;
+}
+
+export function buildDirectSetupGeneratorConditions(conditions: GeneratorConditions) {
+  const directSetup = cloneGeneratorConditions(conditions);
+  directSetup.enabledSections = Object.fromEntries(
+    GENERATOR_SECTION_KEYS.map((key) => [key, true]),
+  ) as Record<GeneratorSectionKey, boolean>;
+  directSetup.standardDeviation = { enabled: true, ...DIRECT_SETUP_RANGE_DEFAULTS.standardDeviation };
+  directSetup.sum = { enabled: true, ...DIRECT_SETUP_RANGE_DEFAULTS.sum };
+  directSetup.lastDigitSum = { enabled: true, ...DIRECT_SETUP_RANGE_DEFAULTS.lastDigitSum };
+  return directSetup;
 }
 
 export function buildBalancedGeneratorPreset(history: readonly LottoHistoryDraw[]) {

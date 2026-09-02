@@ -202,10 +202,9 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByText('조건 뽑기')).toBeNull();
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
     await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
     await act(async () => {
-      fireEvent.press(screen.getByText('3개 조건 적용'));
+      fireEvent.press(screen.getByText('4개 조건 적용'));
     });
     expect(screen.getByText('조합을 만들고 있어요')).toBeTruthy();
     expect(screen.getByTestId('direct-condition-shell')).toBeTruthy();
@@ -271,7 +270,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByRole('button', { name: '추천 조건 적용됨' })).toBeNull();
   });
 
-  test('lets Pro keep the current conditions and does not repeat the entry prompt', async () => {
+  test('opens every condition for Pro direct setup and does not repeat the entry prompt', async () => {
     mockIsPro = true;
     const screen = await render(<DirectSessionHarness />);
 
@@ -279,7 +278,21 @@ describe('CombinationGeneratorScreen', () => {
       fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
     });
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
-    expect(screen.getByText('2개 조건 적용')).toBeTruthy();
+    expect(screen.getByText('3개 조건 적용')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: '고정수 · 제외수 조건' }).props.accessibilityState)
+      .toEqual({ checked: true, disabled: false });
+    expect(screen.getByRole('switch', { name: '동끝수 형태 조건' }).props.accessibilityState)
+      .toEqual({ checked: true, disabled: false });
+    expect(screen.getByRole('switch', { name: 'A/C 값 조건' }).props.accessibilityState)
+      .toEqual({ checked: true, disabled: false });
+    expect(screen.getByRole('switch', { name: '과거 등수 조합 제외 조건' }).props.accessibilityState)
+      .toEqual({ checked: true, disabled: false });
+    expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('8.0');
+    expect(screen.getByLabelText('표준편차 최댓값').props.value).toBe('16.0');
+    expect(screen.getByLabelText('번호 총합 최솟값').props.value).toBe('100');
+    expect(screen.getByLabelText('번호 총합 최댓값').props.value).toBe('180');
+    expect(screen.getByLabelText('끝수 총합 최솟값').props.value).toBe('15');
+    expect(screen.getByLabelText('끝수 총합 최댓값').props.value).toBe('40');
 
     await act(async () => {
       latestFocusCallback?.();

@@ -6,6 +6,7 @@ import historyJson from '@/data/generated/lotto_history.json';
 import {
   activeConditionCount,
   buildBalancedGeneratorPreset,
+  buildDirectSetupGeneratorConditions,
   buildGeneratorConditionDefaults,
   buildGeneratorRangePresets,
   DEFAULT_GENERATOR_CONDITIONS,
@@ -42,6 +43,19 @@ describe('generator condition defaults', () => {
     expect(preset.highLowCounts).toEqual([2, 3, 4]);
     expect(preset.acValues).toEqual([7, 8, 9, 10]);
     expect(preset.consecutivePatterns).toEqual(['none', '2', '2+2', '2+2+2']);
+  });
+
+  test('opens direct setup with every section active and broad centered ranges', () => {
+    const directSetup = buildDirectSetupGeneratorConditions(
+      buildGeneratorConditionDefaults(historyJson as LottoHistoryDraw[]),
+    );
+
+    expect(Object.values(directSetup.enabledSections ?? {}).every(Boolean)).toBe(true);
+    expect(enabledGeneratorConditionCount(directSetup)).toBe(23);
+    expect(activeConditionCount(directSetup)).toBe(3);
+    expect(directSetup.standardDeviation).toEqual({ enabled: true, min: 8, max: 16 });
+    expect(directSetup.sum).toEqual({ enabled: true, min: 100, max: 180 });
+    expect(directSetup.lastDigitSum).toEqual({ enabled: true, min: 15, max: 40 });
   });
 
   test('chooses the lower bucket when historical bucket counts tie', () => {

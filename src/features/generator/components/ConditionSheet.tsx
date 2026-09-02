@@ -19,6 +19,7 @@ import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import {
   activeConditionCount,
   buildBalancedGeneratorPreset,
+  buildDirectSetupGeneratorConditions,
   buildGeneratorConditionDefaults,
   buildGeneratorRangePresets,
   cloneGeneratorConditions,
@@ -686,6 +687,10 @@ export function ConditionSheet({
     applyRecommendedPreset();
     onRecommendationPromptDismiss?.();
   };
+  const startDirectSetup = () => {
+    setDraft((current) => buildDirectSetupGeneratorConditions(current));
+    onRecommendationPromptDismiss?.();
+  };
   const toggleNumber = (number: number) => {
     setDraft((current) => {
       if (numberMode === 'fixed') {
@@ -1227,7 +1232,7 @@ export function ConditionSheet({
                 <Pressable
                   accessibilityLabel="추천 조건 적용 없이 직접 설정"
                   accessibilityRole="button"
-                  onPress={onRecommendationPromptDismiss}
+                  onPress={startDirectSetup}
                   style={styles.recommendationCancelButton}>
                   <Text style={styles.recommendationCancelText}>직접 설정</Text>
                 </Pressable>
