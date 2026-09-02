@@ -8,6 +8,7 @@ import { MainTabHeader, SubScreenHeader, TOP_BAR_HEIGHT } from '../AppTopBar';
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
 let mockTier: 'guest' | 'pro' = 'guest';
+let mockProExpiresAt: string | null = null;
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
@@ -34,6 +35,15 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     openPaywall: mockOpenPaywall,
     productAccess: {
       tier: mockTier,
+    },
+    state: {
+      access: {
+        canApplyReferralCode: false,
+        inviteCode: '',
+        isPro: mockTier === 'pro',
+        proExpiresAt: mockProExpiresAt,
+      },
+      status: 'ready',
     },
   }),
 }));
@@ -73,6 +83,7 @@ describe('MainTabHeader', () => {
     mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
     mockTier = 'guest';
+    mockProExpiresAt = null;
   });
 
   test('opens settings when an authenticated user presses the account area', async () => {
@@ -85,15 +96,30 @@ describe('MainTabHeader', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/settings');
   });
 
-  test('opens settings when a Pro user presses the subscription state', async () => {
-    mockTier = 'pro';
+  test('opens the shared Pro paywall when a FREE user presses the plan badge', async () => {
     const screen = await render(<MainTabHeader />);
 
+    expect(screen.getByText('FREE')).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: 'PRO 이용 중' }));
+      fireEvent.press(screen.getByRole('button', { name: 'FREE 플랜, Pro 혜택 보기' }));
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/settings');
+    expect(mockOpenPaywall).toHaveBeenCalledWith('main-header');
+  });
+
+  test('shows the expiry information when a Pro user presses the plan badge', async () => {
+    mockTier = 'pro';
+    mockProExpiresAt = '2026-12-31T00:00:00.000Z';
+    const screen = await render(<MainTabHeader />);
+
+    expect(screen.getByText('PRO')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'PRO 플랜, 이용 정보 보기' }));
+    });
+
+    expect(screen.getByText('Pro를 이용 중이에요')).toBeTruthy();
+    expect(screen.getByText('2026년 12월 31일까지')).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockOpenPaywall).not.toHaveBeenCalled();
   });
 });

@@ -53,9 +53,9 @@ describe('DrawHomeScreen', () => {
   test('shows Pro entry instead of ticket balance for guests', async () => {
     const screen = await render(<DrawHomeScreen />);
 
-    expect(screen.getByLabelText('Pro 살펴보기')).toBeTruthy();
+    expect(screen.getByLabelText('FREE 플랜, Pro 혜택 보기')).toBeTruthy();
     expect(screen.queryByText('4')).toBeNull();
-    expect(screen.getByText('FREE')).toBeTruthy();
+    expect(screen.getAllByText('FREE').length).toBeGreaterThan(0);
   });
 
   test('shows Pro instead of tickets for subscribers', async () => {
@@ -64,7 +64,7 @@ describe('DrawHomeScreen', () => {
 
     expect(screen.getByText('PRO')).toBeTruthy();
     expect(screen.getByText('Pro · 최대 5게임')).toBeTruthy();
-    expect(screen.queryByLabelText('Pro 살펴보기')).toBeNull();
+    expect(screen.getByLabelText('PRO 플랜, 이용 정보 보기')).toBeTruthy();
   });
 
   test('keeps the random game count independent from the single AI condition draw', async () => {

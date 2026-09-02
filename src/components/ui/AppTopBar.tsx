@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { ProStatusModal } from '@/features/monetization/ProStatusModal';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
 export const TOP_BAR_HEIGHT = 58;
@@ -29,8 +30,12 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   const styles = useThemedStyles(createStyles);
   const { openLogin, state: authState } = useAuth();
   const monetization = useMonetization();
+  const [proStatusVisible, setProStatusVisible] = useState(false);
   const authenticated = authState.status === 'authenticated';
   const isPro = monetization.productAccess.tier === 'pro';
+  const proExpiresAt = monetization.state?.status === 'ready'
+    ? monetization.state.access.proExpiresAt
+    : null;
 
   const openAccount = () => {
     if (!authenticated) {
@@ -47,7 +52,7 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
       return;
     }
     if (onProPress) onProPress();
-    else router.navigate('/(tabs)/settings');
+    else setProStatusVisible(true);
   };
 
   return (
@@ -70,19 +75,20 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
 
       <Pressable
         accessibilityHint={isPro ? '구독 정보를 확인합니다' : 'Pro 혜택을 확인합니다'}
-        accessibilityLabel={isPro ? 'PRO 이용 중' : 'Pro 살펴보기'}
+        accessibilityLabel={isPro ? 'PRO 플랜, 이용 정보 보기' : 'FREE 플랜, Pro 혜택 보기'}
         accessibilityRole="button"
         onPress={openAccess}
-        style={({ pressed }) => [styles.accessButton, isPro && styles.proButton, pressed && styles.pressed]}>
-        <Ionicons
-          color={isPro ? colors.accentPrimary : colors.textSecondary}
-          name="sparkles-outline"
-          size={16}
-        />
+        style={({ pressed }) => [styles.accessButton, isPro ? styles.proButton : styles.freeButton, pressed && styles.pressed]}>
+        <View style={[styles.planDot, isPro && styles.proPlanDot]} />
         <Text style={[styles.accessText, isPro && styles.proText]}>
-          {isPro ? 'PRO' : 'Pro'}
+          {isPro ? 'PRO' : 'FREE'}
         </Text>
       </Pressable>
+      <ProStatusModal
+        expiresAt={proExpiresAt}
+        onClose={() => setProStatusVisible(false)}
+        visible={proStatusVisible}
+      />
     </View>
   );
 }
@@ -156,29 +162,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: -0.2,
   },
   accessButton: {
-    minWidth: 54,
-    height: 36,
-    paddingHorizontal: spacing.md,
+    minWidth: 72,
+    height: 38,
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 7,
     borderRadius: radius.round,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.surfaceAccent,
+  },
+  freeButton: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.surfaceAccent,
   },
   proButton: {
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.accentPrimary,
   },
+  planDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentPrimary },
+  proPlanDot: { backgroundColor: '#FFFFFF' },
   accessText: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+    letterSpacing: 0.9,
     fontVariant: ['tabular-nums'],
   },
-  proText: { color: colors.accentPrimary, letterSpacing: 0.7 },
+  proText: { color: '#FFFFFF' },
   subBar: {
     height: TOP_BAR_HEIGHT,
     flexDirection: 'row',
