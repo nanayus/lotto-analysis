@@ -292,6 +292,27 @@ describe('CombinationResult', () => {
     expect(getByRole('button', { name: 'AI로 쉽게 보기, 설명 보기, Pro 전용' })).toBeTruthy();
   });
 
+  test('hides the AI explanation entry point while the Pro plan is paused', async () => {
+    const { queryByTestId, queryByText } = await render(
+      <CombinationResult
+        analysis={analysis}
+        bonusIncluded={false}
+        firstRound={1}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+        showAiExplanation={false}
+      />,
+    );
+
+    expect(queryByTestId('ai-combination-explanation-card')).toBeNull();
+    expect(queryByText('AI로 쉽게 보기')).toBeNull();
+  });
+
   test('restores match distribution and group frequency before condition statistics', async () => {
     const { getAllByTestId, getByTestId, getByText } = await render(
       <CombinationResult

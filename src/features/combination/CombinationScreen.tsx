@@ -630,6 +630,7 @@ export function CombinationScreen() {
                 onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}
                 requiresAiLogin={!proPlanEnabled && authState.status !== 'authenticated'}
+                showAiExplanation={proPlanEnabled}
                 purchased={savedAnalysisCombination?.purchased}
               />
             </Animated.View>

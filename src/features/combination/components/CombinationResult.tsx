@@ -55,6 +55,7 @@ type CombinationResultProps = {
   isPro?: boolean;
   purchased?: boolean;
   requiresAiLogin?: boolean;
+  showAiExplanation?: boolean;
 };
 
 const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
@@ -861,6 +862,7 @@ export function CombinationResult({
   canUseAiExplanation = isPro,
   purchased = false,
   requiresAiLogin = false,
+  showAiExplanation = true,
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
   const headline = describeCombinationHeadline(analysis);
@@ -1178,12 +1180,14 @@ export function CombinationResult({
       <FrequentCombinations analysis={analysis} />
 
       <View style={styles.resultFooter} testID="combination-result-footer">
-        <AiCombinationExplanation
-          analysis={analysis}
-          isPro={canUseAiExplanation}
-          onOpenPro={onOpenPro}
-          requiresLogin={requiresAiLogin}
-        />
+        {showAiExplanation ? (
+          <AiCombinationExplanation
+            analysis={analysis}
+            isPro={canUseAiExplanation}
+            onOpenPro={onOpenPro}
+            requiresLogin={requiresAiLogin}
+          />
+        ) : null}
         <Text style={styles.resultDisclaimer}>
           모든 수치는 과거 회차의 당첨 번호 기록을 집계한 것으로,{`\n`}
           앞으로의 추첨 결과를 예측하거나 보장하지 않아요.
