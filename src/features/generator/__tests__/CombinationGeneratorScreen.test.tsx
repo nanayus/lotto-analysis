@@ -144,7 +144,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('tab', { name: '번호' })).toBeTruthy();
     expect(within(conditionContent).queryByRole('tab', { name: '번호' })).toBeNull();
 
-    expect(screen.getByText('Pro · 조건 무제한 · 추천 조건')).toBeTruthy();
+    expect(screen.getByText('조건 무제한 · 추천 조건')).toBeTruthy();
     expect(screen.queryByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByText('Pro 보기')); });
     expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
@@ -192,6 +192,9 @@ describe('CombinationGeneratorScreen', () => {
   test('closes the direct condition selector while opening analysis and restores it on return', async () => {
     mockPush.mockClear();
     const screen = await render(<DirectSessionHarness />);
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+    });
 
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
     expect(screen.queryByTestId('condition-sheet-modal')).toBeNull();
@@ -227,6 +230,10 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
 
     await act(async () => { fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
+    expect(screen.getByTestId('recommendation-prompt')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+    });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
   }, 7000);
 
@@ -235,6 +242,9 @@ describe('CombinationGeneratorScreen', () => {
     mockReplace.mockClear();
     const screen = await render(<DirectSessionHarness />);
     await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+    });
+    await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: '조건 선택 취소' }));
     });
 
@@ -242,14 +252,17 @@ describe('CombinationGeneratorScreen', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  test('opens direct condition setup without a prompt and applies the preset explicitly', async () => {
+  test('offers the recommended conditions immediately when Pro enters direct setup', async () => {
     mockIsPro = true;
     const screen = await render(<DirectSessionHarness />);
 
-    expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
+    expect(screen.getByTestId('recommendation-prompt')).toBeTruthy();
+    expect(screen.getByText('추천 조건을 적용할까요?')).toBeTruthy();
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' })); });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' }));
+    });
 
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
     expect(screen.getByText('6개 조건 적용')).toBeTruthy();
@@ -257,11 +270,27 @@ describe('CombinationGeneratorScreen', () => {
       .toEqual({ selected: true });
   });
 
+  test('lets Pro keep the current conditions and does not repeat the entry prompt', async () => {
+    mockIsPro = true;
+    const screen = await render(<DirectSessionHarness />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+    });
+    expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
+    expect(screen.getByText('2개 조건 적용')).toBeTruthy();
+
+    await act(async () => {
+      latestFocusCallback?.();
+    });
+    expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
+  });
+
   test('shows one concise Pro banner on direct guest entry', async () => {
     mockIsPro = false;
     const screen = await render(<DirectSessionHarness />);
 
-    expect(screen.getByText('Pro · 조건 무제한 · 추천 조건')).toBeTruthy();
+    expect(screen.getByText('조건 무제한 · 추천 조건')).toBeTruthy();
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
     expect(screen.queryByText(/로그인하면 조건/)).toBeNull();
     expect(screen.queryByRole('button', { name: '추천 조건 적용됨' })).toBeNull();

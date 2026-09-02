@@ -96,16 +96,29 @@ export function CombinationGeneratorScreen({
   const [outcomes, setOutcomes] = useState<GenerationOutcome[]>([]);
   const outcome = outcomes[0] ?? null;
   const [sheetVisible, setSheetVisible] = useState(autoOpenConditions);
+  const [recommendationPromptVisible, setRecommendationPromptVisible] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [searchedCandidates, setSearchedCandidates] = useState(0);
   const [nearestNoticeVisible, setNearestNoticeVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const generationToken = useRef(0);
+  const recommendationPromptShown = useRef(false);
   const summary = useMemo(() => conditionSummary(conditions), [conditions]);
   const conditionCount = activeConditionCount(conditions);
   const conditionApplyAccess = productAccess.tier;
 
   useEffect(() => () => { generationToken.current += 1; }, []);
+
+  useEffect(() => {
+    if (
+      conditionOnly
+      && productAccess.canUseBalancedPreset
+      && !recommendationPromptShown.current
+    ) {
+      recommendationPromptShown.current = true;
+      setRecommendationPromptVisible(true);
+    }
+  }, [conditionOnly, productAccess.canUseBalancedPreset]);
 
   useFocusEffect(useCallback(() => {
     if (!conditionOnly) return undefined;
@@ -265,7 +278,9 @@ export function CombinationGeneratorScreen({
             onApply={applyConditions}
             onClose={leaveDirectConditionSelection}
             onOpenPro={() => openPaywall('condition-ai-explanation')}
+            onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
             presentation="screen"
+            recommendationPromptVisible={recommendationPromptVisible}
             visible
           />
         ) : (
