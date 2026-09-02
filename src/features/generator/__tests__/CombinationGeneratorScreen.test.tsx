@@ -258,6 +258,8 @@ describe('CombinationGeneratorScreen', () => {
 
     expect(screen.getByTestId('recommendation-prompt')).toBeTruthy();
     expect(screen.getByText('추천 조건을 적용할까요?')).toBeTruthy();
+    expect(screen.queryByText('RECOMMENDED SETTINGS')).toBeNull();
+    expect(screen.queryByText('표준편차·합계·홀짝·저고·A/C·연번을 한 번에 설정해요.')).toBeNull();
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
     await act(async () => {

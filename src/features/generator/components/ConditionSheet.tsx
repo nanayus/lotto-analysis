@@ -1255,11 +1255,7 @@ export function ConditionSheet({
             <View
               style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
               testID="recommendation-prompt">
-              <Text style={styles.recommendationEyebrow}>RECOMMENDED SETTINGS</Text>
               <Text style={styles.recommendationTitle}>추천 조건을 적용할까요?</Text>
-              <Text style={styles.recommendationDescription}>
-                표준편차·합계·홀짝·저고·A/C·연번을 한 번에 설정해요.
-              </Text>
               <Text style={styles.recommendationDisclaimer}>
                 과거 통계를 참고한 탐색용 조건이며 당첨을 예측하지 않습니다.
               </Text>
@@ -1554,10 +1550,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   recommendationDialog: {
     borderRadius: radius.xl, borderWidth: 1, borderColor: colors.divider,
     backgroundColor: colors.surfaceElevated, padding: spacing.xl,
-  },
-  recommendationEyebrow: {
-    color: colors.accentPrimary, fontSize: 9, letterSpacing: 1.4,
-    fontWeight: typography.weights.semibold, marginBottom: spacing.sm,
   },
   recommendationTitle: {
     color: colors.textPrimary, fontSize: typography.sizes.section,
