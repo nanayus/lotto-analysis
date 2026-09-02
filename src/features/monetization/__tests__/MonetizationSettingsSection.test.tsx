@@ -10,7 +10,7 @@ jest.mock('../MonetizationContext', () => ({
   useMonetization: () => ({
     openPaywall: mockOpenPaywall,
     productAccess: {
-      canCompareCombinations: false,
+      canRegenerateWithSameConditions: mockIsPro,
       canSaveNumbers: true,
       canUseBalancedPreset: mockIsPro,
       canUseAiExplanation: mockIsPro,

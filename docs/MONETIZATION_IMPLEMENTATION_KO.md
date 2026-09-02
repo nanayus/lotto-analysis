@@ -15,7 +15,7 @@ type AccountTier = 'guest' | 'pro';
 | `requiresRewardedAdForResults` | `true` | `false` |
 | `canUseBalancedPreset` | `false` | `true` |
 | `canUseAiExplanation` | `false` | `true` |
-| `canCompareCombinations` | `false` | `true` |
+| `canRegenerateWithSameConditions` | `false` | `true` |
 | `canUseCustomPeriod` | `false` | `true` |
 | `storageMode` | `device` | `cloud` |
 
@@ -45,6 +45,13 @@ type AccountTier = 'guest' | 'pro';
 - Pro 전환 시 기기 데이터를 클라우드 데이터와 병합한다.
 - 게스트는 저장·구매 표시·즐겨찾기를 로그인 없이 사용할 수 있다.
 
+## 같은 조건으로 다시 뽑기
+
+- 조건 뽑기로 만든 조합의 분석 결과와 내 번호에 기능을 표시한다.
+- 게스트에게도 버튼과 `PRO` 잠금을 보여주고, 누르면 Pro 안내를 연다.
+- Pro가 누르면 저장된 생성 조건으로 새 조합을 만든다.
+- 생성 중에는 기존 로또 볼 로딩 화면을 보여준 뒤 같은 분석 결과 화면으로 이어간다.
+
 ## 화면 문구
 
 - 조건 상단: `Pro · 조건 무제한 · 균형 프리셋`
@@ -64,3 +71,4 @@ type AccountTier = 'guest' | 'pro';
 5. 게스트의 새 분석과 재열람 모두 광고 흐름을 거친다.
 6. Pro는 광고 없이 결과를 본다.
 7. 로그인만으로 게스트 한도가 늘어나지 않는다.
+8. 게스트의 같은 조건 다시 뽑기는 Pro 안내로 연결되고, Pro는 로딩 후 새 결과를 본다.

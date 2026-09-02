@@ -156,18 +156,36 @@ export function RangeControl({
   const styles = useThemedStyles(createStyles);
   const [trackWidth, setTrackWidth] = useState(0);
   const format = (number: number) => number.toFixed(decimals);
+  const [minDraftText, setMinDraftText] = useState<string | null>(null);
+  const [maxDraftText, setMaxDraftText] = useState<string | null>(null);
+  const minText = minDraftText ?? format(value.min);
+  const maxText = maxDraftText ?? format(value.max);
+
   const commitText = (kind: 'min' | 'max', text: string) => {
     const parsed = Number(text);
-    if (!Number.isFinite(parsed)) return;
-    if (kind === 'min') {
-      onChange({ ...value, min: roundStep(clamp(parsed, limits.min, value.max), step, decimals) });
-    } else {
-      onChange({ ...value, max: roundStep(clamp(parsed, value.min, limits.max), step, decimals) });
+    if (text.trim() === '' || !Number.isFinite(parsed)) {
+      if (kind === 'min') setMinDraftText(null);
+      else setMaxDraftText(null);
+      return;
     }
+    const nextValue = kind === 'min'
+      ? { ...value, min: roundStep(clamp(parsed, limits.min, value.max), step, decimals) }
+      : { ...value, max: roundStep(clamp(parsed, value.min, limits.max), step, decimals) };
+    if (kind === 'min') setMinDraftText(null);
+    else setMaxDraftText(null);
+    onChange(nextValue);
   };
+  const parsedMin = minDraftText?.trim() ? Number(minDraftText) : Number.NaN;
+  const parsedMax = maxDraftText?.trim() ? Number(maxDraftText) : Number.NaN;
+  const previewMin = minDraftText !== null && Number.isFinite(parsedMin)
+    ? roundStep(clamp(parsedMin, limits.min, value.max), step, decimals)
+    : value.min;
+  const previewMax = maxDraftText !== null && Number.isFinite(parsedMax)
+    ? roundStep(clamp(parsedMax, value.min, limits.max), step, decimals)
+    : value.max;
   const onTrackLayout = (event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width);
-  const startPercent = rangeValueToPercent(value.min, limits.min, limits.max);
-  const endPercent = rangeValueToPercent(value.max, limits.min, limits.max);
+  const startPercent = rangeValueToPercent(previewMin, limits.min, limits.max);
+  const endPercent = rangeValueToPercent(previewMax, limits.min, limits.max);
 
   return (
     <View style={[styles.container, value.enabled && styles.containerEnabled]}>
@@ -198,6 +216,7 @@ export function RangeControl({
         ) : null}
         <View>
           <View onLayout={onTrackLayout} style={styles.track} testID={`range-track-${title}`}>
+            <View style={styles.trackRail} testID={`range-base-track-${title}`} />
             <View
               style={[
                 styles.activeTrack,
@@ -206,49 +225,55 @@ export function RangeControl({
               testID={`range-active-track-${title}`}
             />
             <SliderThumb
-              allowedMax={value.max}
+              allowedMax={previewMax}
               allowedMin={limits.min}
               kind="min"
-              onChange={(min) => onChange({ ...value, min })}
+              onChange={(min) => {
+                setMinDraftText(null);
+                onChange({ ...value, min });
+              }}
               rangeMax={limits.max}
               rangeMin={limits.min}
               step={step}
               title={title}
               trackWidth={trackWidth}
-              value={value.min}
+              value={previewMin}
             />
             <SliderThumb
               allowedMax={limits.max}
-              allowedMin={value.min}
+              allowedMin={previewMin}
               kind="max"
-              onChange={(max) => onChange({ ...value, max })}
+              onChange={(max) => {
+                setMaxDraftText(null);
+                onChange({ ...value, max });
+              }}
               rangeMax={limits.max}
               rangeMin={limits.min}
               step={step}
               title={title}
               trackWidth={trackWidth}
-              value={value.max}
+              value={previewMax}
             />
           </View>
           <View style={styles.inputs} testID={`range-inputs-${title}`}>
             <TextInput
               accessibilityLabel={`${title} 최솟값`}
-              defaultValue={format(value.min)}
-              key={`min-${value.min}`}
               keyboardType="decimal-pad"
+              onChangeText={setMinDraftText}
               onEndEditing={(event) => commitText('min', event.nativeEvent.text)}
               selectTextOnFocus
               style={styles.input}
+              value={minText}
             />
             <Text style={styles.separator}>~</Text>
             <TextInput
               accessibilityLabel={`${title} 최댓값`}
-              defaultValue={format(value.max)}
-              key={`max-${value.max}`}
               keyboardType="decimal-pad"
+              onChangeText={setMaxDraftText}
               onEndEditing={(event) => commitText('max', event.nativeEvent.text)}
               selectTextOnFocus
               style={styles.input}
+              value={maxText}
             />
           </View>
         </View>
@@ -280,6 +305,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   presetValue: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   presetSource: { color: colors.textSecondary, fontSize: 10 },
   track: { height: 36, marginHorizontal: 10, marginTop: spacing.md, justifyContent: 'center' },
+  trackRail: {
+    position: 'absolute', left: 0, right: 0, height: 4,
+    borderRadius: 2, backgroundColor: colors.borderStrong,
+  },
   activeTrack: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: colors.accentPrimary },
   thumbHitArea: {
     position: 'absolute', width: 44, height: 44, marginLeft: -22,

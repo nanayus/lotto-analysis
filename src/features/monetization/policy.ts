@@ -1,7 +1,7 @@
 export type AccountTier = 'guest' | 'pro';
 
 export type ProductAccess = {
-  canCompareCombinations: boolean;
+  canRegenerateWithSameConditions: boolean;
   canSaveNumbers: boolean;
   canUseBalancedPreset: boolean;
   canUseAiExplanation: boolean;
@@ -31,7 +31,7 @@ export function accountTier({
 export function productAccessFor(tier: AccountTier): ProductAccess {
   const isPro = tier === 'pro';
   return {
-    canCompareCombinations: isPro,
+    canRegenerateWithSameConditions: isPro,
     canSaveNumbers: true,
     canUseBalancedPreset: isPro,
     canUseAiExplanation: isPro,

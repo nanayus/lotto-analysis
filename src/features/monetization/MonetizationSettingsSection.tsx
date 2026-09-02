@@ -13,8 +13,8 @@ const GUEST_FEATURES = [
 
 const PRO_FEATURES = [
   { icon: 'ban-outline', label: '광고 없이 결과 확인' },
-  { icon: 'options-outline', label: '조건 무제한 · 균형 프리셋' },
-  { icon: 'sparkles-outline', label: 'AI 해설 · 조합 비교 · Custom' },
+  { icon: 'options-outline', label: '조건 무제한 · 추천 조건' },
+  { icon: 'sparkles-outline', label: 'AI 해설 · 같은 조건 다시 뽑기 · Custom' },
   { icon: 'cloud-done-outline', label: '클라우드 저장 · 기기간 동기화' },
 ] as const;
 

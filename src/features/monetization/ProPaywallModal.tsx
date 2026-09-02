@@ -6,16 +6,16 @@ import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '
 const BENEFITS = [
   '모든 분석 결과를 광고 없이 바로 확인',
   'AI 조합 해설과 후속 질문',
-  '두 조합 비교와 회차 범위 직접 선택',
+  '같은 조건 다시 뽑기와 회차 범위 직접 선택',
   '내 번호 클라우드 저장과 기기간 동기화',
 ] as const;
 
 const SOURCE_TITLES: Record<string, string> = {
   'ai-combination-explanation': 'AI가 조합 통계를 쉽게 풀어드려요',
-  'combination-comparison': '두 조합의 차이를 한눈에 비교하세요',
   'condition-ai-explanation': '만든 조합을 AI에게 물어보세요',
   'custom-period': '원하는 회차만 골라서 분석하세요',
   'library-cloud': '내 번호를 모든 기기에서 이어보세요',
+  'same-condition-regeneration': '마음에 든 조건으로 새 조합을 뽑아보세요',
 };
 
 export function ProPaywallModal({

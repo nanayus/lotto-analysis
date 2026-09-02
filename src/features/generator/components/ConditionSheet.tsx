@@ -735,7 +735,7 @@ export function ConditionSheet({
     action: 'Pro 보기',
     icon: 'sparkles-outline' as const,
     onPress: onOpenPro,
-    title: 'Pro · 조건 무제한 · 균형 프리셋',
+    title: 'Pro · 조건 무제한 · 추천 조건',
   };
 
   const editorContent = (
@@ -816,11 +816,11 @@ export function ConditionSheet({
                 styles.recommendedPreset,
                 recommendedPresetActive && styles.recommendedPresetActive,
               ]}>
-                <Text style={styles.recommendedPresetTitle}>균형 프리셋</Text>
+                <Text style={styles.recommendedPresetTitle}>추천 조건 적용</Text>
               <Pressable
                 accessibilityLabel={recommendedPresetActive
-                  ? '균형 프리셋 적용됨'
-                  : '균형 프리셋 적용'}
+                  ? '추천 조건 적용됨'
+                  : '추천 조건 적용'}
                 accessibilityRole="button"
                 accessibilityState={{ selected: recommendedPresetActive }}
                 onPress={requestRecommendedPreset}
@@ -1215,7 +1215,7 @@ export function ConditionSheet({
               testID="condition-limit-prompt">
               <Text style={styles.recommendationTitle}>조건은 2개까지 선택할 수 있어요</Text>
               <Text style={styles.recommendationDescription}>
-                Pro에서는 제한 없이 선택하고 균형 프리셋도 사용할 수 있어요.
+                Pro에서는 제한 없이 선택하고 추천 조건도 사용할 수 있어요.
               </Text>
               <View style={styles.recommendationActions}>
                 <Pressable

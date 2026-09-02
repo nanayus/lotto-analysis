@@ -3,6 +3,14 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 
+import {
+  cloneGeneratorConditions,
+  DEFAULT_GENERATOR_CONDITIONS,
+  generateCombination,
+} from '@/domain/generator/combinationGenerator';
+import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
+import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+
 import { CombinationScreen } from '../CombinationScreen';
 import {
   CombinationDraftProvider,
@@ -12,6 +20,7 @@ import {
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
 const mockShowRewardedAd = jest.fn(async () => true);
+const mockAddCombination = jest.fn(() => 'saved-condition-combination');
 let mockIsPro = true;
 let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'REWARD_OR_PRO_REQUIRED' = 'AUTHORIZED_PRO';
 const mockAuthorizeAnalysis = jest.fn(async () => ({
@@ -62,7 +71,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
     authorizeAnalysis: mockAuthorizeAnalysis,
     openPaywall: mockOpenPaywall,
     productAccess: {
-      canCompareCombinations: mockAuthStatus === 'authenticated' && mockIsPro,
+      canRegenerateWithSameConditions: mockAuthStatus === 'authenticated' && mockIsPro,
       canSaveNumbers: true,
       canUseBalancedPreset: mockAuthStatus === 'authenticated' && mockIsPro,
       canUseAiExplanation: mockAuthStatus === 'authenticated' && mockIsPro,
@@ -90,10 +99,23 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
   }),
 }));
 
+jest.mock('@/features/library/NumberLibraryContext', () => ({
+  useNumberLibrary: jest.fn(),
+}));
+
+jest.mock('@/domain/generator/combinationGenerator', () => {
+  const actual = jest.requireActual<typeof import('@/domain/generator/combinationGenerator')>(
+    '@/domain/generator/combinationGenerator',
+  );
+  return { ...actual, generateCombination: jest.fn() };
+});
+
 const mockReplace = router.replace as jest.Mock;
 const mockBack = router.back as jest.Mock;
 const mockCanGoBack = router.canGoBack as jest.Mock;
 const mockSearchParams = useLocalSearchParams as jest.Mock;
+const mockGenerateCombination = generateCombination as jest.MockedFunction<typeof generateCombination>;
+const mockUseNumberLibrary = useNumberLibrary as jest.MockedFunction<typeof useNumberLibrary>;
 
 function SeededCombinationScreen() {
   const { setNumbers } = useCombinationDraft();
@@ -119,6 +141,32 @@ describe('CombinationScreen', () => {
     mockAuthorizeAnalysis.mockClear();
     mockIsPro = true;
     mockAuthorizationDecision = 'AUTHORIZED_PRO';
+    mockAddCombination.mockClear();
+    mockAddCombination.mockReturnValue('saved-condition-combination');
+    mockGenerateCombination.mockReset();
+    mockGenerateCombination.mockResolvedValue({
+      numbers: [2, 8, 13, 20, 35, 44],
+    } as Awaited<ReturnType<typeof generateCombination>>);
+    const generatorConditions = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
+    generatorConditions.sum = { enabled: true, min: 100, max: 150 };
+    mockUseNumberLibrary.mockReturnValue({
+      addCombination: mockAddCombination,
+      canSave: true,
+      combinations: [{
+        createdAt: '2026-09-02T10:00:00.000Z',
+        favorite: false,
+        generationConditions: describeGeneratorConditions(generatorConditions),
+        generatorConditions,
+        id: 'saved-condition-combination',
+        numbers: [1, 7, 12, 19, 34, 45],
+        purchased: false,
+        source: 'ai',
+      }],
+      isReady: true,
+      storageMode: 'cloud',
+      toggleFavorite: jest.fn(),
+      togglePurchased: jest.fn(),
+    });
   });
 
   test('lets a guest continue to the rewarded-ad result gate', async () => {
@@ -297,7 +345,7 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('result-section-prize')).toBeNull();
   });
 
-  test('opens Pro when a free user requests combination comparison', async () => {
+  test('shows same-condition regeneration but opens Pro for a guest', async () => {
     mockIsPro = false;
     mockAuthorizationDecision = 'AUTHORIZED_PRO';
     const screen = await render(
@@ -306,9 +354,43 @@ describe('CombinationScreen', () => {
       </CombinationDraftProvider>,
     );
 
-    const compareButton = await waitFor(() => screen.getByRole('button', { name: '비교할 조합 추가, Pro 전용' }));
-    fireEvent.press(compareButton);
-    expect(mockOpenPaywall).toHaveBeenCalledWith('combination-comparison');
+    const regenerateButton = await waitFor(() => screen.getByRole('button', {
+      name: '같은 조건으로 다시 뽑기, Pro 전용',
+    }));
+    fireEvent.press(regenerateButton);
+    expect(mockOpenPaywall).toHaveBeenCalledWith('same-condition-regeneration');
+    expect(mockGenerateCombination).not.toHaveBeenCalled();
+  });
+
+  test('shows the lotto loading transition and analyzes the regenerated Pro combination', async () => {
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    const regenerateButton = await waitFor(() => screen.getByRole('button', {
+      name: '같은 조건으로 다시 뽑기',
+    }));
+    await act(async () => {
+      fireEvent.press(regenerateButton);
+    });
+
+    expect(screen.getByText('같은 조건으로 다시 뽑는 중')).toBeTruthy();
+    expect(screen.getByTestId('loading-number-shuffle', { includeHiddenElements: true })).toBeTruthy();
+    await waitFor(() => expect(mockAddCombination).toHaveBeenCalledWith(
+      [2, 8, 13, 20, 35, 44],
+      'ai',
+      expect.objectContaining({
+        generatorConditions: expect.objectContaining({
+          sum: { enabled: true, min: 100, max: 150 },
+        }),
+      }),
+    ), { timeout: 2000 });
+    await waitFor(() => expect(screen.queryByText('같은 조건으로 다시 뽑는 중')).toBeNull(), {
+      timeout: 2000,
+    });
+    expect(screen.getByRole('button', { name: '같은 조건으로 다시 뽑기' })).toBeTruthy();
   });
 
   test('returns to the originating tab through history when the shared detail was pushed', async () => {

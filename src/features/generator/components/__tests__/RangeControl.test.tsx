@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { describe, expect, jest, test } from '@jest/globals';
 import { StyleSheet } from 'react-native';
 
@@ -24,8 +24,10 @@ describe('RangeControl', () => {
     const maxPercent = rangeValueToPercent(13.8, 1.7, 21.1);
     const minStyle = StyleSheet.flatten(screen.getByTestId('range-thumb-표준편차-min').props.style);
     const maxStyle = StyleSheet.flatten(screen.getByTestId('range-thumb-표준편차-max').props.style);
+    const baseTrackStyle = StyleSheet.flatten(screen.getByTestId('range-base-track-표준편차').props.style);
     const activeStyle = StyleSheet.flatten(screen.getByTestId('range-active-track-표준편차').props.style);
 
+    expect(baseTrackStyle).toEqual(expect.objectContaining({ left: 0, right: 0 }));
     expect(minStyle.left).toBe(`${minPercent}%`);
     expect(maxStyle.left).toBe(`${maxPercent}%`);
     expect(activeStyle.left).toBe(`${minPercent}%`);
@@ -66,5 +68,32 @@ describe('RangeControl', () => {
     expect(rowStyle).toEqual(expect.objectContaining({ minWidth: 0, width: '100%' }));
     expect(minInputStyle).toEqual(expect.objectContaining({ flexBasis: 0, minWidth: 0 }));
     expect(maxInputStyle).toEqual(expect.objectContaining({ flexBasis: 0, minWidth: 0 }));
+  });
+
+  test('previews typed values on the slider before committing the input', async () => {
+    const onChange = jest.fn();
+    const screen = await render(
+      <RangeControl
+        limits={{ min: 21, max: 255 }}
+        onChange={onChange}
+        title="번호 총합"
+        value={{ enabled: true, min: 130, max: 139 }}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('번호 총합 최솟값'), '100');
+    });
+
+    const previewStyle = StyleSheet.flatten(screen.getByTestId('range-thumb-번호 총합-min').props.style);
+    expect(previewStyle.left).toBe(`${rangeValueToPercent(100, 21, 255)}%`);
+    expect(onChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('번호 총합 최솟값'), 'endEditing', {
+        nativeEvent: { text: '100' },
+      });
+    });
+    expect(onChange).toHaveBeenCalledWith({ enabled: true, min: 100, max: 139 });
   });
 });

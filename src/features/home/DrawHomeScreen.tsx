@@ -65,7 +65,7 @@ export function DrawHomeScreen() {
               <Text style={styles.aiPolicy}>
                 {productAccess.tier === 'guest'
                   ? '게스트 · 조건 2개'
-                  : 'Pro · 조건 무제한 · 균형 프리셋'}
+                  : 'Pro · 조건 무제한 · 추천 조건'}
               </Text>
             </View>
             <View style={styles.aiAction}>

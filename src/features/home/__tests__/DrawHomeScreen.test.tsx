@@ -28,7 +28,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     openPaywall: jest.fn(),
     productAccess: {
-      canCompareCombinations: mockTier === 'pro',
+      canRegenerateWithSameConditions: mockTier === 'pro',
       canSaveNumbers: true,
       canUseBalancedPreset: mockTier === 'pro',
       canUseAiExplanation: mockTier === 'pro',

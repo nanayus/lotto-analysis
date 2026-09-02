@@ -9,6 +9,8 @@ import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
+import { generateCombination } from '@/domain/generator/combinationGenerator';
+import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { CombinationResult } from './components/CombinationResult';
@@ -124,8 +126,11 @@ export function CombinationScreen() {
   const [isAuthorizing, setAuthorizing] = useState(false);
   const [isWatchingRewardedAd, setWatchingRewardedAd] = useState(false);
   const [analysisLibraryId, setAnalysisLibraryId] = useState<string | null>(null);
+  const [regenerationPhase, setRegenerationPhase] = useState<'error' | 'loading' | null>(null);
+  const [regenerationError, setRegenerationError] = useState<string | null>(null);
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
+  const regenerationTokenRef = useRef(0);
 
   const handleToggleNumber = useCallback((number: number) => {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
@@ -288,19 +293,6 @@ export function CombinationScreen() {
     router.replace('/(tabs)/draw');
   }, [clear]);
 
-  const startComparison = useCallback(() => {
-    if (!productAccess.canCompareCombinations) {
-      openPaywall('combination-comparison');
-      return;
-    }
-    if (!analysisState) return;
-    setComparisonA(analysisState.snapshot);
-    setComparisonB(null);
-    clear();
-    setExcludedNumbers([]);
-    setMode({ kind: 'compareSelect' });
-  }, [analysisState, clear, openPaywall, productAccess.canCompareCombinations]);
-
   const analysisAvailabilityLabel = productAccess.tier === 'pro'
     ? 'Pro · 광고 없이 결과 보기'
     : '게스트 · 광고 후 결과 공개';
@@ -388,6 +380,76 @@ export function CombinationScreen() {
   const savedAnalysisCombination = analysisLibraryId
     ? combinations.find((item) => item.id === analysisLibraryId)
     : undefined;
+  const cancelRegeneration = useCallback(() => {
+    regenerationTokenRef.current += 1;
+    setRegenerationPhase(null);
+    setRegenerationError(null);
+  }, []);
+  const regenerateWithSameConditions = useCallback(async () => {
+    const generatorConditions = savedAnalysisCombination?.generatorConditions;
+    if (!generatorConditions) return;
+    if (!productAccess.canRegenerateWithSameConditions) {
+      openPaywall('same-condition-regeneration');
+      return;
+    }
+    if (regenerationPhase === 'loading') return;
+
+    regenerationTokenRef.current += 1;
+    const token = regenerationTokenRef.current;
+    const startedAt = Date.now();
+    setRegenerationError(null);
+    setRegenerationPhase('loading');
+    try {
+      const outcome = await generateCombination(generatorConditions, {
+        history: lottoHistory,
+        isCancelled: () => regenerationTokenRef.current !== token,
+      });
+      await waitForGeneratedTransition(startedAt);
+      if (regenerationTokenRef.current !== token) return;
+
+      const generationConditions = describeGeneratorConditions(generatorConditions);
+      const savedId = addCombination(outcome.numbers, 'ai', {
+        generationConditions,
+        generatorConditions,
+      });
+      const currentFilters = analysisStateRef.current
+        ? {
+          includeBonus: analysisStateRef.current.includeBonus,
+          period: analysisStateRef.current.period,
+        }
+        : DEFAULT_FILTERS;
+      const snapshot = analyzeCombination(lottoHistory, outcome.numbers, currentFilters);
+      const nextState = { ...currentFilters, snapshot };
+      setNumbers(outcome.numbers);
+      analysisStateRef.current = nextState;
+      setAnalysisState(nextState);
+      setAnalysisLibraryId(savedId ?? null);
+      setMode({ kind: 'result' });
+      setRegenerationPhase(null);
+      if (Platform.OS !== 'web') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      if (
+        regenerationTokenRef.current !== token
+        || (error as Error).message === 'GENERATION_CANCELLED'
+      ) return;
+      await waitForGeneratedTransition(startedAt);
+      if (regenerationTokenRef.current !== token) return;
+      setRegenerationError((error as Error).message || '다시 뽑지 못했어요.');
+      setRegenerationPhase('error');
+      if (Platform.OS !== 'web') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    }
+  }, [
+    addCombination,
+    openPaywall,
+    productAccess.canRegenerateWithSameConditions,
+    regenerationPhase,
+    savedAnalysisCombination?.generatorConditions,
+    setNumbers,
+  ]);
   const toggleLibraryState = useCallback((kind: 'favorite' | 'purchased') => {
     if (!analysisLibraryId) return;
     if (kind === 'favorite') toggleFavorite(analysisLibraryId);
@@ -398,7 +460,26 @@ export function CombinationScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
       <View style={styles.container}>
-        {mode.kind === 'select' || mode.kind === 'compareSelect' ? (
+        {regenerationPhase ? (
+          <GeneratedAnalysisTransition
+            descriptionOverride={regenerationPhase === 'loading'
+              ? '선택한 조건 안에서 새 조합을 만들고 있어요.'
+              : '조건을 확인하고 다시 시도해 주세요.'}
+            errorMessage={regenerationError}
+            numbers={analysisState?.snapshot.numbers ?? selectedNumbers}
+            onBack={cancelRegeneration}
+            onContinue={() => void regenerateWithSameConditions()}
+            onLater={cancelRegeneration}
+            onOpenPro={() => openPaywall('same-condition-regeneration')}
+            onWatchAd={() => undefined}
+            phase={regenerationPhase}
+            rewardedAdAvailable={false}
+            rewardedAdLoading={false}
+            titleOverride={regenerationPhase === 'loading'
+              ? '같은 조건으로 다시 뽑는 중'
+              : '다시 뽑지 못했어요'}
+          />
+        ) : mode.kind === 'select' || mode.kind === 'compareSelect' ? (
           <>{mode.kind === 'compareSelect' && comparisonA ? <View style={styles.compareBasis}><Text style={styles.compareLabel}>비교 기준 A</Text><Text style={styles.compareNumbers}>{comparisonA.numbers.map((n)=>String(n).padStart(2,'0')).join(' · ')}</Text></View> : null}
           {mode.kind === 'select' && analysisTransitionPhase ? (
             <GeneratedAnalysisTransition
@@ -441,6 +522,7 @@ export function CombinationScreen() {
               <CombinationResult
                 analysis={analysisState.snapshot}
                 bonusIncluded={analysisState.includeBonus}
+                canRegenerate={Boolean(savedAnalysisCombination?.generatorConditions)}
                 favorite={savedAnalysisCombination?.favorite}
                 firstRound={firstRound}
                 isPro={productAccess.tier === 'pro'}
@@ -451,8 +533,8 @@ export function CombinationScreen() {
                 onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
                 onOpenPro={() => openPaywall('ai-combination-explanation')}
                 onPeriodChange={changePeriod}
+                onRegenerate={() => void regenerateWithSameConditions()}
                 onStartOver={startOver}
-                onCompare={startComparison}
                 onToggleFavorite={() => toggleLibraryState('favorite')}
                 onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}

@@ -104,7 +104,7 @@ describe('CombinationResult', () => {
         firstRound={1}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={() => undefined}
+        onRegenerate={() => undefined}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -136,17 +136,18 @@ describe('CombinationResult', () => {
 
   test('shows the selected combination as one compact profile', async () => {
     const onOpenHistory = jest.fn();
-    const onCompare = jest.fn();
+    const onRegenerate = jest.fn();
     const onToggleFavorite = jest.fn();
     const onTogglePurchased = jest.fn();
     const { getByRole, getByTestId, getByText, queryByText } = await render(
       <CombinationResult
         analysis={analysis}
         bonusIncluded={false}
+        canRegenerate
         firstRound={1}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={onCompare}
+        onRegenerate={onRegenerate}
         onOpenHistory={onOpenHistory}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -183,7 +184,7 @@ describe('CombinationResult', () => {
       .toEqual({ selected: false });
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '비교할 조합 추가, Pro 전용' }));
+      fireEvent.press(getByRole('button', { name: '같은 조건으로 다시 뽑기, Pro 전용' }));
       fireEvent.press(getByRole('button', { name: '구매한 번호로 표시' }));
     });
     expect(getByTestId('library-action-toast')).toBeTruthy();
@@ -201,7 +202,7 @@ describe('CombinationResult', () => {
       fireEvent.press(getByRole('button', { name: '전체 기록' }));
     });
 
-    expect(onCompare).toHaveBeenCalledTimes(1);
+    expect(onRegenerate).toHaveBeenCalledTimes(1);
     expect(onTogglePurchased).toHaveBeenCalledTimes(1);
     expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
@@ -216,7 +217,7 @@ describe('CombinationResult', () => {
         isPro={false}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={() => undefined}
+        onRegenerate={() => undefined}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -238,7 +239,7 @@ describe('CombinationResult', () => {
         firstRound={1}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={() => undefined}
+        onRegenerate={() => undefined}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -283,7 +284,7 @@ describe('CombinationResult', () => {
         firstRound={1}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={() => undefined}
+        onRegenerate={() => undefined}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -310,7 +311,7 @@ describe('CombinationResult', () => {
         firstRound={1}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={() => undefined}
+        onRegenerate={() => undefined}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -368,7 +369,7 @@ describe('CombinationResult', () => {
         firstRound={1}
         latestRound={100}
         onBonusChange={() => undefined}
-        onCompare={() => undefined}
+        onRegenerate={() => undefined}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}

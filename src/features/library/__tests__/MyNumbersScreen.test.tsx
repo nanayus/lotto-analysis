@@ -31,16 +31,23 @@ const mockPush = router.push as jest.Mock;
 const mockUseCombinationDraft = useCombinationDraft as jest.MockedFunction<typeof useCombinationDraft>;
 const mockUseNumberLibrary = useNumberLibrary as jest.MockedFunction<typeof useNumberLibrary>;
 const mockUseMonetization = useMonetization as jest.MockedFunction<typeof useMonetization>;
+const mockOpenPaywall = jest.fn();
 
 describe('MyNumbersScreen', () => {
   beforeEach(() => {
+    mockOpenPaywall.mockClear();
+    mockGenerateCombination.mockReset();
     mockUseMonetization.mockReturnValue({
-      openPaywall: jest.fn(),
+      openPaywall: mockOpenPaywall,
       productAccess: productAccessFor('guest'),
     } as unknown as ReturnType<typeof useMonetization>);
   });
 
   test('draws a new combination from the expanded saved conditions', async () => {
+    mockUseMonetization.mockReturnValue({
+      openPaywall: mockOpenPaywall,
+      productAccess: productAccessFor('pro'),
+    } as unknown as ReturnType<typeof useMonetization>);
     mockPush.mockClear();
     const addCombination = jest.fn(() => 'generated-combination');
     const setNumbers = jest.fn();
@@ -101,6 +108,47 @@ describe('MyNumbersScreen', () => {
     });
   });
 
+  test('keeps same-condition regeneration visible but opens Pro for a guest', async () => {
+    const conditions = cloneGeneratorConditions(DEFAULT_GENERATOR_CONDITIONS);
+    mockUseCombinationDraft.mockReturnValue({
+      addNumber: jest.fn(),
+      clear: jest.fn(),
+      removeNumber: jest.fn(),
+      selectedNumbers: [],
+      setNumbers: jest.fn(),
+      toggleNumber: jest.fn(),
+    });
+    mockUseNumberLibrary.mockReturnValue({
+      addCombination: jest.fn(() => undefined),
+      canSave: true,
+      combinations: [{
+        createdAt: '2026-09-02T10:00:00.000Z',
+        favorite: false,
+        generationConditions: describeGeneratorConditions(conditions),
+        generatorConditions: conditions,
+        id: 'saved-ai-combination',
+        numbers: [6, 7, 11, 28, 36, 44],
+        purchased: false,
+        source: 'ai',
+      }],
+      isReady: true,
+      storageMode: 'device',
+      toggleFavorite: jest.fn(),
+      togglePurchased: jest.fn(),
+    });
+
+    const screen = await render(<MyNumbersScreen />);
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '생성 조건 보기' }));
+    });
+    fireEvent.press(screen.getByRole('button', {
+      name: '같은 조건으로 다시 뽑기, Pro 전용',
+    }));
+
+    expect(mockOpenPaywall).toHaveBeenCalledWith('same-condition-regeneration');
+    expect(mockGenerateCombination).not.toHaveBeenCalled();
+  });
+
   test('labels every guest result as requiring an ad', async () => {
     const setNumbers = jest.fn();
     mockUseCombinationDraft.mockReturnValue({
@@ -112,7 +160,7 @@ describe('MyNumbersScreen', () => {
       toggleNumber: jest.fn(),
     });
     mockUseMonetization.mockReturnValue({
-      openPaywall: jest.fn(),
+      openPaywall: mockOpenPaywall,
       productAccess: productAccessFor('guest'),
     } as unknown as ReturnType<typeof useMonetization>);
     mockUseNumberLibrary.mockReturnValue({

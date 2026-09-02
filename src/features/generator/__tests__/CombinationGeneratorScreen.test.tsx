@@ -43,7 +43,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     openPaywall: mockOpenPaywall,
     productAccess: {
-      canCompareCombinations: mockIsPro,
+      canRegenerateWithSameConditions: mockIsPro,
       canSaveNumbers: true,
       canUseBalancedPreset: mockIsPro,
       canUseAiExplanation: mockIsPro,
@@ -144,7 +144,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('tab', { name: '번호' })).toBeTruthy();
     expect(within(conditionContent).queryByRole('tab', { name: '번호' })).toBeNull();
 
-    expect(screen.getByText('Pro · 조건 무제한 · 균형 프리셋')).toBeTruthy();
+    expect(screen.getByText('Pro · 조건 무제한 · 추천 조건')).toBeTruthy();
     expect(screen.queryByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByText('Pro 보기')); });
     expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
@@ -249,11 +249,11 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '균형 프리셋 적용' })); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' })); });
 
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
     expect(screen.getByText('6개 조건 적용')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '균형 프리셋 적용됨' }).props.accessibilityState)
+    expect(screen.getByRole('button', { name: '추천 조건 적용됨' }).props.accessibilityState)
       .toEqual({ selected: true });
   });
 
@@ -261,10 +261,10 @@ describe('CombinationGeneratorScreen', () => {
     mockIsPro = false;
     const screen = await render(<DirectSessionHarness />);
 
-    expect(screen.getByText('Pro · 조건 무제한 · 균형 프리셋')).toBeTruthy();
+    expect(screen.getByText('Pro · 조건 무제한 · 추천 조건')).toBeTruthy();
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
     expect(screen.queryByText(/로그인하면 조건/)).toBeNull();
-    expect(screen.queryByRole('button', { name: '균형 프리셋 적용됨' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '추천 조건 적용됨' })).toBeNull();
   });
 
   test('shows the seven-column number selector in the Number tab and keeps selection state', async () => {
@@ -465,7 +465,7 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     expect(screen.queryByLabelText('표준편차 최솟값')).toBeNull();
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
-    expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('12.0');
+    expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('12.0');
   });
 
   test('loads the broad six-condition preset without starting analysis', async () => {
@@ -474,10 +474,10 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
     expect(screen.getByText('2개 조건 적용')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '균형 프리셋 적용' })); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' })); });
 
     expect(screen.getByText('6개 조건 적용')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '균형 프리셋 적용됨' }).props.accessibilityState)
+    expect(screen.getByRole('button', { name: '추천 조건 적용됨' }).props.accessibilityState)
       .toEqual({ selected: true });
     expect(screen.queryByText('표준편차 · 번호 합계 · 홀짝 · 저고 · A/C · 연번')).toBeNull();
     expect(screen.queryByText(/균형 조건 프리셋/)).toBeNull();
@@ -489,15 +489,15 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('switch', { name: '저고 비율 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
     expect(screen.getByRole('switch', { name: 'A/C 값 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
     expect(screen.getByRole('switch', { name: '연번 형태 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
-    expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('8.0');
-    expect(screen.getByLabelText('표준편차 최댓값').props.defaultValue).toBe('16.0');
-    expect(screen.getByLabelText('번호 총합 최솟값').props.defaultValue).toBe('100');
-    expect(screen.getByLabelText('번호 총합 최댓값').props.defaultValue).toBe('180');
+    expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('8.0');
+    expect(screen.getByLabelText('표준편차 최댓값').props.value).toBe('16.0');
+    expect(screen.getByLabelText('번호 총합 최솟값').props.value).toBe('100');
+    expect(screen.getByLabelText('번호 총합 최댓값').props.value).toBe('180');
     expect(screen.getByRole('switch', { name: '고정수 · 제외수 조건' }).props.accessibilityState).toEqual({ checked: false, disabled: false });
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
-    expect(screen.getByRole('button', { name: '균형 프리셋 적용' }).props.accessibilityState)
+    expect(screen.getByRole('button', { name: '추천 조건 적용' }).props.accessibilityState)
       .toEqual({ selected: false });
     expect(screen.getByText('5개 조건 적용')).toBeTruthy();
     expect(screen.queryByText('표준편차 · 번호 합계 · 저고 · A/C · 연번')).toBeNull();
@@ -540,9 +540,9 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
 
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
-    expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('12.0');
-    expect(screen.getByLabelText('표준편차 최댓값').props.defaultValue).toBe('12.9');
-    expect(screen.getByLabelText('번호 총합 최솟값').props.defaultValue).toBe('130');
+    expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('12.0');
+    expect(screen.getByLabelText('표준편차 최댓값').props.value).toBe('12.9');
+    expect(screen.getByLabelText('번호 총합 최솟값').props.value).toBe('130');
     expect(screen.getByRole('switch', { name: '끝수 총합 조건' }).props.accessibilityState)
       .toEqual({ checked: false, disabled: false });
     expect(screen.getAllByText('과거 최다').length).toBeGreaterThanOrEqual(2);
@@ -552,11 +552,11 @@ describe('CombinationGeneratorScreen', () => {
     });
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
-    expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('11.0');
+    expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('11.0');
 
     await act(async () => { fireEvent.press(screen.getByLabelText('조건 초기화')); });
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
-    expect(screen.getByLabelText('표준편차 최솟값').props.defaultValue).toBe('12.0');
+    expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('12.0');
   });
 
   test('renders selectable same-ending and consecutive visual cards with accessible labels', async () => {

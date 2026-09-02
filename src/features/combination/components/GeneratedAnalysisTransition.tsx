@@ -22,6 +22,8 @@ type GeneratedAnalysisTransitionProps = {
   phase: GeneratedAnalysisPhase;
   rewardedAdAvailable: boolean;
   rewardedAdLoading: boolean;
+  descriptionOverride?: string;
+  titleOverride?: string;
 };
 
 const COPY = {
@@ -58,6 +60,8 @@ export function GeneratedAnalysisTransition({
   phase,
   rewardedAdAvailable,
   rewardedAdLoading,
+  descriptionOverride,
+  titleOverride,
 }: GeneratedAnalysisTransitionProps) {
   const styles = useThemedStyles(createStyles);
   const copy = COPY[phase];
@@ -86,8 +90,8 @@ export function GeneratedAnalysisTransition({
           )}
         </View>
         <Text style={styles.eyebrow}>HISTORICAL ANALYSIS</Text>
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.description}>{errorMessage || copy.description}</Text>
+        <Text style={styles.title}>{titleOverride || copy.title}</Text>
+        <Text style={styles.description}>{errorMessage || descriptionOverride || copy.description}</Text>
 
         {phase === 'access' || phase === 'loading' ? (
           <AppCard style={styles.numberCard}>

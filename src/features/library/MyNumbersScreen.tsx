@@ -99,6 +99,13 @@ export function MyNumbersScreen() {
       setRegeneratingId(null);
     }
   }, [addCombination, regeneratingId, setNumbers]);
+  const requestRegenerate = useCallback((item: SavedCombination) => {
+    if (!productAccess.canRegenerateWithSameConditions) {
+      openPaywall('same-condition-regeneration');
+      return;
+    }
+    void regenerate(item);
+  }, [openPaywall, productAccess.canRegenerateWithSameConditions, regenerate]);
 
   const emptyCopy = activeTab === 'purchased'
     ? ['구매한 번호가 없어요', '뽑은 조합에서 구매 표시를 해보세요.']
@@ -216,11 +223,13 @@ export function MyNumbersScreen() {
                             )}
                             {item.generatorConditions ? (
                               <Pressable
-                                accessibilityLabel="같은 조건으로 다시 뽑기"
+                                accessibilityLabel={productAccess.canRegenerateWithSameConditions
+                                  ? '같은 조건으로 다시 뽑기'
+                                  : '같은 조건으로 다시 뽑기, Pro 전용'}
                                 accessibilityRole="button"
                                 accessibilityState={{ disabled: regeneratingId !== null }}
                                 disabled={regeneratingId !== null}
-                                onPress={() => void regenerate(item)}
+                                onPress={() => requestRegenerate(item)}
                                 style={({ pressed }) => [
                                   styles.regenerateButton,
                                   pressed && styles.pressed,
@@ -234,6 +243,11 @@ export function MyNumbersScreen() {
                                 <Text style={styles.regenerateButtonText}>
                                   {regeneratingId === item.id ? '다시 뽑는 중' : '같은 조건으로 다시 뽑기'}
                                 </Text>
+                                {!productAccess.canRegenerateWithSameConditions ? (
+                                  <View style={styles.regenerateProBadge}>
+                                    <Text style={styles.regenerateProText}>PRO</Text>
+                                  </View>
+                                ) : null}
                               </Pressable>
                             ) : null}
                             {regenerationErrorId === item.id ? (
@@ -334,6 +348,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   regenerateButton: { minHeight: 40, marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, borderRadius: radius.sm, backgroundColor: colors.surfaceAccent },
   regenerateButtonDisabled: { opacity: 0.5 },
   regenerateButtonText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  regenerateProBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.round, backgroundColor: colors.surface },
+  regenerateProText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 0.6 },
   regenerationError: { marginTop: spacing.xs, color: colors.hot, fontSize: 10, lineHeight: 16, textAlign: 'center' },
   numberAction: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
   numberActionStacked: { alignItems: 'stretch', flexDirection: 'column' },

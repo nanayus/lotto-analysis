@@ -16,7 +16,7 @@ describe('membership tier policy', () => {
 
   test('gives Pro advanced analysis, cloud storage, and ad-free results', () => {
     expect(productAccessFor('pro')).toMatchObject({
-      canCompareCombinations: true,
+      canRegenerateWithSameConditions: true,
       canSaveNumbers: true,
       canUseAiExplanation: true,
       canUseBalancedPreset: true,

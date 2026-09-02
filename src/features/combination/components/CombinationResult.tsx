@@ -33,8 +33,9 @@ type CombinationResultProps = {
   onPeriodChange: (period: AnalysisPeriod) => void;
   onOpenPro?: () => void;
   onStartOver: () => void;
-  onCompare: () => void;
+  onRegenerate?: () => void;
   period: AnalysisPeriod;
+  canRegenerate?: boolean;
   favorite?: boolean;
   isPro?: boolean;
   purchased?: boolean;
@@ -302,8 +303,9 @@ export function CombinationResult({
   onPeriodChange,
   onOpenPro = NOOP,
   onStartOver,
-  onCompare,
+  onRegenerate = NOOP,
   period,
+  canRegenerate = false,
   favorite = false,
   isPro = false,
   purchased = false,
@@ -404,18 +406,27 @@ export function CombinationResult({
             {' · 연\u2060속\u00A0'}{consecutiveLabel}
           </Text>
         </Text>
-        <Pressable
-          accessibilityLabel={isPro ? '비교할 조합 추가' : '비교할 조합 추가, Pro 전용'}
-          accessibilityRole="button"
-          onPress={onCompare}
-          style={({ pressed }) => [
-            styles.compareButton,
-            webPointerStyle,
-            pressed && styles.pressed,
-          ]}>
-          <Text style={styles.compareText}>+ 비교할 조합 추가</Text>
-          {!isPro ? <View style={styles.compareProBadge}><Text style={styles.compareProText}>PRO</Text></View> : null}
-        </Pressable>
+        {canRegenerate ? (
+          <Pressable
+            accessibilityLabel={isPro
+              ? '같은 조건으로 다시 뽑기'
+              : '같은 조건으로 다시 뽑기, Pro 전용'}
+            accessibilityRole="button"
+            onPress={onRegenerate}
+            style={({ pressed }) => [
+              styles.regenerateButton,
+              webPointerStyle,
+              pressed && styles.pressed,
+            ]}>
+            <Ionicons color={styles.regenerateIcon.color} name="shuffle-outline" size={17} />
+            <Text style={styles.regenerateText}>같은 조건으로 다시 뽑기</Text>
+            {!isPro ? (
+              <View style={styles.regenerateProBadge}>
+                <Text style={styles.regenerateProText}>PRO</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ) : null}
       </AppCard>
 
       <View style={styles.filterRow}>
@@ -618,21 +629,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: spacing.lg,
     paddingTop: spacing.huge + spacing.sm,
   },
-  compareButton: {
-    minHeight: 32,
+  regenerateButton: {
+    alignSelf: 'stretch',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
   },
-  compareText: {
+  regenerateIcon: { color: colors.accentPrimary },
+  regenerateText: {
     color: colors.accentPrimary,
     fontSize: typography.sizes.small,
-    fontWeight: typography.weights.medium,
+    fontWeight: typography.weights.semibold,
   },
-  compareProBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
-  compareProText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 0.6 },
+  regenerateProBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.round, backgroundColor: colors.surface },
+  regenerateProText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 0.6 },
   profileLibraryActions: {
     position: 'absolute',
     top: spacing.sm,
