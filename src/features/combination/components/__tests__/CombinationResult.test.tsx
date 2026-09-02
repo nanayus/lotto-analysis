@@ -142,6 +142,7 @@ describe('CombinationResult', () => {
   test('shows the selected combination as one compact profile', async () => {
     const onOpenHistory = jest.fn();
     const onRegenerate = jest.fn();
+    const onResultInteraction = jest.fn();
     const onToggleFavorite = jest.fn();
     const onTogglePurchased = jest.fn();
     const { getByRole, getByTestId, getByText, queryByText } = await render(
@@ -153,6 +154,7 @@ describe('CombinationResult', () => {
         latestRound={100}
         onBonusChange={() => undefined}
         onRegenerate={onRegenerate}
+        onResultInteraction={onResultInteraction}
         onOpenHistory={onOpenHistory}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -219,6 +221,10 @@ describe('CombinationResult', () => {
     expect(onTogglePurchased).toHaveBeenCalledTimes(1);
     expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
+    expect(onResultInteraction).toHaveBeenCalledWith('headline', 'regenerate');
+    expect(onResultInteraction).toHaveBeenCalledWith('headline', 'toggle_purchased', 'on');
+    expect(onResultInteraction).toHaveBeenCalledWith('headline', 'toggle_favorite', 'on');
+    expect(onResultInteraction).toHaveBeenCalledWith('prize_history', 'open_all_history');
   });
 
   test('pins only the selected numbers after their original row scrolls away', async () => {
@@ -261,6 +267,45 @@ describe('CombinationResult', () => {
       });
     });
     expect(queryByTestId('result-sticky-numbers')).toBeNull();
+  });
+
+  test('records a result section only after meaningful visibility', async () => {
+    jest.useFakeTimers();
+    const onSectionViewed = jest.fn();
+    const { getByTestId, unmount } = await render(
+      <CombinationResult
+        analysis={analysis}
+        bonusIncluded={false}
+        firstRound={1}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onSectionViewed={onSectionViewed}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+      />,
+    );
+
+    await act(async () => {
+      getByTestId('combination-result-scroll').props.onLayout({
+        nativeEvent: { layout: { height: 400, width: 340, x: 0, y: 0 } },
+      });
+      getByTestId('result-selected-profile').props.onLayout({
+        nativeEvent: { layout: { height: 200, width: 340, x: 0, y: 0 } },
+      });
+      jest.advanceTimersByTime(799);
+    });
+    expect(onSectionViewed).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onSectionViewed).toHaveBeenCalledWith('headline');
+
+    unmount();
+    jest.useRealTimers();
   });
 
   test('shows the locked AI explanation as a quiet explanatory entry point', async () => {
@@ -386,6 +431,7 @@ describe('CombinationResult', () => {
   });
 
   test('expands combinations inline and resets expansion when tabs change', async () => {
+    const onResultInteraction = jest.fn();
     const { getByRole, getByTestId, getByText, queryByRole, queryByText } = await render(
       <CombinationResult
         analysis={analysis}
@@ -394,6 +440,7 @@ describe('CombinationResult', () => {
         latestRound={100}
         onBonusChange={() => undefined}
         onRegenerate={() => undefined}
+        onResultInteraction={onResultInteraction}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -441,9 +488,20 @@ describe('CombinationResult', () => {
 
     expect(queryByText('20 · 26')).toBeNull();
     expect(getByText('+ 2개 더보기')).toBeTruthy();
+    expect(onResultInteraction).toHaveBeenCalledWith(
+      'frequent_combinations',
+      'expand_combinations',
+      '2',
+    );
+    expect(onResultInteraction).toHaveBeenCalledWith(
+      'frequent_combinations',
+      'change_combination_size',
+      '3',
+    );
   });
 
   test('shows statistics using the combination-selection condition groups', async () => {
+    const onResultInteraction = jest.fn();
     const { getByRole, getByTestId, getByText, queryByText } = await render(
       <CombinationResult
         analysis={analysis}
@@ -452,6 +510,7 @@ describe('CombinationResult', () => {
         latestRound={100}
         onBonusChange={() => undefined}
         onRegenerate={() => undefined}
+        onResultInteraction={onResultInteraction}
         onOpenHistory={() => undefined}
         onOpenPrizeRank={() => undefined}
         onPeriodChange={() => undefined}
@@ -542,5 +601,15 @@ describe('CombinationResult', () => {
     expect(queryByText('과거 1–3등 동일 이력')).toBeNull();
     expect(queryByText('전체 회차와 비교한 결과')).toBeNull();
     expect(queryByText('과거 등수 이력은 전체 회차의 본번호와 보너스 번호를 기준으로 확인합니다.')).toBeNull();
+    expect(onResultInteraction).toHaveBeenCalledWith(
+      'condition_statistics',
+      'change_condition_tab',
+      'number_character',
+    );
+    expect(onResultInteraction).toHaveBeenCalledWith(
+      'condition_statistics',
+      'change_condition_tab',
+      'recent_consecutive',
+    );
   });
 });

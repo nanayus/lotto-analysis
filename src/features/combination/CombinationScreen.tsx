@@ -8,14 +8,20 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import { trackEvent } from '@/features/analytics/analyticsClient';
 import { combinationAnalyticsParams } from '@/features/analytics/events';
+import { activeGeneratorConditionKeys } from '@/features/analytics/generatorConditionAnalytics';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
+import { describeCombinationHeadline } from '@/domain/combination/describeCombinationHeadline';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
 import { generateCombination } from '@/domain/generator/combinationGenerator';
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { type ThemeColors, useThemedStyles } from '@/theme';
 
 import { CombinationResult } from './components/CombinationResult';
+import type {
+  CombinationResultAction,
+  CombinationResultSectionKey,
+} from './resultAnalytics';
 import { CombinationDetail } from './components/CombinationDetail';
 import { GeneratedAnalysisTransition, type GeneratedAnalysisPhase } from './components/GeneratedAnalysisTransition';
 import { NumberSelector } from './components/NumberSelector';
@@ -149,6 +155,7 @@ export function CombinationScreen() {
   const regenerationTokenRef = useRef(0);
   const analysisAccessMethodRef = useRef<'open_access' | 'pro' | 'reward_ad' | 'unknown'>('unknown');
   const trackedGateKeyRef = useRef<string | null>(null);
+  const viewedResultSectionsRef = useRef(new Set<CombinationResultSectionKey>());
 
   const handleToggleNumber = useCallback((number: number) => {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
@@ -173,12 +180,14 @@ export function CombinationScreen() {
       : DEFAULT_FILTERS;
     const snapshot = analyzeCombination(lottoHistory, selectedNumbers, filters);
     const nextState = { ...filters, snapshot };
+    viewedResultSectionsRef.current.clear();
     analysisStateRef.current = nextState;
     setAnalysisState(nextState);
     trackEvent('analysis_result_viewed', combinationAnalyticsParams(selectedNumbers, {
       access_method: analysisAccessMethodRef.current,
       account_tier: productAccess.tier,
       bonus_included: filters.includeBonus,
+      headline_metric: describeCombinationHeadline(snapshot).metric,
       period: analyticsPeriod(filters.period),
       source: analysisSource,
     }));
@@ -333,6 +342,7 @@ export function CombinationScreen() {
   }, [commitFilters]);
 
   const startOver = useCallback(() => {
+    viewedResultSectionsRef.current.clear();
     analysisStateRef.current = null;
     setAnalysisState(null);
     setAnalysisLibraryId(null);
@@ -504,6 +514,28 @@ export function CombinationScreen() {
         : DEFAULT_FILTERS;
       const snapshot = analyzeCombination(lottoHistory, outcome.numbers, currentFilters);
       const nextState = { ...currentFilters, snapshot };
+      viewedResultSectionsRef.current.clear();
+      const conditionKeys = activeGeneratorConditionKeys(generatorConditions);
+      conditionKeys.forEach((conditionKey) => {
+        trackEvent('generator_condition_used', {
+          condition_count: conditionKeys.length,
+          condition_key: conditionKey,
+          source: 'same_condition_regeneration',
+        });
+      });
+      trackEvent('combination_generated', combinationAnalyticsParams(outcome.numbers, {
+        condition_count: conditionKeys.length,
+        generation_mode: outcome.mode,
+        source: 'same_condition_regeneration',
+      }));
+      trackEvent('analysis_result_viewed', combinationAnalyticsParams(outcome.numbers, {
+        access_method: 'pro',
+        account_tier: productAccess.tier,
+        bonus_included: currentFilters.includeBonus,
+        headline_metric: describeCombinationHeadline(snapshot).metric,
+        period: analyticsPeriod(currentFilters.period),
+        source: 'same_condition_regeneration',
+      }));
       setNumbers(outcome.numbers);
       analysisStateRef.current = nextState;
       setAnalysisState(nextState);
@@ -530,6 +562,7 @@ export function CombinationScreen() {
     addCombination,
     openPaywall,
     productAccess.canRegenerateWithSameConditions,
+    productAccess.tier,
     regenerationPhase,
     savedAnalysisCombination?.generatorConditions,
     setNumbers,
@@ -540,6 +573,45 @@ export function CombinationScreen() {
     else togglePurchased(analysisLibraryId);
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
   }, [analysisLibraryId, toggleFavorite, togglePurchased]);
+
+  const resultAnalyticsParams = useCallback(() => {
+    const current = analysisStateRef.current;
+    if (!current) return null;
+    return combinationAnalyticsParams(current.snapshot.numbers, {
+      access_method: analysisAccessMethodRef.current,
+      account_tier: productAccess.tier,
+      bonus_included: current.includeBonus,
+      headline_metric: describeCombinationHeadline(current.snapshot).metric,
+      period: analyticsPeriod(current.period),
+      source: analysisSource,
+    });
+  }, [analysisSource, productAccess.tier]);
+
+  const trackResultSectionViewed = useCallback((sectionKey: CombinationResultSectionKey) => {
+    if (viewedResultSectionsRef.current.has(sectionKey)) return;
+    const params = resultAnalyticsParams();
+    if (!params) return;
+    viewedResultSectionsRef.current.add(sectionKey);
+    trackEvent('analysis_section_viewed', {
+      ...params,
+      section_key: sectionKey,
+    });
+  }, [resultAnalyticsParams]);
+
+  const trackResultInteraction = useCallback((
+    sectionKey: CombinationResultSectionKey,
+    action: CombinationResultAction,
+    itemKey?: string,
+  ) => {
+    const params = resultAnalyticsParams();
+    if (!params) return;
+    trackEvent('analysis_result_interaction', {
+      ...params,
+      action,
+      item_key: itemKey,
+      section_key: sectionKey,
+    });
+  }, [resultAnalyticsParams]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
@@ -625,6 +697,8 @@ export function CombinationScreen() {
                 }}
                 onPeriodChange={changePeriod}
                 onRegenerate={() => void regenerateWithSameConditions()}
+                onResultInteraction={trackResultInteraction}
+                onSectionViewed={trackResultSectionViewed}
                 onStartOver={startOver}
                 onToggleFavorite={() => toggleLibraryState('favorite')}
                 onTogglePurchased={() => toggleLibraryState('purchased')}

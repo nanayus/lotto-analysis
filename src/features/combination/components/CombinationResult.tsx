@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -29,6 +29,11 @@ import { SubScreenHeader, TOP_BAR_HEIGHT } from '@/components/ui/AppTopBar';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
 import { LibraryStatusActions } from '@/features/library/components/LibraryStatusActions';
+import {
+  type CombinationResultAction,
+  type CombinationResultSectionKey,
+  resultSectionVisibilityRatio,
+} from '@/features/combination/resultAnalytics';
 
 import { AiCombinationExplanation } from './AiCombinationExplanation';
 import { CombinationNumberPills } from './CombinationNumberPills';
@@ -48,6 +53,12 @@ type CombinationResultProps = {
   onOpenPro?: () => void;
   onStartOver: () => void;
   onRegenerate?: () => void;
+  onResultInteraction?: (
+    sectionKey: CombinationResultSectionKey,
+    action: CombinationResultAction,
+    itemKey?: string,
+  ) => void;
+  onSectionViewed?: (sectionKey: CombinationResultSectionKey) => void;
   period: AnalysisPeriod;
   canRegenerate?: boolean;
   canUseAiExplanation?: boolean;
@@ -62,6 +73,14 @@ const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
 const MATCH_COUNTS = [6, 5, 4, 3, 2, 1, 0] as const;
 const PRIZE_RANKS = [1, 2, 3, 4, 5] as const;
 const CONDITION_STAT_TABS = ['분포', '수 성격', '직전·연번', '번호대·과거'] as const;
+const CONDITION_STAT_TAB_KEYS: Record<ConditionStatTab, string> = {
+  '분포': 'distribution',
+  '수 성격': 'number_character',
+  '직전·연번': 'recent_consecutive',
+  '번호대·과거': 'number_band_history',
+};
+const SECTION_VIEW_MIN_RATIO = 0.5;
+const SECTION_VIEW_MIN_MS = 800;
 const NOOP = () => undefined;
 const webPointerStyle = Platform.select({
   web: { cursor: 'pointer' } as unknown as ViewStyle,
@@ -683,9 +702,11 @@ function RecentNumberRelations({
 function ConditionStatistics({
   analysis,
   bonusIncluded,
+  onInteraction = NOOP,
 }: {
   analysis: CombinationAnalysis;
   bonusIncluded: boolean;
+  onInteraction?: (action: CombinationResultAction, itemKey?: string) => void;
 }) {
   const styles = useThemedStyles(createStyles);
   const [activeTab, setActiveTab] = useState<ConditionStatTab>('분포');
@@ -708,7 +729,10 @@ function ConditionStatistics({
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               key={tab}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => {
+                setActiveTab(tab);
+                onInteraction('change_condition_tab', CONDITION_STAT_TAB_KEYS[tab]);
+              }}
               style={({ pressed }) => [
                 styles.conditionTab,
                 selected && styles.conditionTabSelected,
@@ -740,7 +764,13 @@ function ConditionStatistics({
   );
 }
 
-function FrequentCombinations({ analysis }: { analysis: CombinationAnalysis }) {
+function FrequentCombinations({
+  analysis,
+  onInteraction = NOOP,
+}: {
+  analysis: CombinationAnalysis;
+  onInteraction?: (action: CombinationResultAction, itemKey?: string) => void;
+}) {
   const styles = useThemedStyles(createStyles);
   const [activeSize, setActiveSize] = useState<(typeof VISIBLE_COMBINATION_SIZES)[number]>(2);
   const [focusedSize, setFocusedSize] = useState<CombinationSize | null>(null);
@@ -773,6 +803,7 @@ function FrequentCombinations({ analysis }: { analysis: CombinationAnalysis }) {
               onPress={() => {
                 setActiveSize(size);
                 setExpanded(false);
+                onInteraction('change_combination_size', String(size));
               }}
               style={({ pressed }) => [
                 styles.comboTab,
@@ -824,7 +855,13 @@ function FrequentCombinations({ analysis }: { analysis: CombinationAnalysis }) {
             accessibilityLabel={expanded ? '조합 목록 접기' : `${remainingCount}개 조합 더보기`}
             accessibilityRole="button"
             hitSlop={6}
-            onPress={() => setExpanded((current) => !current)}
+            onPress={() => setExpanded((current) => {
+              onInteraction(
+                current ? 'collapse_combinations' : 'expand_combinations',
+                String(activeSize),
+              );
+              return !current;
+            })}
             style={({ pressed }) => [
               styles.comboExpandAction,
               webPointerStyle,
@@ -855,6 +892,8 @@ export function CombinationResult({
   onOpenPro = NOOP,
   onStartOver,
   onRegenerate = NOOP,
+  onResultInteraction = NOOP,
+  onSectionViewed,
   period,
   canRegenerate = false,
   favorite = false,
@@ -872,6 +911,12 @@ export function CombinationResult({
   const [favoriteSelection, setFavoriteSelection] = useState<{ key: string; value: boolean } | null>(null);
   const [purchasedSelection, setPurchasedSelection] = useState<{ key: string; value: boolean } | null>(null);
   const libraryNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sectionLayoutsRef = useRef(new Map<CombinationResultSectionKey, { height: number; y: number }>());
+  const sectionTimersRef = useRef(new Map<CombinationResultSectionKey, ReturnType<typeof setTimeout>>());
+  const viewedSectionsRef = useRef(new Set<CombinationResultSectionKey>());
+  const resultScrollYRef = useRef(0);
+  const resultViewportHeightRef = useRef(0);
+  const onSectionViewedRef = useRef(onSectionViewed);
   const selectedProfileYRef = useRef(0);
   const selectedNumbersBottomRef = useRef(0);
   const stickyNumbersVisibleRef = useRef(false);
@@ -893,9 +938,63 @@ export function CombinationResult({
     ? purchasedSelection.value
     : purchased;
 
+  useEffect(() => {
+    onSectionViewedRef.current = onSectionViewed;
+  }, [onSectionViewed]);
+
   useEffect(() => () => {
     if (libraryNoticeTimerRef.current) clearTimeout(libraryNoticeTimerRef.current);
+    sectionTimersRef.current.forEach(clearTimeout);
+    sectionTimersRef.current.clear();
   }, []);
+
+  const updateSectionVisibility = useCallback(() => {
+    if (!onSectionViewedRef.current) return;
+    sectionLayoutsRef.current.forEach((layout, sectionKey) => {
+      if (viewedSectionsRef.current.has(sectionKey)) return;
+      const visible = resultSectionVisibilityRatio(
+        layout,
+        resultScrollYRef.current,
+        resultViewportHeightRef.current,
+      ) >= SECTION_VIEW_MIN_RATIO;
+      const currentTimer = sectionTimersRef.current.get(sectionKey);
+      if (!visible) {
+        if (currentTimer) clearTimeout(currentTimer);
+        sectionTimersRef.current.delete(sectionKey);
+        return;
+      }
+      if (currentTimer) return;
+      const timer = setTimeout(() => {
+        sectionTimersRef.current.delete(sectionKey);
+        const latestLayout = sectionLayoutsRef.current.get(sectionKey);
+        if (!latestLayout || resultSectionVisibilityRatio(
+          latestLayout,
+          resultScrollYRef.current,
+          resultViewportHeightRef.current,
+        ) < SECTION_VIEW_MIN_RATIO) return;
+        viewedSectionsRef.current.add(sectionKey);
+        onSectionViewedRef.current?.(sectionKey);
+      }, SECTION_VIEW_MIN_MS);
+      sectionTimersRef.current.set(sectionKey, timer);
+    });
+  }, []);
+
+  const sectionLayoutHandler = useCallback((sectionKey: CombinationResultSectionKey) => (
+    event: LayoutChangeEvent,
+  ) => {
+    const { height, y } = event.nativeEvent.layout;
+    sectionLayoutsRef.current.set(sectionKey, { height, y });
+    updateSectionVisibility();
+  }, [updateSectionVisibility]);
+
+  useEffect(() => {
+    viewedSectionsRef.current.clear();
+    sectionTimersRef.current.forEach(clearTimeout);
+    sectionTimersRef.current.clear();
+    if (!onSectionViewedRef.current) return undefined;
+    const refreshTimer = setTimeout(updateSectionVisibility, 0);
+    return () => clearTimeout(refreshTimer);
+  }, [analysisNumberKey, updateSectionVisibility]);
 
   const showLibraryNotice = (message: string) => {
     if (libraryNoticeTimerRef.current) clearTimeout(libraryNoticeTimerRef.current);
@@ -907,6 +1006,7 @@ export function CombinationResult({
     const selected = !purchasedSelected;
     setPurchasedSelection({ key: analysisNumberKey, value: selected });
     onTogglePurchased();
+    onResultInteraction('headline', 'toggle_purchased', selected ? 'on' : 'off');
     showLibraryNotice(selected ? '구매번호로 등록되었습니다.' : '구매번호에서 해제되었습니다.');
   };
 
@@ -914,10 +1014,13 @@ export function CombinationResult({
     const selected = !favoriteSelected;
     setFavoriteSelection({ key: analysisNumberKey, value: selected });
     onToggleFavorite();
+    onResultInteraction('headline', 'toggle_favorite', selected ? 'on' : 'off');
     showLibraryNotice(selected ? '즐겨찾기에 등록되었습니다.' : '즐겨찾기에서 해제되었습니다.');
   };
 
   const handleResultScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    resultScrollYRef.current = event.nativeEvent.contentOffset.y;
+    updateSectionVisibility();
     const threshold = selectedProfileYRef.current + selectedNumbersBottomRef.current;
     if (threshold <= 0) return;
     const visible = event.nativeEvent.contentOffset.y >= threshold;
@@ -934,7 +1037,10 @@ export function CombinationResult({
           <Pressable
             accessibilityLabel="새 조합 분석"
             accessibilityRole="button"
-            onPress={onStartOver}
+            onPress={() => {
+              onResultInteraction('headline', 'start_over');
+              onStartOver();
+            }}
             style={({ pressed }) => [styles.startOverButton, webPointerStyle, pressed && styles.pressed]}>
             <Ionicons color={styles.startOverIcon.color} name="refresh-outline" size={20} />
           </Pressable>
@@ -955,12 +1061,19 @@ export function CombinationResult({
       ) : null}
       <ScrollView
         contentContainerStyle={styles.content}
+        onLayout={(event) => {
+          resultViewportHeightRef.current = event.nativeEvent.layout.height;
+          updateSectionVisibility();
+        }}
         onScroll={handleResultScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         testID="combination-result-scroll">
       <View
-        onLayout={(event) => { selectedProfileYRef.current = event.nativeEvent.layout.y; }}
+        onLayout={(event) => {
+          selectedProfileYRef.current = event.nativeEvent.layout.y;
+          sectionLayoutHandler('headline')(event);
+        }}
         testID="result-selected-profile">
       <AppCard style={styles.selectedProfile}>
         <View style={styles.profileLibraryActions}>
@@ -1015,13 +1128,24 @@ export function CombinationResult({
           compact
           firstRound={firstRound}
           latestRound={latestRound}
-          onBonusChange={onBonusChange}
-          onPeriodChange={onPeriodChange}
+          onBonusChange={(included) => {
+            onResultInteraction('headline', 'toggle_bonus', included ? 'include' : 'exclude');
+            onBonusChange(included);
+          }}
+          onPeriodChange={(nextPeriod) => {
+            onResultInteraction(
+              'headline',
+              'change_period',
+              nextPeriod.kind === 'preset' ? nextPeriod.label : 'custom',
+            );
+            onPeriodChange(nextPeriod);
+          }}
           period={period}
           variant="plain"
         />
       </View>
 
+      <View onLayout={sectionLayoutHandler('prize_history')}>
       <AppCard style={styles.prizeSection} testID="result-section-prize">
         <View style={styles.prizeHeadingRow}>
           <Text style={styles.prizeSectionTitle}>과거 당첨 기록</Text>
@@ -1029,7 +1153,10 @@ export function CombinationResult({
             accessibilityLabel="전체 기록"
             accessibilityRole="button"
             hitSlop={10}
-            onPress={onOpenHistory}
+            onPress={() => {
+              onResultInteraction('prize_history', 'open_all_history');
+              onOpenHistory();
+            }}
             style={({ pressed }) => [
               styles.historyAction,
               webPointerStyle,
@@ -1049,7 +1176,10 @@ export function CombinationResult({
                 accessibilityState={{ disabled }}
                 disabled={disabled}
                 key={rank}
-                onPress={() => onOpenPrizeRank(rank)}
+                onPress={() => {
+                  onResultInteraction('prize_history', 'open_prize_rank', String(rank));
+                  onOpenPrizeRank(rank);
+                }}
                 style={({ pressed }) => [
                   styles.prizeItem,
                   index > 0 && styles.prizeDivider,
@@ -1064,7 +1194,9 @@ export function CombinationResult({
           })}
         </View>
       </AppCard>
+      </View>
 
+      <View onLayout={sectionLayoutHandler('match_distribution')}>
       <SectionCard testID="result-section-match-distribution" title="전체 회차 일치 분포">
         <Text style={styles.cardDescription}>
           선택 번호가 과거 각 회차에서 몇 개씩 일치했는지 보여줍니다.
@@ -1099,7 +1231,9 @@ export function CombinationResult({
           })}
         </View>
       </SectionCard>
+      </View>
 
+      <View onLayout={sectionLayoutHandler('group_frequency')}>
       <SectionCard testID="result-section-group-frequency" title="선택 번호 출현 빈도">
         <View style={styles.trendRow}>
           <View
@@ -1128,12 +1262,21 @@ export function CombinationResult({
         </Text>
         <Text style={styles.cardNote}>선택한 분석 범위의 과거 출현 횟수 비교입니다.</Text>
       </SectionCard>
+      </View>
 
+      <View onLayout={sectionLayoutHandler('condition_statistics')}>
       <ConditionStatistics
         analysis={analysis}
         bonusIncluded={bonusIncluded}
+        onInteraction={(action, itemKey) => onResultInteraction(
+          'condition_statistics',
+          action,
+          itemKey,
+        )}
       />
+      </View>
 
+      <View onLayout={sectionLayoutHandler('individual_numbers')}>
       <SectionCard title="번호별 분석">
         <View style={styles.numberInsightGrid}>
           {individualNumbers.map((item) => {
@@ -1176,8 +1319,18 @@ export function CombinationResult({
           })}
         </View>
       </SectionCard>
+      </View>
 
-      <FrequentCombinations analysis={analysis} />
+      <View onLayout={sectionLayoutHandler('frequent_combinations')}>
+      <FrequentCombinations
+        analysis={analysis}
+        onInteraction={(action, itemKey) => onResultInteraction(
+          'frequent_combinations',
+          action,
+          itemKey,
+        )}
+      />
+      </View>
 
       <View style={styles.resultFooter} testID="combination-result-footer">
         {showAiExplanation ? (
@@ -1195,7 +1348,10 @@ export function CombinationResult({
         <Pressable
           accessibilityLabel="새 조합 분석하기"
           accessibilityRole="button"
-          onPress={onStartOver}
+          onPress={() => {
+            onResultInteraction('headline', 'start_over');
+            onStartOver();
+          }}
           style={({ pressed }) => [
             styles.newAnalysisButton,
             webPointerStyle,
@@ -1209,7 +1365,10 @@ export function CombinationResult({
               ? '같은 조건으로 다시 뽑기'
               : '같은 조건으로 다시 뽑기, Pro 전용'}
             accessibilityRole="button"
-            onPress={onRegenerate}
+            onPress={() => {
+              onResultInteraction('headline', 'regenerate');
+              onRegenerate();
+            }}
             style={({ pressed }) => [
               styles.footerRegenerateButton,
               webPointerStyle,

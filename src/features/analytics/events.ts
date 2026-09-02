@@ -5,8 +5,11 @@ export type AnalyticsParams = Record<string, AnalyticsValue | null | undefined>;
 export type AnalyticsEventName =
   | 'analysis_gate_viewed'
   | 'analysis_requested'
+  | 'analysis_result_interaction'
   | 'analysis_result_viewed'
+  | 'analysis_section_viewed'
   | 'combination_generated'
+  | 'generator_condition_used'
   | 'login_completed'
   | 'login_prompt_closed'
   | 'login_prompt_viewed'

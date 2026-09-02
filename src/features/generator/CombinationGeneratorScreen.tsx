@@ -18,6 +18,7 @@ import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import { trackEvent } from '@/features/analytics/analyticsClient';
 import { combinationAnalyticsParams } from '@/features/analytics/events';
+import { activeGeneratorConditionKeys } from '@/features/analytics/generatorConditionAnalytics';
 import {
   activeConditionCount,
   buildGeneratorConditionDefaults,
@@ -174,6 +175,14 @@ export function CombinationGeneratorScreen({
       if (generationToken.current !== token) return;
       setOutcomes(nextOutcomes);
       const generationConditions = describeGeneratorConditions(conditions);
+      const conditionKeys = activeGeneratorConditionKeys(conditions);
+      conditionKeys.forEach((conditionKey) => {
+        trackEvent('generator_condition_used', {
+          condition_count: conditionKeys.length,
+          condition_key: conditionKey,
+          source: 'condition_generator',
+        });
+      });
       nextOutcomes.forEach((item) => {
         addCombination(item.numbers, 'ai', {
           generationConditions,
@@ -221,6 +230,14 @@ export function CombinationGeneratorScreen({
 
       setOutcomes(nextOutcomes);
       const generationConditions = describeGeneratorConditions(next);
+      const conditionKeys = activeGeneratorConditionKeys(next);
+      conditionKeys.forEach((conditionKey) => {
+        trackEvent('generator_condition_used', {
+          condition_count: conditionKeys.length,
+          condition_key: conditionKey,
+          source: 'condition_generator_apply',
+        });
+      });
       nextOutcomes.forEach((item) => {
         addCombination(item.numbers, 'ai', {
           generationConditions,
