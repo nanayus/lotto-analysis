@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TamaguiProvider } from '@tamagui/core';
 
 import { BrandSplash } from '@/components/BrandSplash';
+import { trackScreen } from '@/features/analytics/analyticsClient';
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
 import { getArticleBySlug } from '@/features/content/articles';
 import { GeneratorDraftProvider } from '@/features/generator/GeneratorDraftContext';
@@ -149,6 +150,16 @@ function AppMetadata() {
   );
 }
 
+function AnalyticsRouteTracker() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    trackScreen(pathname);
+  }, [pathname]);
+
+  return null;
+}
+
 function ThemedApp() {
   const { colors, isReady, resolvedTheme } = useAppTheme();
 
@@ -185,6 +196,7 @@ function ThemedApp() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <AppMetadata />
+      <AnalyticsRouteTracker />
       <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme}>
         <AuthProvider>
           <MonetizationProvider>

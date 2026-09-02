@@ -3,6 +3,7 @@ import { createContext, type PropsWithChildren, useCallback, useContext, useEffe
 import { httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 
+import { trackEvent } from '@/features/analytics/analyticsClient';
 import { useAuth } from '@/features/auth/AuthContext';
 import { functions } from '@/features/auth/firebaseClient';
 import { LoginModal } from '@/features/auth/LoginModal';
@@ -219,8 +220,12 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   const openPaywall = useCallback((source?: string) => {
     setPaywallSource(source ?? null);
     setPaywallVisible(true);
+    trackEvent('paywall_viewed', { source: source ?? 'unspecified' });
   }, []);
-  const closePaywall = useCallback(() => setPaywallVisible(false), []);
+  const closePaywall = useCallback(() => {
+    setPaywallVisible(false);
+    trackEvent('paywall_closed', { source: paywallSource ?? 'unspecified' });
+  }, [paywallSource]);
   const openReferralCode = useCallback(() => {
     setReferralPromptError(null);
     setReferralCodeVisible(true);

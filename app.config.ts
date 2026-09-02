@@ -6,6 +6,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     plugins: [
       ...(config.plugins ?? []),
+      '@react-native-firebase/app',
+      '@react-native-firebase/analytics',
       ...(iosUrlScheme ? [[
         '@react-native-google-signin/google-signin',
         { iosUrlScheme },
@@ -13,4 +15,3 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
   } as ExpoConfig;
 };
-

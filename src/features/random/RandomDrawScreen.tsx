@@ -25,6 +25,8 @@ import { AnimatedNumberBall } from '@/components/ui/AnimatedNumberBall';
 import { AppButton } from '@/components/ui/AppButton';
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
+import { trackEvent } from '@/features/analytics/analyticsClient';
+import { combinationAnalyticsParams } from '@/features/analytics/events';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { fillCombinationRandomly } from '@/features/combination/randomFill';
@@ -126,7 +128,13 @@ export function RandomDrawScreen({
           if (index === finalResults[0].length - 1) {
             setResults(finalResults);
             setIsRolling(false);
-            finalResults.forEach((numbers) => addCombination(numbers, 'random'));
+            finalResults.forEach((numbers) => {
+              addCombination(numbers, 'random');
+              trackEvent('combination_generated', combinationAnalyticsParams(numbers, {
+                game_count: gameCount,
+                source: 'random_draw',
+              }));
+            });
             if (Platform.OS !== 'web') {
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }

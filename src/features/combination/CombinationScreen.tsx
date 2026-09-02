@@ -6,6 +6,8 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
+import { trackEvent } from '@/features/analytics/analyticsClient';
+import { combinationAnalyticsParams } from '@/features/analytics/events';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
@@ -78,6 +80,18 @@ async function waitForGeneratedTransition(startedAt: number) {
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
+function analysisSourceFor(token?: string) {
+  if (!token) return 'manual_selection';
+  if (token.startsWith('random-draw-')) return 'random_draw';
+  if (token.startsWith('generator')) return 'condition_generator';
+  if (token.startsWith('library-')) return 'my_numbers';
+  return 'linked_analysis';
+}
+
+function analyticsPeriod(period: AnalysisPeriod) {
+  return period.kind === 'preset' ? period.label : 'custom';
+}
+
 export function CombinationScreen() {
   const styles = useThemedStyles(createStyles);
   const {
@@ -94,6 +108,7 @@ export function CombinationScreen() {
     returnToken?: string | string[];
   }>();
   const analyzeToken = latestParam(analyze);
+  const analysisSource = analysisSourceFor(analyzeToken);
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const {
     addCombination,
@@ -131,6 +146,8 @@ export function CombinationScreen() {
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
   const regenerationTokenRef = useRef(0);
+  const analysisAccessMethodRef = useRef<'pro' | 'reward_ad' | 'unknown'>('unknown');
+  const trackedGateKeyRef = useRef<string | null>(null);
 
   const handleToggleNumber = useCallback((number: number) => {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
@@ -157,6 +174,13 @@ export function CombinationScreen() {
     const nextState = { ...filters, snapshot };
     analysisStateRef.current = nextState;
     setAnalysisState(nextState);
+    trackEvent('analysis_result_viewed', combinationAnalyticsParams(selectedNumbers, {
+      access_method: analysisAccessMethodRef.current,
+      account_tier: productAccess.tier,
+      bonus_included: filters.includeBonus,
+      period: analyticsPeriod(filters.period),
+      source: analysisSource,
+    }));
     if (mode.kind === 'compareSelect' && comparisonA) {
       setComparisonB(snapshot); setMode({ kind: 'comparison' });
     } else {
@@ -169,10 +193,24 @@ export function CombinationScreen() {
       );
       setMode({ kind: 'result' });
     }
-  }, [addCombination, analysisState, analyzeToken, combinations, comparisonA, mode.kind, selectedNumbers]);
+  }, [
+    addCombination,
+    analysisSource,
+    analysisState,
+    analyzeToken,
+    combinations,
+    comparisonA,
+    mode.kind,
+    productAccess.tier,
+    selectedNumbers,
+  ]);
 
   const authorizeAndExecute = useCallback(async () => {
     if (selectedNumbers.length !== 6 || isAuthorizing) return;
+    trackEvent('analysis_requested', combinationAnalyticsParams(selectedNumbers, {
+      account_tier: productAccess.tier,
+      source: analysisSource,
+    }));
     const transitionStartedAt = Date.now();
     setAuthorizing(true);
     setAnalysisAccessRequired(false);
@@ -186,13 +224,22 @@ export function CombinationScreen() {
         setAnalysisAccessRequired(true);
         return;
       }
+      analysisAccessMethodRef.current = 'pro';
       executeAnalysis();
     } catch (error) {
       setAccessMessage((error as Error).message || '분석 이용 정보를 확인하지 못했어요.');
     } finally {
       setAuthorizing(false);
     }
-  }, [analyzeToken, authorizeAnalysis, executeAnalysis, isAuthorizing, selectedNumbers]);
+  }, [
+    analysisSource,
+    analyzeToken,
+    authorizeAnalysis,
+    executeAnalysis,
+    isAuthorizing,
+    productAccess.tier,
+    selectedNumbers,
+  ]);
 
   const startAnalysis = useCallback(() => {
     if (authState.status !== 'loading') {
@@ -324,6 +371,23 @@ export function CombinationScreen() {
     ?? accessMessage
     ?? (monetizationState.status === 'error' ? monetizationState.error : null);
 
+  useEffect(() => {
+    if (analysisTransitionPhase !== 'access' || selectedNumbers.length !== 6) return;
+    const gateKey = `${analyzeToken ?? 'manual'}:${selectedNumbers.join('-')}`;
+    if (trackedGateKeyRef.current === gateKey) return;
+    trackedGateKeyRef.current = gateKey;
+    trackEvent('analysis_gate_viewed', combinationAnalyticsParams(selectedNumbers, {
+      account_tier: productAccess.tier,
+      source: analysisSource,
+    }));
+  }, [
+    analysisSource,
+    analysisTransitionPhase,
+    analyzeToken,
+    productAccess.tier,
+    selectedNumbers,
+  ]);
+
   const restartInvalidAnalysis = useCallback(() => {
     clear();
     setExcludedNumbers([]);
@@ -358,24 +422,40 @@ export function CombinationScreen() {
 
   const watchRewardedAd = useCallback(async () => {
     if (isWatchingRewardedAd) return;
+    const eventParams = combinationAnalyticsParams(selectedNumbers, {
+      account_tier: productAccess.tier,
+      source: analysisSource,
+    });
+    trackEvent('reward_ad_started', eventParams);
     setWatchingRewardedAd(true);
     setRewardedAdMessage(null);
     try {
       const completed = await showRewardedAd();
       if (!completed) {
+        trackEvent('reward_ad_failed', { ...eventParams, reason: 'not_completed' });
         setRewardedAdMessage('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
         return;
       }
+      trackEvent('reward_ad_completed', eventParams);
+      analysisAccessMethodRef.current = 'reward_ad';
       executeAnalysis();
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {
+      trackEvent('reward_ad_failed', { ...eventParams, reason: 'playback_error' });
       setRewardedAdMessage('광고 재생을 완료하지 못했어요. 다시 시도해 주세요.');
     } finally {
       setWatchingRewardedAd(false);
     }
-  }, [executeAnalysis, isWatchingRewardedAd, showRewardedAd]);
+  }, [
+    analysisSource,
+    executeAnalysis,
+    isWatchingRewardedAd,
+    productAccess.tier,
+    selectedNumbers,
+    showRewardedAd,
+  ]);
 
   const savedAnalysisCombination = analysisLibraryId
     ? combinations.find((item) => item.id === analysisLibraryId)

@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { LottoHistoryDraw } from '@/domain/analytics/types';
+import { trackEvent } from '@/features/analytics/analyticsClient';
+import { combinationAnalyticsParams } from '@/features/analytics/events';
 import {
   activeConditionCount,
   buildGeneratorConditionDefaults,
@@ -172,10 +174,17 @@ export function CombinationGeneratorScreen({
       if (generationToken.current !== token) return;
       setOutcomes(nextOutcomes);
       const generationConditions = describeGeneratorConditions(conditions);
-      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', {
-        generationConditions,
-        generatorConditions: conditions,
-      }));
+      nextOutcomes.forEach((item) => {
+        addCombination(item.numbers, 'ai', {
+          generationConditions,
+          generatorConditions: conditions,
+        });
+        trackEvent('combination_generated', combinationAnalyticsParams(item.numbers, {
+          condition_count: activeConditionCount(conditions),
+          generation_mode: item.mode,
+          source: 'condition_generator',
+        }));
+      });
       if (nextOutcomes.some((item) => item.mode === 'nearest')) setNearestNoticeVisible(true);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -212,10 +221,17 @@ export function CombinationGeneratorScreen({
 
       setOutcomes(nextOutcomes);
       const generationConditions = describeGeneratorConditions(next);
-      nextOutcomes.forEach((item) => addCombination(item.numbers, 'ai', {
-        generationConditions,
-        generatorConditions: next,
-      }));
+      nextOutcomes.forEach((item) => {
+        addCombination(item.numbers, 'ai', {
+          generationConditions,
+          generatorConditions: next,
+        });
+        trackEvent('combination_generated', combinationAnalyticsParams(item.numbers, {
+          condition_count: activeConditionCount(next),
+          generation_mode: item.mode,
+          source: 'condition_generator_apply',
+        }));
+      });
       if (nextOutcomes.some((item) => item.mode === 'nearest')) {
         setNearestNoticeVisible(true);
       }

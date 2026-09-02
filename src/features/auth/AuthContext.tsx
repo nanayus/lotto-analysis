@@ -10,6 +10,8 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
+import { trackEvent } from '@/features/analytics/analyticsClient';
+
 import { auth, db, functions } from './firebaseClient';
 import { firebaseConfigurationError } from './firebaseConfig';
 import {
@@ -126,6 +128,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const clearError = useCallback(() => setError(null), []);
   const closeLogin = useCallback(() => {
     if (isWorking) return;
+    trackEvent('login_prompt_closed', { intent: pendingIntent.current ?? 'unspecified' });
     successCallback.current = null;
     pendingIntent.current = undefined;
     setLoginVisible(false);
@@ -144,6 +147,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setError(firebaseConfigurationError);
     setLoginVisible(true);
+    trackEvent('login_prompt_viewed', { intent: intent ?? 'unspecified' });
   }, [state.status]);
 
   const signIn = useCallback(async (provider: AuthProviderId) => {
@@ -153,8 +157,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setWorking(true);
     setError(null);
+    trackEvent('login_started', { provider });
     try {
       await authenticate(auth, provider);
+      trackEvent('login_completed', { provider });
     } catch (signInError) {
       setError(messageForError(signInError));
     } finally {

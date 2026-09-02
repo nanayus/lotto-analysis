@@ -257,7 +257,7 @@ describe('CombinationScreen', () => {
     );
 
     await waitFor(() => expect(screen.getByRole('button', { name: '새 조합 분석' })).toBeTruthy());
-    expect(screen.getByText('해설 보기')).toBeTruthy();
+    expect(screen.getByText('설명 보기')).toBeTruthy();
     await act(async () => {
       fireEvent.press(screen.getByRole('button', { name: '새 조합 분석' }));
     });
