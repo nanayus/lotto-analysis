@@ -18,6 +18,17 @@ export default function RootHtml({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" href="/app-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <ScrollViewStyleReset />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              html, body, #root { background-color: #F5F5F7; }
+              @media (prefers-color-scheme: dark) {
+                html, body, #root { background-color: #000000; }
+              }
+            `,
+          }}
+          id="app-background"
+        />
       </head>
       <body>{children}</body>
     </html>

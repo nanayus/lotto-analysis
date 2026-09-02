@@ -180,14 +180,22 @@ function TabsNavigator() {
 }
 
 export default function TabsLayout() {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <TabBarVisibilityProvider>
-      <TabsNavigator />
+      <View style={styles.root}>
+        <TabsNavigator />
+      </View>
     </TabBarVisibilityProvider>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   tabBar: {
     position: 'absolute',
     left: spacing.md,

@@ -156,6 +156,15 @@ function ThemedApp() {
     if (isReady) void SplashScreen.hideAsync();
   }, [isReady]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+
+    document.documentElement.style.backgroundColor = colors.background;
+    document.body.style.backgroundColor = colors.background;
+    const root = document.getElementById('root');
+    if (root) root.style.backgroundColor = colors.background;
+  }, [colors.background]);
+
   const navigationTheme = useMemo(() => {
     const baseTheme = resolvedTheme === 'dark' ? DarkTheme : DefaultTheme;
     return {
