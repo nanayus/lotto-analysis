@@ -79,10 +79,14 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
         accessibilityRole="button"
         onPress={openAccess}
         style={({ pressed }) => [styles.accessButton, isPro ? styles.proButton : styles.freeButton, pressed && styles.pressed]}>
-        <View style={[styles.planDot, isPro && styles.proPlanDot]} />
         <Text style={[styles.accessText, isPro && styles.proText]}>
           {isPro ? 'PRO' : 'FREE'}
         </Text>
+        <Ionicons
+          color={isPro ? colors.accentPrimary : colors.textTertiary}
+          name="chevron-forward"
+          size={13}
+        />
       </Pressable>
       <ProStatusModal
         expiresAt={proExpiresAt}
@@ -162,36 +166,30 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: -0.2,
   },
   accessButton: {
-    minWidth: 72,
-    height: 38,
-    paddingHorizontal: spacing.lg,
+    minWidth: 68,
+    height: 34,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: spacing.xs,
     borderRadius: radius.round,
-    borderWidth: 1,
-    borderColor: colors.accentPrimary,
-    backgroundColor: colors.surfaceAccent,
   },
   freeButton: {
-    borderColor: colors.accentPrimary,
-    backgroundColor: colors.surfaceAccent,
+    backgroundColor: colors.background,
   },
   proButton: {
-    borderColor: colors.accentPrimary,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.surfaceAccent,
   },
-  planDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accentPrimary },
-  proPlanDot: { backgroundColor: '#FFFFFF' },
   accessText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
     fontWeight: typography.weights.bold,
-    letterSpacing: 0.9,
+    letterSpacing: 0.8,
     fontVariant: ['tabular-nums'],
   },
-  proText: { color: '#FFFFFF' },
+  proText: { color: colors.accentPrimary },
   subBar: {
     height: TOP_BAR_HEIGHT,
     flexDirection: 'row',
