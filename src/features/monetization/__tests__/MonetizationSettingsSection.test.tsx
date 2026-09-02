@@ -16,7 +16,7 @@ jest.mock('../MonetizationContext', () => ({
       canUseAiExplanation: mockIsPro,
       canUseCustomPeriod: mockIsPro,
       combinationSelectionLimit: mockIsPro ? 5 : 2,
-      conditionSelectionLimit: mockIsPro ? null : 2,
+      conditionSelectionLimit: mockIsPro ? null : 99,
       requiresRewardedAdForResults: !mockIsPro,
       storageMode: mockIsPro ? 'cloud' : 'device',
       tier: mockIsPro ? 'pro' : 'guest',
@@ -35,6 +35,7 @@ describe('MonetizationSettingsSection', () => {
 
     expect(screen.getByText('게스트')).toBeTruthy();
     expect(screen.getByText('광고 후 결과를 확인해요.')).toBeTruthy();
+    expect(screen.getByText('조건 99개 · 조합 2개')).toBeTruthy();
     fireEvent.press(screen.getByText('Pro'));
     expect(mockOpenPaywall).toHaveBeenCalledWith('settings');
   });

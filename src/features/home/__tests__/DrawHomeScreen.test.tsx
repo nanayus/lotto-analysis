@@ -19,6 +19,7 @@ const freeAccess = {
 };
 
 let mockTier: AccountTier = 'guest';
+let mockProPlanEnabled = true;
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
@@ -27,15 +28,16 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     openPaywall: jest.fn(),
+    proPlanEnabled: mockProPlanEnabled,
     productAccess: {
-      canRegenerateWithSameConditions: mockTier === 'pro',
+      canRegenerateWithSameConditions: mockTier === 'pro' || !mockProPlanEnabled,
       canSaveNumbers: true,
-      canUseBalancedPreset: mockTier === 'pro',
-      canUseAiExplanation: mockTier === 'pro',
-      canUseCustomPeriod: mockTier === 'pro',
-      combinationSelectionLimit: mockTier === 'guest' ? 2 : 5,
-      conditionSelectionLimit: mockTier === 'pro' ? null : 2,
-      requiresRewardedAdForResults: mockTier !== 'pro',
+      canUseBalancedPreset: mockTier === 'pro' || !mockProPlanEnabled,
+      canUseAiExplanation: mockTier === 'pro' || !mockProPlanEnabled,
+      canUseCustomPeriod: mockTier === 'pro' || !mockProPlanEnabled,
+      combinationSelectionLimit: mockTier === 'pro' || !mockProPlanEnabled ? 5 : 2,
+      conditionSelectionLimit: mockTier === 'pro' || !mockProPlanEnabled ? null : 99,
+      requiresRewardedAdForResults: mockTier !== 'pro' && mockProPlanEnabled,
       storageMode: mockTier === 'pro' ? 'cloud' : 'device',
       tier: mockTier,
     },
@@ -48,6 +50,7 @@ const mockNavigate = router.navigate as jest.Mock;
 describe('DrawHomeScreen', () => {
   beforeEach(() => {
     mockTier = 'guest';
+    mockProPlanEnabled = true;
   });
 
   test('shows Pro entry instead of ticket balance for guests', async () => {
@@ -91,11 +94,12 @@ describe('DrawHomeScreen', () => {
     });
   });
 
-  test('explains the guest game and condition limits', async () => {
+  test('keeps game and condition features unlocked while the Pro plan is paused', async () => {
     mockTier = 'guest';
+    mockProPlanEnabled = false;
     const screen = await render(<DrawHomeScreen />);
-    expect(screen.getByText('게스트 · 최대 2게임')).toBeTruthy();
-    expect(screen.getByText('게스트 · 조건 2개')).toBeTruthy();
+    expect(screen.getByText('최대 5게임')).toBeTruthy();
+    expect(screen.getByText('조건 무제한 · 추천 조건')).toBeTruthy();
   });
 
   test('opens the dedicated random draw route instead of drawing inline', async () => {

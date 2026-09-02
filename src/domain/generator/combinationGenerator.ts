@@ -18,6 +18,11 @@ const PRIME_NUMBERS = new Set([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 4
 const SQUARE_NUMBERS = new Set([4, 9, 16, 25, 36]);
 const BAND_KEYS = ['1-9', '10-19', '20-29', '30-39', '40-45'] as const;
 const COUNT_VALUES = [0, 1, 2, 3, 4, 5, 6] as const;
+export const GENERATOR_METRIC_LIMITS = {
+  lastDigitSum: { min: 2, max: 52 },
+  standardDeviation: { min: 1.7, max: 21.1 },
+  sum: { min: 21, max: 255 },
+} as const;
 export const GENERATOR_SECTION_KEYS: GeneratorSectionKey[] = [
   'fixedExcluded',
   'sameEnding',
@@ -99,7 +104,7 @@ export const DEFAULT_GENERATOR_CONDITIONS: GeneratorConditions = {
   enabledSections: {},
   fixedNumbers: [],
   highLowCounts: [],
-  lastDigitSum: { enabled: false, min: 2, max: 52 },
+  lastDigitSum: { enabled: false, ...GENERATOR_METRIC_LIMITS.lastDigitSum },
   multipleCounts: { 3: [], 4: [], 5: [] },
   neighbor: { allowed: [], includeBonus: false },
   oddCounts: [],
@@ -107,7 +112,7 @@ export const DEFAULT_GENERATOR_CONDITIONS: GeneratorConditions = {
   sameEndingPatterns: [],
   squareCounts: [],
   standardDeviation: { enabled: false, min: 10, max: 15 },
-  sum: { enabled: false, min: 21, max: 255 },
+  sum: { enabled: false, ...GENERATOR_METRIC_LIMITS.sum },
 };
 
 const BAND_SECTION_KEYS: Record<NumberBandKey, GeneratorSectionKey> = {
@@ -358,27 +363,46 @@ export function calculateCombinationMetrics(
     if (number > 1) neighborSource.add(number - 1);
     if (number < 45) neighborSource.add(number + 1);
   });
+  const carryNumbers = numbers.filter((number) => carrySource.has(number));
+  const neighborNumbers = numbers.filter((number) => neighborSource.has(number));
+  const compositeNumbers = numbers.filter((number) => number > 1 && !PRIME_NUMBERS.has(number));
+  const primeNumbers = numbers.filter((number) => PRIME_NUMBERS.has(number));
+  const squareNumbers = numbers.filter((number) => SQUARE_NUMBERS.has(number));
+  const multipleNumbers = {
+    3: numbers.filter((number) => number % 3 === 0),
+    4: numbers.filter((number) => number % 4 === 0),
+    5: numbers.filter((number) => number % 5 === 0),
+  };
 
   return {
     acValue: differences.size - 5,
     bandCounts: bands,
-    carryCount: numbers.filter((number) => carrySource.has(number)).length,
-    compositeCount: numbers.filter((number) => number > 1 && !PRIME_NUMBERS.has(number)).length,
+    carryCount: carryNumbers.length,
+    carryNumbers,
+    compositeCount: compositeNumbers.length,
+    compositeNumbers,
     consecutivePattern: consecutivePattern(numbers) as ConsecutivePattern,
     highCount: numbers.filter((number) => number >= 23).length,
     lastDigitSum: numbers.reduce((total, number) => total + number % 10, 0),
     lowCount: numbers.filter((number) => number <= 22).length,
     multipleCounts: {
-      3: numbers.filter((number) => number % 3 === 0).length,
-      4: numbers.filter((number) => number % 4 === 0).length,
-      5: numbers.filter((number) => number % 5 === 0).length,
+      3: multipleNumbers[3].length,
+      4: multipleNumbers[4].length,
+      5: multipleNumbers[5].length,
     },
-    neighborCount: numbers.filter((number) => neighborSource.has(number)).length,
+    multipleNumbers,
+    neighborCount: neighborNumbers.length,
+    neighborNumbers,
     oddCount: numbers.filter((number) => number % 2 !== 0).length,
     pastPrizeRanks: includePastRanks ? matchingPastRanks(numbers, buildPrizeIndex(history)) : [],
-    primeCount: numbers.filter((number) => PRIME_NUMBERS.has(number)).length,
+    previousBonus: latest?.bonus ?? null,
+    previousNumbers: latest ? [...latest.numbers].sort((left, right) => left - right) : [],
+    previousRound: latest?.round ?? null,
+    primeCount: primeNumbers.length,
+    primeNumbers,
     sameEndingPattern: groupPattern(numbers.map((number) => number % 10)) as SameEndingPattern,
-    squareCount: numbers.filter((number) => SQUARE_NUMBERS.has(number)).length,
+    squareCount: squareNumbers.length,
+    squareNumbers,
     standardDeviation: Math.sqrt(
       numbers.reduce((total, number) => total + (number - mean) ** 2, 0) / 6,
     ),

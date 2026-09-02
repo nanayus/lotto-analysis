@@ -6,6 +6,7 @@ import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
+import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import {
   buildOverallStatistics,
@@ -51,12 +52,65 @@ function ChoiceRow<T extends string>({
             accessibilityState={{ selected }}
             key={option.value}
             onPress={() => onChange(option.value)}
-            style={[styles.choice, selected && styles.choiceSelected]}>
+            style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.controlPressed]}>
             <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{option.label}</Text>
           </Pressable>
         );
       })}
     </ScrollView>
+  );
+}
+
+function RecentControlBar({
+  includeBonus,
+  metric,
+  onBonusChange,
+  onMetricChange,
+}: {
+  includeBonus: boolean;
+  metric: 'carry' | 'neighbor' | 'consecutive';
+  onBonusChange: (value: boolean) => void;
+  onMetricChange: (value: 'carry' | 'neighbor' | 'consecutive') => void;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const options = [
+    { label: '이월수', value: 'carry' },
+    { label: '이웃수', value: 'neighbor' },
+    { label: '연번', value: 'consecutive' },
+  ] as const;
+  return (
+    <View style={styles.recentControlBar}>
+      <View accessibilityLabel="직전 회차와 연번 통계 선택" accessibilityRole="tablist" style={styles.recentMetricGroup}>
+        {options.map((option) => {
+          const selected = metric === option.value;
+          return (
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              key={option.value}
+              onPress={() => onMetricChange(option.value)}
+              style={({ pressed }) => [styles.recentMetricButton, selected && styles.recentMetricButtonSelected, pressed && styles.controlPressed]}>
+              <Text style={[styles.recentMetricText, selected && styles.recentMetricTextSelected]}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {metric !== 'consecutive' ? (
+        <Pressable
+          accessibilityLabel={`보너스 포함 ${includeBonus ? '켜짐' : '꺼짐'}`}
+          accessibilityRole="button"
+          accessibilityState={{ selected: includeBonus }}
+          onPress={() => onBonusChange(!includeBonus)}
+          style={({ pressed }) => [styles.bonusToggle, includeBonus && styles.bonusToggleSelected, pressed && styles.controlPressed]}>
+          <Ionicons
+            color={includeBonus ? styles.bonusToggleIconSelected.color : styles.bonusToggleIcon.color}
+            name={includeBonus ? 'checkmark-circle' : 'ellipse-outline'}
+            size={15}
+          />
+          <Text style={[styles.bonusToggleText, includeBonus && styles.bonusToggleTextSelected]}>보너스 포함</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -334,7 +388,7 @@ function RatioDonutChart({ items, kind }: { items: readonly OverallDistributionI
               accessibilityState={{ selected: highlighted }}
               key={item.key}
               onPress={() => selectItem(item)}
-              style={[styles.ratioLegendItem, highlighted && styles.ratioLegendItemSelected]}>
+              style={({ pressed }) => [styles.ratioLegendItem, highlighted && styles.ratioLegendItemSelected, pressed && styles.controlPressed]}>
               <View style={[styles.ratioLegendDot, highlighted && styles.ratioLegendDotSelected]} />
               <Text numberOfLines={1} style={[styles.ratioLegendLabel, highlighted && styles.ratioLegendLabelSelected]}>
                 {ratioLabel(item.label, kind)}
@@ -347,41 +401,6 @@ function RatioDonutChart({ items, kind }: { items: readonly OverallDistributionI
         })}
       </View>
     </View>
-  );
-}
-
-function HorizontalChart({ items }: { items: readonly OverallDistributionItem[] }) {
-  const styles = useThemedStyles(createStyles);
-  const sorted = [...items].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'ko', { numeric: true }));
-  const maxCount = Math.max(1, sorted[0]?.count ?? 0);
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(sorted[0]?.key);
-  const selected = sorted.find((item) => item.key === selectedKey) ?? sorted[0];
-  return (
-    <>
-      <View style={styles.horizontalChart}>
-        {sorted.map((item, index) => {
-          const highlighted = item.key === selected?.key;
-          return (
-            <Pressable
-              accessibilityLabel={`${item.label}, ${item.count}회, ${item.percentage.toFixed(1)}%`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: highlighted }}
-              key={item.key}
-              onPress={() => setSelectedKey(item.key)}
-              style={styles.horizontalRow}>
-              <View style={styles.horizontalLabels}>
-                <Text numberOfLines={1} style={[styles.horizontalName, index === 0 && styles.horizontalNameTop]}>{item.label}</Text>
-                <Text style={styles.horizontalValue}>{item.count.toLocaleString()}</Text>
-              </View>
-              <View style={styles.horizontalTrack}>
-                <View style={[styles.horizontalBar, { width: `${(item.count / maxCount) * 100}%` }, highlighted && styles.horizontalBarTop]} />
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-      <SelectedDetail item={selected} />
-    </>
   );
 }
 
@@ -408,16 +427,54 @@ function SameEndingDiagram({ pattern }: { pattern: string }) {
   );
 }
 
-function SameEndingChart({ items }: { items: readonly OverallDistributionItem[] }) {
+function ConsecutiveDiagram({ pattern }: { pattern: string }) {
   const styles = useThemedStyles(createStyles);
-  const sorted = [...items].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'ko', { numeric: true }));
+  const groups = patternGroups(pattern);
+  return (
+    <View aria-hidden accessibilityElementsHidden style={styles.patternDiagram}>
+      {groups.map((size, groupIndex) => {
+        const start = 4 + groups
+          .slice(0, groupIndex)
+          .reduce((total, groupSize) => total + groupSize + 3, 0);
+        return (
+          <View key={`${pattern}-${groupIndex}`} style={[styles.patternGroup, size > 1 && styles.patternGroupLinked]}>
+            {Array.from({ length: size }, (_, index) => (
+              <View key={index} style={[styles.consecutiveCell, size > 1 && styles.consecutiveCellLinked]}>
+                <Text style={[styles.patternDotText, size > 1 && styles.patternDotTextLinked]}>{start + index}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PatternDistributionChart({
+  items,
+  kind,
+}: {
+  items: readonly OverallDistributionItem[];
+  kind: 'consecutive' | 'sameEnding';
+}) {
+  const styles = useThemedStyles(createStyles);
+  const sorted = useMemo(
+    () => [...items].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'ko', { numeric: true })),
+    [items],
+  );
   const maxCount = Math.max(1, sorted[0]?.count ?? 0);
   const [selectedKey, setSelectedKey] = useState<string | undefined>(sorted[0]?.key);
+  const [expanded, setExpanded] = useState(false);
   const selected = sorted.find((item) => item.key === selectedKey) ?? sorted[0];
+  const visibleItems = expanded ? sorted : sorted.slice(0, 3);
+  const toggleExpanded = () => {
+    if (expanded) setSelectedKey(sorted[0]?.key);
+    setExpanded(!expanded);
+  };
   return (
     <>
       <View style={styles.patternChart}>
-        {sorted.map((item, index) => {
+        {visibleItems.map((item, index) => {
           const highlighted = item.key === selected?.key;
           return (
             <Pressable
@@ -426,10 +483,12 @@ function SameEndingChart({ items }: { items: readonly OverallDistributionItem[] 
               accessibilityState={{ selected: highlighted }}
               key={item.key}
               onPress={() => setSelectedKey(item.key)}
-              style={styles.patternRow}>
+              style={({ pressed }) => [styles.patternRow, pressed && styles.controlPressed]}>
               <View style={styles.patternIdentity}>
                 <Text numberOfLines={1} style={[styles.patternName, index === 0 && styles.horizontalNameTop]}>{item.label}</Text>
-                <SameEndingDiagram pattern={item.key} />
+                {kind === 'sameEnding'
+                  ? <SameEndingDiagram pattern={item.key} />
+                  : <ConsecutiveDiagram pattern={item.key} />}
               </View>
               <View style={styles.patternBarColumn}>
                 <View style={styles.patternBarMeta}>
@@ -444,14 +503,24 @@ function SameEndingChart({ items }: { items: readonly OverallDistributionItem[] 
           );
         })}
       </View>
-      <SelectedDetail item={selected} />
+      {sorted.length > 3 ? (
+        <Pressable
+          accessibilityLabel={expanded ? '형태 목록 접기' : `형태 목록 ${sorted.length - 3}개 더 펼치기`}
+          accessibilityRole="button"
+          onPress={toggleExpanded}
+          style={({ pressed }) => [styles.patternExpandButton, pressed && styles.controlPressed]}>
+          <Text style={styles.patternExpandText}>
+            {expanded ? '접기' : `+ ${sorted.length - 3}개 더보기`}
+          </Text>
+        </Pressable>
+      ) : null}
     </>
   );
 }
 
 function StatCard({ children }: { children: React.ReactNode }) {
   const styles = useThemedStyles(createStyles);
-  return <View style={styles.chartCard}>{children}</View>;
+  return <AppCard elevated={false} style={styles.chartCard}>{children}</AppCard>;
 }
 
 function NumberFrequency({ statistics }: { statistics: OverallStatistics }) {
@@ -601,7 +670,7 @@ function DistributionStatistics({ statistics }: { statistics: OverallStatistics 
     <>
       <StatCard>
         <ChartHeading description="같은 끝자리가 겹치는 형태별 회차 수" items={statistics.sameEndingDistribution} title="동끝수 형태" />
-        <SameEndingChart items={statistics.sameEndingDistribution} />
+        <PatternDistributionChart items={statistics.sameEndingDistribution} kind="sameEnding" />
       </StatCard>
       <StatCard>
         <ChoiceRow accessibilityLabel="수치 분포 선택" onChange={setRange} options={[
@@ -610,7 +679,7 @@ function DistributionStatistics({ statistics }: { statistics: OverallStatistics 
           { label: '표준편차', value: 'deviation' },
         ]} value={range} />
         <ChartHeading description="구간별 과거 당첨 조합 수" items={rangeItems} title={rangeTitle} />
-        <VerticalChart items={rangeItems} />
+        <VerticalChart items={rangeItems} key={range} />
       </StatCard>
       <StatCard>
         <ChoiceRow accessibilityLabel="비율 분포 선택" onChange={setRatio} options={[
@@ -618,7 +687,7 @@ function DistributionStatistics({ statistics }: { statistics: OverallStatistics 
           { label: '저고', value: 'lowHigh' },
         ]} value={ratio} />
         <ChartHeading description={ratio === 'oddEven' ? '홀수:짝수 순서' : '저번호(1–22):고번호(23–45) 순서'} items={ratioItems} title={ratio === 'oddEven' ? '홀짝 비율' : '저고 비율'} />
-        <RatioDonutChart items={ratioItems} kind={ratio} />
+        <RatioDonutChart items={ratioItems} key={ratio} kind={ratio} />
       </StatCard>
     </>
   );
@@ -647,7 +716,7 @@ function TraitStatistics({ statistics }: { statistics: OverallStatistics }) {
           { label: '3의 배수', value: 'multiple3' }, { label: '4의 배수', value: 'multiple4' }, { label: '5의 배수', value: 'multiple5' },
         ]} value={trait} />
         <ChartHeading description="한 회차의 6개 번호에 포함된 개수" items={traits[trait].items} title={`${traits[trait].label} 개수`} />
-        <VerticalChart items={traits[trait].items} />
+        <VerticalChart items={traits[trait].items} key={trait} />
       </StatCard>
     </>
   );
@@ -665,20 +734,20 @@ function RecentStatistics({ statistics }: { statistics: OverallStatistics }) {
   const title = metric === 'carry' ? '이월수 개수' : metric === 'neighbor' ? '이웃수 개수' : '연번 형태';
   return (
     <StatCard>
-      <ChoiceRow accessibilityLabel="직전 회차와 연번 통계 선택" onChange={setMetric} options={[
-        { label: '이월수', value: 'carry' }, { label: '이웃수', value: 'neighbor' }, { label: '연번', value: 'consecutive' },
-      ]} value={metric} />
-      {metric !== 'consecutive' ? (
-        <ChoiceRow accessibilityLabel="보너스 포함 기준" onChange={(value) => setIncludeBonus(value === 'included')} options={[
-          { label: '본번호만', value: 'excluded' }, { label: '보너스 포함', value: 'included' },
-        ]} value={includeBonus ? 'included' : 'excluded'} />
-      ) : null}
+      <RecentControlBar
+        includeBonus={includeBonus}
+        metric={metric}
+        onBonusChange={setIncludeBonus}
+        onMetricChange={setMetric}
+      />
       <ChartHeading
         description={metric === 'consecutive' ? '연속된 번호 그룹의 형태별 분포' : `직전 회차와 비교한 ${statistics.comparisonDrawCount.toLocaleString()}개 회차 기준`}
         items={items}
         title={title}
       />
-      {metric === 'consecutive' ? <HorizontalChart items={items} /> : <VerticalChart items={items} />}
+      {metric === 'consecutive'
+        ? <PatternDistributionChart items={items} key={metric} kind="consecutive" />
+        : <VerticalChart items={items} key={`${metric}-${includeBonus ? 'included' : 'excluded'}`} />}
       {metric !== 'consecutive' ? <Text style={styles.cardNote}>이월수와 이웃수의 보너스 기준은 서로 독립적으로 확인할 수 있어요.</Text> : null}
     </StatCard>
   );
@@ -695,7 +764,7 @@ function BandStatistics({ statistics }: { statistics: OverallStatistics }) {
           { label: '30–39', value: '30-39' }, { label: '40–45', value: '40-45' },
         ]} value={band} />
         <ChartHeading description="한 회차의 6개 번호에 포함된 개수" items={statistics.bandDistributions[band]} title={`${band} 번호대`} />
-        <VerticalChart items={statistics.bandDistributions[band]} />
+        <VerticalChart items={statistics.bandDistributions[band]} key={band} />
       </StatCard>
       <View style={styles.ruleCard}>
         <Ionicons color={styles.ruleIcon.color} name="information-circle-outline" size={20} />
@@ -728,9 +797,6 @@ export function OverallStatisticsScreen() {
           title="종합 통계"
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.eyebrow}>ALL DRAW DATA</Text>
-          <Text style={styles.title}>당첨데이터 종합 통계</Text>
-
           <View style={styles.rangeRow}>
             <Text style={styles.rangeLabel}>분석 범위</Text>
             <Text style={styles.rangeValue}>{statistics.firstRound.toLocaleString()}–{statistics.latestRound.toLocaleString()}회 · 보너스 제외</Text>
@@ -759,7 +825,7 @@ export function OverallStatisticsScreen() {
                   accessibilityState={{ selected }}
                   key={tab}
                   onPress={() => setActiveTab(tab)}
-                  style={[styles.tab, selected && styles.tabSelected]}>
+                  style={({ pressed }) => [styles.tab, selected && styles.tabSelected, pressed && styles.controlPressed]}>
                   <Text style={[styles.tabText, selected && styles.tabTextSelected]}>{tab}</Text>
                 </Pressable>
               );
@@ -789,13 +855,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
   headerCopy: { flex: 1, marginLeft: spacing.md },
-  eyebrow: { color: colors.accentSecondary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.5, marginBottom: spacing.xs },
-  title: { color: colors.textPrimary, fontSize: 22, fontWeight: typography.weights.bold, letterSpacing: -0.6 },
-  rangeRow: { marginTop: spacing.xxl, paddingBottom: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.divider },
+  rangeRow: { paddingBottom: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.divider },
   rangeLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   rangeValue: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   summaryGrid: { marginTop: spacing.xl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  summaryItem: { width: '48.5%', minHeight: 82, padding: spacing.lg, justifyContent: 'space-between', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
+  summaryItem: { width: '48.5%', minHeight: 82, padding: spacing.lg, justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
   summaryItemPrimary: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   summaryLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   summaryLabelPrimary: { color: colors.accentPrimary },
@@ -808,60 +872,67 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
   tabTextSelected: { color: colors.textPrimary, fontWeight: typography.weights.bold },
   tabPanel: { gap: spacing.lg },
-  chartCard: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, boxShadow: colors.cardShadow, elevation: 2 },
+  chartCard: { marginTop: spacing.lg, padding: spacing.lg },
   chartHeading: { marginTop: spacing.sm, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   chartHeadingCopy: { flex: 1 },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.sizes.label, fontWeight: typography.weights.bold },
   sectionDescription: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17, marginTop: spacing.xs },
   topValue: { alignItems: 'flex-end', maxWidth: '46%' },
   topValueLabel: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, textAlign: 'right' },
-  topValueDetail: { color: colors.textSecondary, fontSize: 10, marginTop: spacing.xs, fontVariant: ['tabular-nums'] },
+  topValueDetail: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: spacing.xs, fontVariant: ['tabular-nums'] },
   choiceScroll: { marginHorizontal: -spacing.lg, marginBottom: spacing.md },
   choiceContent: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  choice: { minHeight: 32, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
+  choice: { minHeight: 44, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
   choiceSelected: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentBorder },
   choiceText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
   choiceTextSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
+  recentControlBar: { marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  recentMetricGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  recentMetricButton: { minHeight: 44, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
+  recentMetricButtonSelected: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentBorder },
+  recentMetricText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
+  recentMetricTextSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
+  bonusToggle: { minHeight: 44, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
+  bonusToggleSelected: { backgroundColor: colors.surfaceAccent },
+  bonusToggleIcon: { color: colors.textTertiary },
+  bonusToggleIconSelected: { color: colors.accentPrimary },
+  bonusToggleText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
+  bonusToggleTextSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
+  controlPressed: { opacity: 0.66 },
   chartBar: { color: colors.textTertiary },
   chartAccent: { color: colors.accentPrimary },
   chartAxis: { color: colors.borderStrong },
-  giftedChartFrame: { minHeight: 280, marginTop: spacing.lg, marginBottom: -94, overflow: 'visible' },
+  giftedChartFrame: { minHeight: 280, marginTop: spacing.xxl, marginBottom: -102, overflow: 'visible' },
   numberGiftedChartFrame: { minHeight: 280, marginTop: spacing.xs, marginBottom: -52, overflow: 'visible' },
   giftedAxisLabelSlot: { width: 40, alignItems: 'center', overflow: 'visible' },
-  giftedAxisLabel: { width: 40, color: colors.textTertiary, fontSize: 8, lineHeight: 11, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  giftedAxisLabel: { width: 40, color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 16, textAlign: 'center', fontVariant: ['tabular-nums'] },
   giftedAxisLabelSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
   chartTooltip: { width: CHART_TOOLTIP_WIDTH, paddingHorizontal: spacing.sm, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surfaceElevated, boxShadow: colors.cardShadow, elevation: 5 },
-  chartTooltipLabel: { color: colors.textPrimary, fontSize: 10, fontWeight: typography.weights.bold, textAlign: 'center' },
-  chartTooltipValue: { marginTop: 2, color: colors.textSecondary, fontSize: 9, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  chartTooltipLabel: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, textAlign: 'center' },
+  chartTooltipValue: { marginTop: 2, color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'] },
   ratioChart: { marginTop: spacing.lg },
   ratioDonutFrame: { minHeight: 244, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
   ratioInnerCircle: { backgroundColor: colors.surface },
   ratioSliceGap: { color: colors.surface },
   ratioDonutCenter: { width: 102, alignItems: 'center', justifyContent: 'center' },
-  ratioDonutCenterLabel: { color: colors.textPrimary, fontSize: 11, fontWeight: typography.weights.bold, textAlign: 'center' },
+  ratioDonutCenterLabel: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, textAlign: 'center' },
   ratioDonutCenterCount: { marginTop: 5, color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
-  ratioDonutCenterPercentage: { marginTop: 2, color: colors.accentPrimary, fontSize: 10, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  ratioDonutCenterPercentage: { marginTop: 2, color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   ratioDonutTouchTarget: { position: 'absolute', left: '50%', top: '50%', width: 212, height: 212, marginLeft: -106, marginTop: -106, borderRadius: 106, zIndex: 2 },
   ratioTooltipPopup: { position: 'absolute', top: 0, left: '50%', width: 124, marginLeft: -62, paddingHorizontal: spacing.sm, paddingVertical: 8, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.accentPrimary, boxShadow: colors.cardShadow, elevation: 6, zIndex: 3 },
-  ratioTooltipLabel: { color: '#FFFFFF', fontSize: 10, fontWeight: typography.weights.bold, textAlign: 'center' },
-  ratioTooltipValue: { marginTop: 2, color: '#FFFFFF', fontSize: 9, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'], opacity: 0.9 },
+  ratioTooltipLabel: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, textAlign: 'center' },
+  ratioTooltipValue: { marginTop: 2, color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, textAlign: 'center', fontVariant: ['tabular-nums'], opacity: 0.9 },
   ratioTooltipPointer: { position: 'absolute', bottom: -4, width: 8, height: 8, backgroundColor: colors.accentPrimary, transform: [{ rotate: '45deg' }] },
   ratioLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  ratioLegendItem: { width: '48.5%', minHeight: 40, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.md, borderWidth: 1, borderColor: 'transparent', backgroundColor: colors.surfaceElevated },
+  ratioLegendItem: { width: '48.5%', minHeight: 44, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.md, borderWidth: 1, borderColor: 'transparent', backgroundColor: colors.surfaceElevated },
   ratioLegendItemSelected: { borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent },
   ratioLegendDot: { width: 7, height: 7, borderRadius: radius.round, backgroundColor: colors.textTertiary },
   ratioLegendDotSelected: { backgroundColor: colors.accentPrimary },
-  ratioLegendLabel: { flex: 1, color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.medium },
+  ratioLegendLabel: { flex: 1, color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
   ratioLegendLabelSelected: { color: colors.textPrimary, fontWeight: typography.weights.bold },
-  ratioLegendValue: { color: colors.textTertiary, fontSize: 9, fontVariant: ['tabular-nums'] },
+  ratioLegendValue: { color: colors.textTertiary, fontSize: typography.sizes.caption, fontVariant: ['tabular-nums'] },
   ratioLegendValueSelected: { color: colors.accentPrimary, fontWeight: typography.weights.bold },
-  horizontalChart: { marginTop: spacing.xl, gap: spacing.md },
-  horizontalRow: { gap: 5 },
-  horizontalLabels: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
-  horizontalName: { flex: 1, color: colors.textSecondary, fontSize: typography.sizes.caption },
   horizontalNameTop: { color: colors.textPrimary, fontWeight: typography.weights.bold },
-  horizontalValue: { color: colors.textSecondary, fontSize: 10, fontVariant: ['tabular-nums'] },
-  horizontalTrack: { height: 7, overflow: 'hidden', borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
   horizontalBar: { height: '100%', borderRadius: radius.round, backgroundColor: colors.textTertiary },
   horizontalBarTop: { backgroundColor: colors.accentPrimary },
   selectedDetail: { minHeight: 42, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
@@ -869,11 +940,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   selectedDetailValue: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   numberSelectedDetail: { minHeight: 56, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
   selectedNumberCircle: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.accentPrimary },
-  selectedNumberCircleText: { color: '#FFFFFF', fontSize: 11, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  selectedNumberCircleText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   selectedNumberCopy: { flex: 1, gap: 2 },
-  selectedNumberCaption: { color: colors.textTertiary, fontSize: 9 },
-  patternChart: { marginTop: spacing.xl, gap: spacing.xl },
-  patternRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  selectedNumberCaption: { color: colors.textTertiary, fontSize: typography.sizes.caption },
+  patternChart: { marginTop: spacing.lg, gap: spacing.md },
+  patternRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   patternIdentity: { width: 150, gap: spacing.sm },
   patternName: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16, fontWeight: typography.weights.semibold },
   patternDiagram: { minHeight: 25, flexDirection: 'row', alignItems: 'center', gap: 3 },
@@ -881,29 +952,33 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   patternGroupLinked: { padding: 2, borderRadius: 7, backgroundColor: colors.surfaceAccent },
   patternDot: { width: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surfaceElevated },
   patternDotLinked: { borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent },
-  patternDotText: { color: colors.textTertiary, fontSize: 9, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  consecutiveCell: { width: 21, height: 21, alignItems: 'center', justifyContent: 'center', borderRadius: 6, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surfaceElevated },
+  consecutiveCellLinked: { borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent },
+  patternDotText: { color: colors.textTertiary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   patternDotTextLinked: { color: colors.accentPrimary },
   patternBarColumn: { flex: 1, alignSelf: 'stretch', justifyContent: 'center', gap: spacing.sm },
   patternBarMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  patternPercentage: { color: colors.textTertiary, fontSize: 10, fontVariant: ['tabular-nums'] },
+  patternPercentage: { color: colors.textTertiary, fontSize: typography.sizes.caption, fontVariant: ['tabular-nums'] },
   patternCount: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
   patternTrack: { width: '100%', height: 10, overflow: 'hidden', borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
+  patternExpandButton: { minHeight: 36, marginTop: spacing.xs, alignItems: 'center', justifyContent: 'center' },
+  patternExpandText: { color: colors.textSecondary, fontSize: 14, fontWeight: typography.weights.medium },
   numberRangeRow: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
-  numberRangeLabel: { color: colors.accentPrimary, fontSize: 10, fontWeight: typography.weights.bold },
-  numberRangeValue: { color: colors.textTertiary, fontSize: 10, fontVariant: ['tabular-nums'] },
+  numberRangeLabel: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
+  numberRangeValue: { color: colors.textTertiary, fontSize: typography.sizes.caption, fontVariant: ['tabular-nums'] },
   topNumberGrid: { marginTop: spacing.lg, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   topNumberItem: { width: '31.5%', minHeight: 138, padding: spacing.sm, alignItems: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
   topNumberItemFirst: { backgroundColor: colors.surfaceAccent, borderWidth: 1, borderColor: colors.accentBorder },
-  topNumberRank: { alignSelf: 'flex-start', color: colors.textSecondary, fontSize: 11, fontWeight: typography.weights.bold },
+  topNumberRank: { alignSelf: 'flex-start', color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   topNumberRankFirst: { color: colors.accentPrimary },
   topNumberCircle: { width: 46, height: 46, marginTop: spacing.sm, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
   topNumberCircleFirst: { borderColor: colors.accentPrimary, backgroundColor: colors.accentPrimary },
   topNumberValue: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold },
   topNumberValueFirst: { color: '#FFFFFF' },
-  topNumberCount: { color: colors.textPrimary, fontSize: 11, fontWeight: typography.weights.bold, marginTop: spacing.sm, fontVariant: ['tabular-nums'] },
-  topNumberPercentage: { color: colors.textTertiary, fontSize: 9, marginTop: 2, fontVariant: ['tabular-nums'] },
-  cardNote: { color: colors.textTertiary, fontSize: 10, lineHeight: 15, marginTop: spacing.lg },
-  ruleCard: { marginTop: spacing.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface },
+  topNumberCount: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, marginTop: spacing.sm, fontVariant: ['tabular-nums'] },
+  topNumberPercentage: { color: colors.textTertiary, fontSize: typography.sizes.caption, marginTop: spacing.xs, fontVariant: ['tabular-nums'] },
+  cardNote: { color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 17, marginTop: spacing.lg },
+  ruleCard: { marginTop: spacing.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface },
   ruleIcon: { color: colors.accentPrimary },
   ruleCopy: { flex: 1 },
   ruleTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.bold },

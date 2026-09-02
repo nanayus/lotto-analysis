@@ -20,6 +20,8 @@ export type DrawCombinationMatch = {
 export type IndividualNumberAnalysis = {
   appearanceCount: number;
   appearanceRank: number;
+  averageGap: number;
+  currentGap: number;
   number: number;
 };
 

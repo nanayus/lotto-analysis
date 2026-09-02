@@ -27,6 +27,7 @@ import {
   enabledGeneratorConditionCount,
   GENERATOR_BAND_KEYS,
   GENERATOR_COUNT_VALUES,
+  GENERATOR_METRIC_LIMITS,
   generatorSectionEnabled,
   SAME_ENDING_LABELS,
 } from '@/domain/generator/combinationGenerator';
@@ -613,10 +614,6 @@ export function ConditionSheet({
   const conditionHelp = useMemo(() => buildConditionHelp(history), [history]);
   const rangePresets = useMemo(() => buildGeneratorRangePresets(history), [history]);
   const recommendedPreset = useMemo(() => buildBalancedGeneratorPreset(history), [history]);
-  const recommendedPresetActive = useMemo(
-    () => JSON.stringify(draft) === JSON.stringify(recommendedPreset),
-    [draft, recommendedPreset],
-  );
   const historicalSameEnding = SAME_ENDING_OPTIONS.find(([, label]) => label === conditionHelp.sameEnding.historicalLabel)?.[0];
   const historicalConsecutive = CONSECUTIVE_OPTIONS.find(([, label]) => label === conditionHelp.consecutivePattern.historicalLabel)?.[0];
   const helpContent = activeHelp ? conditionHelp[activeHelp] : null;
@@ -688,13 +685,6 @@ export function ConditionSheet({
   const acceptRecommendedPreset = () => {
     applyRecommendedPreset();
     onRecommendationPromptDismiss?.();
-  };
-  const requestRecommendedPreset = () => {
-    if (!canUseBalancedPreset) {
-      onOpenPro();
-      return;
-    }
-    applyRecommendedPreset();
   };
   const toggleNumber = (number: number) => {
     setDraft((current) => {
@@ -819,34 +809,6 @@ export function ConditionSheet({
             showsVerticalScrollIndicator={false}
             style={styles.conditionScroll}
             testID="condition-content">
-            {canUseBalancedPreset ? (
-              <View style={[
-                styles.recommendedPreset,
-                recommendedPresetActive && styles.recommendedPresetActive,
-              ]}>
-                <Text style={styles.recommendedPresetTitle}>추천 조건 적용</Text>
-              <Pressable
-                accessibilityLabel={recommendedPresetActive
-                  ? '추천 조건 적용됨'
-                  : '추천 조건 적용'}
-                accessibilityRole="button"
-                accessibilityState={{ selected: recommendedPresetActive }}
-                onPress={requestRecommendedPreset}
-                style={[
-                  styles.recommendedPresetButton,
-                  recommendedPresetActive && styles.recommendedPresetButtonActive,
-                ]}>
-                <Text style={[
-                  styles.recommendedPresetButtonText,
-                  recommendedPresetActive && styles.recommendedPresetButtonTextActive,
-                ]}>
-                  {recommendedPresetActive
-                    ? '✓ 적용됨'
-                    : '적용'}
-                </Text>
-              </Pressable>
-              </View>
-            ) : null}
             <View
               onLayout={(event) => { pageOffsetsRef.current[0] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
@@ -926,7 +888,7 @@ export function ConditionSheet({
                 activationLocked={conditionLimitReached && !draft.standardDeviation.enabled}
                 decimals={1}
                 historicalPreset={rangePresets.standardDeviation}
-                limits={{ min: 1.7, max: 21.1 }}
+                limits={GENERATOR_METRIC_LIMITS.standardDeviation}
                 onChange={(standardDeviation) => update({ standardDeviation })}
                 onHelpPress={() => setActiveHelp('standardDeviation')}
                 onLockedPress={() => setConditionLimitPromptVisible(true)}
@@ -937,7 +899,7 @@ export function ConditionSheet({
               <RangeControl
                 activationLocked={conditionLimitReached && !draft.sum.enabled}
                 historicalPreset={rangePresets.sum}
-                limits={{ min: 21, max: 255 }}
+                limits={GENERATOR_METRIC_LIMITS.sum}
                 onChange={(sum) => update({ sum })}
                 onHelpPress={() => setActiveHelp('sum')}
                 onLockedPress={() => setConditionLimitPromptVisible(true)}
@@ -947,7 +909,7 @@ export function ConditionSheet({
               <RangeControl
                 activationLocked={conditionLimitReached && !draft.lastDigitSum.enabled}
                 historicalPreset={rangePresets.lastDigitSum}
-                limits={{ min: 2, max: 52 }}
+                limits={GENERATOR_METRIC_LIMITS.lastDigitSum}
                 onChange={(lastDigitSum) => update({ lastDigitSum })}
                 onHelpPress={() => setActiveHelp('lastDigitSum')}
                 onLockedPress={() => setConditionLimitPromptVisible(true)}
@@ -1221,7 +1183,9 @@ export function ConditionSheet({
             <View
               style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
               testID="condition-limit-prompt">
-              <Text style={styles.recommendationTitle}>조건은 2개까지 선택할 수 있어요</Text>
+              <Text style={styles.recommendationTitle}>
+                조건은 {conditionSelectionLimit}개까지 선택할 수 있어요
+              </Text>
               <Text style={styles.recommendationDescription}>
                 Pro에서는 제한 없이 선택하고 추천 조건도 사용할 수 있어요.
               </Text>
@@ -1324,27 +1288,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   accessBannerActionText: { color: '#FFFFFF', fontSize: 10, fontWeight: typography.weights.bold },
   accessBannerClose: { width: 34, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   accessBannerCloseColor: { color: colors.textSecondary },
-  recommendedPreset: {
-    minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    marginHorizontal: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.xl,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  recommendedPresetActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
-  recommendedPresetTitle: {
-    flex: 1, color: colors.textPrimary,
-    fontSize: typography.sizes.small, fontWeight: typography.weights.semibold,
-  },
-  recommendedPresetButton: {
-    minHeight: 38, flexShrink: 0, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 5, paddingHorizontal: spacing.md,
-    borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentPrimary,
-    backgroundColor: colors.background,
-  },
-  recommendedPresetButtonActive: { backgroundColor: colors.accentPrimary },
-  recommendedPresetButtonText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  recommendedPresetButtonTextActive: { color: colors.background },
   numberGrid: {
     flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'center',
     columnGap: spacing.sm, rowGap: spacing.xs,

@@ -5,12 +5,6 @@ import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '
 
 import { useMonetization } from './MonetizationContext';
 
-const GUEST_FEATURES = [
-  { icon: 'play-circle-outline', label: '광고 후 분석 결과 확인' },
-  { icon: 'options-outline', label: '조건 2개 · 조합 2개' },
-  { icon: 'phone-portrait-outline', label: '내 번호 기기 저장' },
-] as const;
-
 const PRO_FEATURES = [
   { icon: 'ban-outline', label: '광고 없이 결과 확인' },
   { icon: 'options-outline', label: '조건 무제한 · 추천 조건' },
@@ -20,9 +14,19 @@ const PRO_FEATURES = [
 
 export function MonetizationSettingsSection() {
   const styles = useThemedStyles(createStyles);
-  const { openPaywall, productAccess } = useMonetization();
+  const { openPaywall, productAccess, proPlanEnabled = true } = useMonetization();
   const isPro = productAccess.tier === 'pro';
-  const features = isPro ? PRO_FEATURES : GUEST_FEATURES;
+  const guestFeatures = [
+    { icon: 'play-circle-outline', label: '광고 후 분석 결과 확인' },
+    {
+      icon: 'options-outline',
+      label: `조건 ${productAccess.conditionSelectionLimit}개 · 조합 ${productAccess.combinationSelectionLimit}개`,
+    },
+    { icon: 'phone-portrait-outline', label: '내 번호 기기 저장' },
+  ] as const;
+  const features = isPro ? PRO_FEATURES : guestFeatures;
+
+  if (!proPlanEnabled) return null;
 
   return (
     <View style={styles.section}>

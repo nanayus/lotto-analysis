@@ -107,7 +107,7 @@ export function CombinationGeneratorScreen({
   const recommendationPromptShown = useRef(false);
   const summary = useMemo(() => conditionSummary(conditions), [conditions]);
   const conditionCount = activeConditionCount(conditions);
-  const conditionApplyAccess = productAccess.tier;
+  const conditionApplyAccess = productAccess.requiresRewardedAdForResults ? 'guest' : 'pro';
 
   useEffect(() => () => { generationToken.current += 1; }, []);
 

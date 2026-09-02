@@ -33,6 +33,7 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   const [proStatusVisible, setProStatusVisible] = useState(false);
   const authenticated = authState.status === 'authenticated';
   const isPro = monetization.productAccess.tier === 'pro';
+  const proPlanEnabled = monetization.proPlanEnabled ?? true;
   const proExpiresAt = monetization.state?.status === 'ready'
     ? monetization.state.access.proExpiresAt
     : null;
@@ -73,26 +74,30 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
         <Text numberOfLines={1} style={styles.accountText}>{accountLabel(authState)}</Text>
       </Pressable>
 
-      <Pressable
-        accessibilityHint={isPro ? '구독 정보를 확인합니다' : 'Pro 혜택을 확인합니다'}
-        accessibilityLabel={isPro ? 'PRO 플랜, 이용 정보 보기' : 'FREE 플랜, Pro 혜택 보기'}
-        accessibilityRole="button"
-        onPress={openAccess}
-        style={({ pressed }) => [styles.accessButton, isPro ? styles.proButton : styles.freeButton, pressed && styles.pressed]}>
-        <Text style={[styles.accessText, isPro && styles.proText]}>
-          {isPro ? 'PRO' : 'FREE'}
-        </Text>
-        <Ionicons
-          color={isPro ? colors.accentPrimary : colors.textTertiary}
-          name="chevron-forward"
-          size={13}
-        />
-      </Pressable>
-      <ProStatusModal
-        expiresAt={proExpiresAt}
-        onClose={() => setProStatusVisible(false)}
-        visible={proStatusVisible}
-      />
+      {proPlanEnabled ? (
+        <>
+          <Pressable
+            accessibilityHint={isPro ? '구독 정보를 확인합니다' : 'Pro 혜택을 확인합니다'}
+            accessibilityLabel={isPro ? 'PRO 플랜, 이용 정보 보기' : 'FREE 플랜, Pro 혜택 보기'}
+            accessibilityRole="button"
+            onPress={openAccess}
+            style={({ pressed }) => [styles.accessButton, isPro ? styles.proButton : styles.freeButton, pressed && styles.pressed]}>
+            <Text style={[styles.accessText, isPro && styles.proText]}>
+              {isPro ? 'PRO' : 'FREE'}
+            </Text>
+            <Ionicons
+              color={isPro ? colors.accentPrimary : colors.textTertiary}
+              name="chevron-forward"
+              size={13}
+            />
+          </Pressable>
+          <ProStatusModal
+            expiresAt={proExpiresAt}
+            onClose={() => setProStatusVisible(false)}
+            visible={proStatusVisible}
+          />
+        </>
+      ) : null}
     </View>
   );
 }

@@ -15,7 +15,12 @@ export type ProductAccess = {
 
 export const GUEST_COMBINATION_SELECTION_LIMIT = 2;
 export const PRO_COMBINATION_SELECTION_LIMIT = 5;
-export const GUEST_CONDITION_SELECTION_LIMIT = 2;
+export const GUEST_CONDITION_SELECTION_LIMIT = 99;
+
+type ProductAccessOptions = {
+  authenticated?: boolean;
+  unlockAllFeatures?: boolean;
+};
 
 export function accountTier({
   authenticated,
@@ -28,20 +33,23 @@ export function accountTier({
   return 'guest';
 }
 
-export function productAccessFor(tier: AccountTier): ProductAccess {
-  const isPro = tier === 'pro';
+export function productAccessFor(
+  tier: AccountTier,
+  { authenticated = false, unlockAllFeatures = false }: ProductAccessOptions = {},
+): ProductAccess {
+  const hasFullAccess = tier === 'pro' || unlockAllFeatures;
   return {
-    canRegenerateWithSameConditions: isPro,
+    canRegenerateWithSameConditions: hasFullAccess,
     canSaveNumbers: true,
-    canUseBalancedPreset: isPro,
-    canUseAiExplanation: isPro,
-    canUseCustomPeriod: isPro,
-    combinationSelectionLimit: isPro
+    canUseBalancedPreset: hasFullAccess,
+    canUseAiExplanation: hasFullAccess,
+    canUseCustomPeriod: hasFullAccess,
+    combinationSelectionLimit: hasFullAccess
       ? PRO_COMBINATION_SELECTION_LIMIT
       : GUEST_COMBINATION_SELECTION_LIMIT,
-    conditionSelectionLimit: isPro ? null : GUEST_CONDITION_SELECTION_LIMIT,
-    requiresRewardedAdForResults: !isPro,
-    storageMode: isPro ? 'cloud' : 'device',
+    conditionSelectionLimit: hasFullAccess ? null : GUEST_CONDITION_SELECTION_LIMIT,
+    requiresRewardedAdForResults: !hasFullAccess,
+    storageMode: (tier === 'pro' || (unlockAllFeatures && authenticated)) ? 'cloud' : 'device',
     tier,
   };
 }

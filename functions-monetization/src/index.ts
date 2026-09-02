@@ -13,6 +13,10 @@ const REFERRAL_APPLICATION_WINDOW_MS = 7 * DAY_MS;
 const GEMINI_MODEL = 'gemini-3.6-flash';
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
 
+// Pro 상품을 다시 운영할 때 true로 바꾸면 기존 서버 권한 검사가 복구됩니다.
+// AI 호출은 비용 보호를 위해 공개 기간에도 로그인 사용자에게만 허용합니다.
+const PRO_PLAN_ENABLED = false;
+
 type MonetizationProfile = {
   createdAt: Timestamp;
   inviteCode: string;
@@ -161,7 +165,7 @@ export const askCombinationAi = onCall({
     database.doc(`referrals/${uid}`).get(),
   ]);
   const profile = normalizeProfile(profileSnapshot.data(), uid, now);
-  if (!toAccessState(profile, now, referralSnapshot.exists).isPro) {
+  if (PRO_PLAN_ENABLED && !toAccessState(profile, now, referralSnapshot.exists).isPro) {
     throw new HttpsError('permission-denied', 'AI combination explanation is available on Pro.');
   }
 
@@ -247,7 +251,9 @@ export const authorizeCombinationAnalysis = onCall({ region: REGION }, async (re
     return {
       accessState,
       combinationKey,
-      decision: accessState.isPro ? 'AUTHORIZED_PRO' as const : 'REWARD_OR_PRO_REQUIRED' as const,
+      decision: (!PRO_PLAN_ENABLED || accessState.isPro)
+        ? 'AUTHORIZED_PRO' as const
+        : 'REWARD_OR_PRO_REQUIRED' as const,
     };
   });
 });

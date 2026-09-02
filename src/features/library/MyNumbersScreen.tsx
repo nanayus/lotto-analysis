@@ -13,6 +13,7 @@ import { generateCombination } from '@/domain/generator/combinationGenerator';
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
+import { useAuth } from '@/features/auth/AuthContext';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -43,7 +44,8 @@ export function MyNumbersScreen() {
   const { width } = useWindowDimensions();
   const useStackedAnalysisAction = width < 430;
   const { addCombination, combinations, isReady, storageMode, toggleFavorite, togglePurchased } = useNumberLibrary();
-  const { openPaywall, productAccess } = useMonetization();
+  const { openPaywall, productAccess, proPlanEnabled = true } = useMonetization();
+  const { openLogin, state: authState } = useAuth();
   const { setNumbers } = useCombinationDraft();
   const [activeTab, setActiveTab] = useState<LibraryTab>('all');
   const [expandedConditionId, setExpandedConditionId] = useState<string | null>(null);
@@ -133,8 +135,13 @@ export function MyNumbersScreen() {
                 : '이 기기에만 저장돼요.'}
             </Text>
             {storageMode === 'device' ? (
-              <Pressable onPress={() => openPaywall('library-cloud')}>
-                <Text style={styles.storageNoticeAction}>Pro</Text>
+              <Pressable onPress={() => {
+                if (proPlanEnabled) openPaywall('library-cloud');
+                else openLogin('library-cloud');
+              }}>
+                <Text style={styles.storageNoticeAction}>
+                  {proPlanEnabled ? 'Pro' : authState.status === 'guest' ? '로그인' : '확인'}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -260,7 +267,7 @@ export function MyNumbersScreen() {
                       </>
                     ) : null}
                     <Pressable
-                      accessibilityLabel={`${item.numbers.join(', ')} ${productAccess.tier === 'pro' ? '분석 결과 보기' : '광고 후 분석 결과 보기'}`}
+                      accessibilityLabel={`${item.numbers.join(', ')} ${productAccess.requiresRewardedAdForResults ? '광고 후 분석 결과 보기' : '분석 결과 보기'}`}
                       accessibilityRole="button"
                       onPress={() => analyze(item)}
                       style={({ pressed }) => [
@@ -274,7 +281,7 @@ export function MyNumbersScreen() {
                         useStackedAnalysisAction && styles.analysisLinkStacked,
                       ]}>
                         <Text style={styles.analysisLinkText}>
-                          {productAccess.tier === 'pro' ? '결과 보기' : '광고 후 결과 보기'}
+                          {productAccess.requiresRewardedAdForResults ? '광고 후 결과 보기' : '결과 보기'}
                         </Text>
                         <Ionicons color={colors.accentPrimary} name="chevron-forward" size={15} />
                       </View>

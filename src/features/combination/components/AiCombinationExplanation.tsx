@@ -24,6 +24,7 @@ type AiCombinationExplanationProps = {
   analysis: CombinationAnalysis;
   isPro: boolean;
   onOpenPro: () => void;
+  requiresLogin?: boolean;
 };
 
 type ConversationItem = {
@@ -99,6 +100,7 @@ export function AiCombinationExplanation({
   analysis,
   isPro,
   onOpenPro,
+  requiresLogin = false,
 }: AiCombinationExplanationProps) {
   const styles = useThemedStyles(createStyles);
   const [visible, setVisible] = useState(false);
@@ -164,48 +166,31 @@ export function AiCombinationExplanation({
   return (
     <>
       <Pressable
-        accessibilityLabel={isPro ? 'AI 조합 해설 보기' : 'AI 조합 해설, Pro 전용'}
+        accessibilityLabel={isPro
+          ? 'AI로 쉽게 보기, 설명 보기'
+          : requiresLogin
+            ? 'AI로 쉽게 보기, 로그인 필요'
+            : 'AI로 쉽게 보기, 설명 보기, Pro 전용'}
         accessibilityRole="button"
         onPress={open}
         style={({ pressed }) => [webPointerStyle, pressed && styles.pressed]}>
-        <AppCard style={[styles.card, styles.cardPro]} testID="ai-combination-explanation-card">
+        <AppCard style={styles.card} testID="ai-combination-explanation-card">
           <View style={styles.cardHeading}>
-            <View style={[
-              styles.iconBox,
-              styles.cardIconBoxPro,
-            ]}>
+            <View style={styles.cardIconBox}>
               <Ionicons
                 color={styles.cardIconColor.color}
-                name={isPro ? 'sparkles' : 'lock-closed'}
+                name="sparkles"
                 size={17}
               />
             </View>
             <View style={styles.cardCopy}>
-              <View style={styles.titleRow}>
-                <Text style={styles.cardTitle}>AI 조합 해설</Text>
-                <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View>
-              </View>
-              <Text style={styles.cardDescription}>
-                {isPro
-                  ? 'AI가 이 조합의 주요 통계를 해설하고 궁금한 질문에 답해드려요.'
-                  : 'AI에게 이 조합의 특징을 묻고 후속 질문을 이어갈 수 있어요.'}
-              </Text>
+              <Text style={styles.cardTitle}>AI로 쉽게 보기</Text>
+              <Text style={styles.cardDescription}>이 결과를 쉬운 말로 풀어드려요.</Text>
             </View>
-            {isPro ? (
-              <View style={styles.cardAction}>
-                <Text style={styles.cardActionText}>해설 보기</Text>
-                <Ionicons color={styles.iconColor.color} name="chevron-forward" size={16} />
-              </View>
-            ) : (
-              <Ionicons color={styles.chevronColor.color} name="chevron-forward" size={18} />
-            )}
+            <View style={styles.cardAction}>
+              <Text style={styles.cardActionText}>설명 보기</Text>
+            </View>
           </View>
-          {!isPro ? (
-            <View style={styles.lockedNotice}>
-              <Text style={styles.lockedNoticeText}>Pro 플랜에서만 이용할 수 있어요</Text>
-              <Text style={styles.lockedNoticeAction}>Pro 알아보기</Text>
-            </View>
-          ) : null}
         </AppCard>
       </Pressable>
 
@@ -359,79 +344,70 @@ export function AiCombinationExplanation({
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  pressed: { opacity: 0.72 },
+  pressed: { opacity: 0.82 },
   card: {
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
-  },
-  cardPro: {
     borderColor: colors.accentBorder,
     backgroundColor: colors.surfaceAccent,
   },
-  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  cardHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  cardIconBox: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  cardIconColor: { color: colors.accentPrimary },
   iconBox: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.round,
     backgroundColor: colors.surfaceAccent,
   },
-  cardIconBoxPro: { backgroundColor: colors.accentPrimary },
   iconColor: { color: colors.accentPrimary },
-  cardIconColor: { color: '#FFFFFF' },
   chevronColor: { color: colors.textTertiary },
   closeColor: { color: colors.textSecondary },
   placeholderColor: { color: colors.textTertiary },
   sendIconColor: { color: '#FFFFFF' },
   cardCopy: { flex: 1 },
-  cardAction: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 2 },
+  cardAction: {
+    minHeight: 40,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surface,
+  },
   cardActionText: {
     color: colors.accentPrimary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  cardTitle: {
-    color: colors.textPrimary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.semibold,
   },
-  proBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.round,
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.accentBorder,
-  },
-  proBadgeText: {
-    color: colors.accentPrimary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 0.8,
+  cardTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.label,
+    fontWeight: typography.weights.semibold,
   },
   cardDescription: {
     marginTop: spacing.xs,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontSize: typography.sizes.caption,
     lineHeight: 18,
-  },
-  lockedNotice: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lockedNoticeText: { color: colors.textTertiary, fontSize: typography.sizes.caption },
-  lockedNoticeAction: {
-    color: colors.accentPrimary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
   },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.backdropStrong },

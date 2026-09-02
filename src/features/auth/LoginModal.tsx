@@ -25,7 +25,7 @@ export function LoginModal() {
           <View style={styles.handle} />
           <Text style={styles.eyebrow}>ACCOUNT</Text>
           <Text style={styles.title}>계정 연결</Text>
-          <Text style={styles.description}>Pro 동기화와 계정 복원에 사용해요.</Text>
+          <Text style={styles.description}>기기간 동기화와 계정 복원에 사용해요.</Text>
 
           <View style={styles.buttons}>
             {Platform.OS === 'ios' ? (

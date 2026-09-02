@@ -120,6 +120,7 @@ export function CombinationScreen() {
   const {
     authorizeAnalysis,
     openPaywall,
+    proPlanEnabled = true,
     productAccess,
     refresh: refreshMonetization,
     rewardedAdsAvailable,
@@ -146,7 +147,7 @@ export function CombinationScreen() {
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
   const regenerationTokenRef = useRef(0);
-  const analysisAccessMethodRef = useRef<'pro' | 'reward_ad' | 'unknown'>('unknown');
+  const analysisAccessMethodRef = useRef<'open_access' | 'pro' | 'reward_ad' | 'unknown'>('unknown');
   const trackedGateKeyRef = useRef<string | null>(null);
 
   const handleToggleNumber = useCallback((number: number) => {
@@ -224,7 +225,7 @@ export function CombinationScreen() {
         setAnalysisAccessRequired(true);
         return;
       }
-      analysisAccessMethodRef.current = 'pro';
+      analysisAccessMethodRef.current = proPlanEnabled ? 'pro' : 'open_access';
       executeAnalysis();
     } catch (error) {
       setAccessMessage((error as Error).message || '분석 이용 정보를 확인하지 못했어요.');
@@ -237,6 +238,7 @@ export function CombinationScreen() {
     authorizeAnalysis,
     executeAnalysis,
     isAuthorizing,
+    proPlanEnabled,
     productAccess.tier,
     selectedNumbers,
   ]);
@@ -340,9 +342,11 @@ export function CombinationScreen() {
     router.replace('/(tabs)/draw');
   }, [clear]);
 
-  const analysisAvailabilityLabel = productAccess.tier === 'pro'
-    ? 'Pro · 광고 없이 결과 보기'
-    : '게스트 · 광고 후 결과 공개';
+  const analysisAvailabilityLabel = proPlanEnabled
+    ? productAccess.tier === 'pro'
+      ? 'Pro · 광고 없이 결과 보기'
+      : '게스트 · 광고 후 결과 공개'
+    : '광고 없이 결과 보기';
   const requestedAnalysisHasNumbers = Boolean(analyzeToken && selectedNumbers.length === 6);
   const authorizationPhase: GeneratedAnalysisPhase = accessMessage
     ? 'error'
@@ -603,21 +607,29 @@ export function CombinationScreen() {
                 analysis={analysisState.snapshot}
                 bonusIncluded={analysisState.includeBonus}
                 canRegenerate={Boolean(savedAnalysisCombination?.generatorConditions)}
+                canUseAiExplanation={productAccess.canUseAiExplanation && authState.status === 'authenticated'}
                 favorite={savedAnalysisCombination?.favorite}
                 firstRound={firstRound}
-                isPro={productAccess.tier === 'pro'}
+                isPro={productAccess.canRegenerateWithSameConditions}
                 latestRound={latestRound}
                 onBack={leaveCombination}
                 onBonusChange={changeBonus}
                 onOpenHistory={() => setMode({ kind: 'history' })}
                 onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
-                onOpenPro={() => openPaywall('ai-combination-explanation')}
+                onOpenPro={() => {
+                  if (!proPlanEnabled && authState.status !== 'authenticated') {
+                    openLogin('ai-combination-explanation');
+                    return;
+                  }
+                  openPaywall('ai-combination-explanation');
+                }}
                 onPeriodChange={changePeriod}
                 onRegenerate={() => void regenerateWithSameConditions()}
                 onStartOver={startOver}
                 onToggleFavorite={() => toggleLibraryState('favorite')}
                 onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}
+                requiresAiLogin={!proPlanEnabled && authState.status !== 'authenticated'}
                 purchased={savedAnalysisCombination?.purchased}
               />
             </Animated.View>

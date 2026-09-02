@@ -169,6 +169,9 @@ export function analyzeCombination(
   const draws = activeDraws(chronologicalHistory, normalizedFilters);
   const selectedSet = new Set(numbers);
   const frequencies = Array.from({ length: MAX_NUMBER + 1 }, () => 0);
+  const gapCounts = Array.from({ length: MAX_NUMBER + 1 }, () => 0);
+  const gapSums = Array.from({ length: MAX_NUMBER + 1 }, () => 0);
+  const lastHitIndexes = Array.from({ length: MAX_NUMBER + 1 }, () => -1);
   const matchDistribution = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 } as Record<MainMatchCount, number>;
   const prizeCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<PrizeRank, number>;
   const qualifyingHistory: DrawCombinationMatch[] = [];
@@ -183,7 +186,8 @@ export function analyzeCombination(
   }
 
   let highestMainMatch: MainMatchCount = 0;
-  for (const draw of draws) {
+  for (let drawIndex = 0; drawIndex < draws.length; drawIndex += 1) {
+    const draw = draws[drawIndex];
     const mainSet = new Set(draw.numbers);
     const matchedMainNumbers = numbers.filter((number) => mainSet.has(number));
     const mainMatchCount = matchedMainNumbers.length as MainMatchCount;
@@ -210,7 +214,14 @@ export function analyzeCombination(
       : draw.numbers;
     const analyticsSet = new Set(analyticsNumbers);
     analyticsNumbers.forEach((number) => {
-      if (MIN_NUMBER <= number && number <= MAX_NUMBER) frequencies[number] += 1;
+      if (MIN_NUMBER <= number && number <= MAX_NUMBER) {
+        frequencies[number] += 1;
+        if (lastHitIndexes[number] >= 0) {
+          gapSums[number] += drawIndex - lastHitIndexes[number] - 1;
+          gapCounts[number] += 1;
+        }
+        lastHitIndexes[number] = drawIndex;
+      }
     });
 
     for (const size of COMBINATION_SIZES) {
@@ -231,6 +242,12 @@ export function analyzeCombination(
   const individualNumbers = numbers.map((number) => ({
     appearanceCount: frequencies[number],
     appearanceRank: ranks[number - 1],
+    averageGap: gapCounts[number]
+      ? Number((gapSums[number] / gapCounts[number]).toFixed(2))
+      : 0,
+    currentGap: lastHitIndexes[number] < 0
+      ? draws.length
+      : draws.length - lastHitIndexes[number] - 1,
     number,
   }));
   const selectedAverage = individualNumbers.reduce(

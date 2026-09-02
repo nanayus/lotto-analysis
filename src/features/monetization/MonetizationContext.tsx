@@ -10,6 +10,7 @@ import { LoginModal } from '@/features/auth/LoginModal';
 
 import { ProPaywallModal } from './ProPaywallModal';
 import { ReferralCodeOnboardingModal } from './ReferralCodeOnboardingModal';
+import { ALL_FEATURES_UNLOCKED, PRO_PLAN_ENABLED } from './featureFlags';
 import {
   normalizeMonetizationAccessState,
   type AnalysisAuthorization,
@@ -35,6 +36,7 @@ type MonetizationValue = {
   openPaywall: (source?: string) => void;
   openReferralCode: () => void;
   paywallSource: string | null;
+  proPlanEnabled: boolean;
   productAccess: ProductAccess;
   refresh: () => Promise<void>;
   rewardedAdsAvailable: boolean;
@@ -56,7 +58,7 @@ const fallbackValue: MonetizationValue = {
   authorizeAnalysis: async (numbers) => ({
     accessState: EMPTY_ACCESS_STATE,
     combinationKey: [...numbers].sort((left, right) => left - right).join('-'),
-    decision: 'REWARD_OR_PRO_REQUIRED',
+    decision: PRO_PLAN_ENABLED ? 'REWARD_OR_PRO_REQUIRED' : 'AUTHORIZED_PRO',
   }),
   closePaywall: () => undefined,
   closeReferralCode: () => undefined,
@@ -65,7 +67,8 @@ const fallbackValue: MonetizationValue = {
   openPaywall: () => undefined,
   openReferralCode: () => undefined,
   paywallSource: null,
-  productAccess: productAccessFor('guest'),
+  proPlanEnabled: PRO_PLAN_ENABLED,
+  productAccess: productAccessFor('guest', { unlockAllFeatures: ALL_FEATURES_UNLOCKED }),
   refresh: async () => undefined,
   rewardedAdsAvailable: false,
   showRewardedAd: async () => false,
@@ -134,7 +137,9 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     return {
       accessState,
       combinationKey,
-      decision: accessState.isPro ? 'AUTHORIZED_PRO' as const : 'REWARD_OR_PRO_REQUIRED' as const,
+      decision: (!PRO_PLAN_ENABLED || accessState.isPro)
+        ? 'AUTHORIZED_PRO' as const
+        : 'REWARD_OR_PRO_REQUIRED' as const,
     };
   }, [state]);
 
@@ -218,6 +223,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   ]);
 
   const openPaywall = useCallback((source?: string) => {
+    if (!PRO_PLAN_ENABLED) return;
     setPaywallSource(source ?? null);
     setPaywallVisible(true);
     trackEvent('paywall_viewed', { source: source ?? 'unspecified' });
@@ -245,7 +251,10 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     authenticated: authState.status === 'authenticated',
     isPro: state.status === 'ready' && state.access.isPro,
   });
-  const productAccess = productAccessFor(tier);
+  const productAccess = productAccessFor(tier, {
+    authenticated: authState.status === 'authenticated',
+    unlockAllFeatures: ALL_FEATURES_UNLOCKED,
+  });
 
   const value = useMemo<MonetizationValue>(() => ({
     applyReferral,
@@ -257,9 +266,10 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     openPaywall,
     openReferralCode,
     paywallSource,
+    proPlanEnabled: PRO_PLAN_ENABLED,
     productAccess,
     refresh,
-    rewardedAdsAvailable: rewardedAdTestFallbackAvailable,
+    rewardedAdsAvailable: PRO_PLAN_ENABLED && rewardedAdTestFallbackAvailable,
     showRewardedAd,
     state,
   }), [
@@ -282,11 +292,13 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     <MonetizationContext.Provider value={value}>
       {children}
       <LoginModal />
-      <ProPaywallModal
-        onClose={closePaywall}
-        source={paywallSource}
-        visible={isPaywallVisible}
-      />
+      {PRO_PLAN_ENABLED ? (
+        <ProPaywallModal
+          onClose={closePaywall}
+          source={paywallSource}
+          visible={isPaywallVisible}
+        />
+      ) : null}
       <ReferralCodeOnboardingModal
         error={referralPromptError}
         isApplying={isApplyingReferral}

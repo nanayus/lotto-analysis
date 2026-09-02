@@ -24,8 +24,12 @@ describe('combination generator metrics', () => {
     expect(metrics.sum).toBe(21);
     expect(metrics.lastDigitSum).toBe(21);
     expect(metrics.primeCount).toBe(3);
+    expect(metrics.primeNumbers).toEqual([2, 3, 5]);
     expect(metrics.compositeCount).toBe(2);
+    expect(metrics.compositeNumbers).toEqual([4, 6]);
     expect(metrics.squareCount).toBe(1);
+    expect(metrics.squareNumbers).toEqual([4]);
+    expect(metrics.multipleNumbers).toEqual({ 3: [3, 6], 4: [4], 5: [5] });
     expect(metrics.consecutivePattern).toBe('6');
   });
 
@@ -41,7 +45,12 @@ describe('combination generator metrics', () => {
     conditions.neighbor.includeBonus = true;
     const metrics = calculateCombinationMetrics([6, 7, 8, 20, 21, 45], history, conditions);
     expect(metrics.carryCount).toBe(3);
+    expect(metrics.carryNumbers).toEqual([7, 20, 45]);
     expect(metrics.neighborCount).toBe(4);
+    expect(metrics.neighborNumbers).toEqual([6, 8, 20, 21]);
+    expect(metrics.previousRound).toBe(2);
+    expect(metrics.previousNumbers).toEqual([1, 7, 12, 19, 34, 45]);
+    expect(metrics.previousBonus).toBe(20);
   });
 
   test('classifies historical rank-equivalent candidates', () => {

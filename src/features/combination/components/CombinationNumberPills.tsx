@@ -5,23 +5,30 @@ import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '
 
 type CombinationNumberPillsProps = {
   accessibilityLabel?: string;
+  compact?: boolean;
   numbers: readonly number[];
   revealedCount?: number;
 };
 
 export function CombinationNumberPills({
   accessibilityLabel,
+  compact = false,
   numbers,
   revealedCount,
 }: CombinationNumberPillsProps) {
   const styles = useThemedStyles(createStyles);
 
   return (
-    <View accessibilityLabel={accessibilityLabel} style={styles.numberPills}>
+    <View
+      accessibilityLabel={accessibilityLabel}
+      accessible={Boolean(accessibilityLabel)}
+      style={[styles.numberPills, compact && styles.numberPillsCompact]}>
       {numbers.map((number, index) => (
         revealedCount === undefined ? (
-          <View key={number} style={styles.numberPill}>
-            <Text style={styles.numberPillText}>{String(number).padStart(2, '0')}</Text>
+          <View key={number} style={[styles.numberPill, compact && styles.numberPillCompact]}>
+            <Text style={[styles.numberPillText, compact && styles.numberPillTextCompact]}>
+              {String(number).padStart(2, '0')}
+            </Text>
           </View>
         ) : (
           <AnimatedNumberBall
@@ -47,6 +54,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.sm,
     width: '100%',
   },
+  numberPillsCompact: {
+    gap: spacing.xs,
+  },
   numberPill: {
     width: '13%',
     maxWidth: 48,
@@ -58,10 +68,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.accentPrimary,
     backgroundColor: colors.surfaceAccent,
   },
+  numberPillCompact: {
+    width: 34,
+    maxWidth: 34,
+  },
   numberPillText: {
     color: colors.highlight,
     fontSize: 18,
     fontWeight: typography.weights.semibold,
+  },
+  numberPillTextCompact: {
+    fontSize: 13,
   },
   numberPillRevealed: {
     borderColor: colors.accentBorder,

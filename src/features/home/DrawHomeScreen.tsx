@@ -15,10 +15,11 @@ const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
-  const { productAccess } = useMonetization();
+  const { productAccess, proPlanEnabled = true } = useMonetization();
+  const hasFullGenerationAccess = productAccess.combinationSelectionLimit >= 5;
   const gameCounts = useMemo(
-    () => productAccess.tier === 'guest' ? GUEST_GAME_COUNTS : PRO_GAME_COUNTS,
-    [productAccess.tier],
+    () => hasFullGenerationAccess ? PRO_GAME_COUNTS : GUEST_GAME_COUNTS,
+    [hasFullGenerationAccess],
   );
   const [gameCount, setGameCount] = useState<GameCount>(1);
   const selectedGameCount = gameCounts.includes(gameCount) ? gameCount : 1;
@@ -63,9 +64,11 @@ export function DrawHomeScreen() {
               <Text style={styles.aiTitle}>조건 뽑기</Text>
               <Text style={styles.aiDescription}>원하는 조건을 직접 정하고{`\n`}하나의 조합을 만들어보세요.</Text>
               <Text style={styles.aiPolicy}>
-                {productAccess.tier === 'guest'
-                  ? '게스트 · 조건 2개'
-                  : 'Pro · 조건 무제한 · 추천 조건'}
+                {proPlanEnabled
+                  ? productAccess.tier === 'guest'
+                    ? `게스트 · 조건 ${productAccess.conditionSelectionLimit}개`
+                    : 'Pro · 조건 무제한 · 추천 조건'
+                  : '조건 무제한 · 추천 조건'}
               </Text>
             </View>
             <View style={styles.aiAction}>
@@ -83,9 +86,11 @@ export function DrawHomeScreen() {
                 <Text style={styles.randomTitle}>랜덤조합</Text>
                 <Text style={styles.randomDescription}>조건 없이 번호를 바로 만들어요.</Text>
               </View>
-              <View accessibilityLabel="무료 기능" style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>FREE</Text>
-              </View>
+              {proPlanEnabled ? (
+                <View accessibilityLabel="무료 기능" style={styles.freeBadge}>
+                  <Text style={styles.freeBadgeText}>FREE</Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.randomCountSection}>
@@ -115,9 +120,11 @@ export function DrawHomeScreen() {
             </View>
 
             <Text style={styles.countPolicy}>
-              {productAccess.tier === 'guest'
-                ? '게스트 · 최대 2게임'
-                : 'Pro · 최대 5게임'}
+              {proPlanEnabled
+                ? productAccess.tier === 'guest'
+                  ? '게스트 · 최대 2게임'
+                  : 'Pro · 최대 5게임'
+                : '최대 5게임'}
             </Text>
 
             <Pressable

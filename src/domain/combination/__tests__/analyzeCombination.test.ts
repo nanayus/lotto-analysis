@@ -42,9 +42,29 @@ describe('analyzeCombination', () => {
       withoutBonus.individualNumbers.find((item) => item.number === 6)!.appearanceCount,
     );
     expect(withoutBonus.conditionMetrics.carryCount).toBe(0);
+    expect(withoutBonus.conditionMetrics.carryNumbers).toEqual([]);
     expect(withBonus.conditionMetrics.carryCount).toBe(1);
+    expect(withBonus.conditionMetrics.carryNumbers).toEqual([1]);
     expect(withoutBonus.conditionMetrics.neighborCount).toBe(1);
+    expect(withoutBonus.conditionMetrics.neighborNumbers).toEqual([6]);
     expect(withBonus.conditionMetrics.neighborCount).toBe(2);
+    expect(withBonus.conditionMetrics.neighborNumbers).toEqual([2, 6]);
+    expect(withoutBonus.conditionMetrics.previousRound).toBe(6);
+    expect(withoutBonus.conditionMetrics.previousNumbers).toEqual([7, 8, 9, 10, 11, 12]);
+    expect(withoutBonus.conditionMetrics.previousBonus).toBe(1);
+  });
+
+  it('calculates average and current gaps with the active analysis filters', () => {
+    const result = analyzeCombination(history, [1, 2, 3, 4, 5, 6], allMainOnly);
+
+    expect(result.individualNumbers.find((item) => item.number === 1)).toMatchObject({
+      averageGap: 0,
+      currentGap: 1,
+    });
+    expect(result.individualNumbers.find((item) => item.number === 6)).toMatchObject({
+      averageGap: 0,
+      currentGap: 5,
+    });
   });
 
   it('calculates every metric family exposed by the combination condition screen', () => {

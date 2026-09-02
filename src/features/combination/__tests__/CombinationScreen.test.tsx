@@ -22,6 +22,7 @@ const mockOpenPaywall = jest.fn();
 const mockShowRewardedAd = jest.fn(async () => true);
 const mockAddCombination = jest.fn(() => 'saved-condition-combination');
 let mockIsPro = true;
+let mockProPlanEnabled = true;
 let mockAuthorizationDecision: 'AUTHORIZED_PRO' | 'REWARD_OR_PRO_REQUIRED' = 'AUTHORIZED_PRO';
 const mockAuthorizeAnalysis = jest.fn(async () => ({
   accessState: {
@@ -70,6 +71,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     authorizeAnalysis: mockAuthorizeAnalysis,
     openPaywall: mockOpenPaywall,
+    proPlanEnabled: mockProPlanEnabled,
     productAccess: {
       canRegenerateWithSameConditions: mockAuthStatus === 'authenticated' && mockIsPro,
       canSaveNumbers: true,
@@ -140,6 +142,7 @@ describe('CombinationScreen', () => {
     mockShowRewardedAd.mockClear();
     mockAuthorizeAnalysis.mockClear();
     mockIsPro = true;
+    mockProPlanEnabled = true;
     mockAuthorizationDecision = 'AUTHORIZED_PRO';
     mockAddCombination.mockClear();
     mockAddCombination.mockReturnValue('saved-condition-combination');
@@ -214,9 +217,10 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
   });
 
-  test('keeps manual number selection available for non-Pro accounts', async () => {
+  test('keeps manual analysis unlocked while the Pro plan is paused', async () => {
     mockSearchParams.mockReturnValue({ returnTo: 'draw' });
     mockIsPro = false;
+    mockProPlanEnabled = false;
     const screen = await render(
       <CombinationDraftProvider>
         <SeededCombinationScreen />
@@ -224,7 +228,7 @@ describe('CombinationScreen', () => {
     );
 
     expect(screen.getByTestId('combination-number-grid')).toBeTruthy();
-    expect(screen.getByText('게스트 · 광고 후 결과 공개')).toBeTruthy();
+    expect(screen.getByText('광고 없이 결과 보기')).toBeTruthy();
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
     expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
   });

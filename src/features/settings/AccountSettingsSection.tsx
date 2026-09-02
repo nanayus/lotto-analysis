@@ -45,7 +45,7 @@ export function AccountSettingsSection() {
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <View style={styles.loginCopy}>
               <Text style={styles.rowLabel}>계정 연결</Text>
-              <Text style={styles.rowDescription}>Pro 동기화와 계정 복원에 사용해요.</Text>
+              <Text style={styles.rowDescription}>기기간 동기화와 계정 복원에 사용해요.</Text>
             </View>
             <Ionicons color="#2997FF" name="person-circle-outline" size={25} />
           </Pressable>

@@ -1,17 +1,31 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import type { AnalysisPeriod } from '@/domain/analytics/types';
+import { describeCombinationHeadline } from '@/domain/combination/describeCombinationHeadline';
 import type { CombinationAnalysis, CombinationSize, PrizeRank } from '@/domain/combination/types';
 import {
   CONSECUTIVE_LABELS,
   GENERATOR_BAND_KEYS,
+  GENERATOR_METRIC_LIMITS,
   SAME_ENDING_LABELS,
 } from '@/domain/generator/combinationGenerator';
 import { AppCard } from '@/components/ui/AppCard';
-import { SubScreenHeader } from '@/components/ui/AppTopBar';
+import { SubScreenHeader, TOP_BAR_HEIGHT } from '@/components/ui/AppTopBar';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
 import { LibraryStatusActions } from '@/features/library/components/LibraryStatusActions';
@@ -36,9 +50,11 @@ type CombinationResultProps = {
   onRegenerate?: () => void;
   period: AnalysisPeriod;
   canRegenerate?: boolean;
+  canUseAiExplanation?: boolean;
   favorite?: boolean;
   isPro?: boolean;
   purchased?: boolean;
+  requiresAiLogin?: boolean;
 };
 
 const VISIBLE_COMBINATION_SIZES = [2, 3, 4] as const;
@@ -60,6 +76,27 @@ function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
+function headlineEvidenceLabel(
+  analysis: CombinationAnalysis,
+  headline: ReturnType<typeof describeCombinationHeadline>,
+) {
+  const sizeByMetric: Partial<Record<typeof headline.metric, CombinationSize>> = {
+    'pair-concentration': 2,
+    'three-number': 3,
+    'four-number': 4,
+    'five-number': 5,
+    'same-six': 6,
+  };
+  const size = sizeByMetric[headline.metric];
+  if (!size) return headline.sourceLabel;
+  const appearanceCount = size === 6
+    ? analysis.sameSixCount
+    : Math.max(0, ...analysis.subCombinations[size].map((item) => item.appearanceCount));
+  return appearanceCount > 0
+    ? `선택 번호 ${size}개 동시 출현 · ${appearanceCount}회`
+    : headline.sourceLabel;
+}
+
 function SectionCard({ children, testID, title }: {
   children: React.ReactNode;
   testID?: string;
@@ -75,57 +112,583 @@ function SectionCard({ children, testID, title }: {
 }
 
 type ConditionStatTab = (typeof CONDITION_STAT_TABS)[number];
-type ConditionStatRow = { label: string; value: string };
+
+function clampPercentage(value: number, min: number, max: number) {
+  return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+}
+
+function bandDisplayLabel(band: string) {
+  return band.replace('-', '–');
+}
+
+function BandCountChart({ counts }: {
+  counts: CombinationAnalysis['conditionMetrics']['bandCounts'];
+}) {
+  const styles = useThemedStyles(createStyles);
+  const [width, setWidth] = useState(0);
+  const data = GENERATOR_BAND_KEYS.map((band) => ({
+    frontColor: counts[band] > 0 ? styles.bandChartBar.backgroundColor : styles.bandChartZero.backgroundColor,
+    label: bandDisplayLabel(band),
+    value: counts[band],
+  }));
+  const maxCount = Math.max(1, ...GENERATOR_BAND_KEYS.map((band) => counts[band]));
+  const summary = GENERATOR_BAND_KEYS
+    .map((band) => `${bandDisplayLabel(band)} ${counts[band]}개`)
+    .join(', ');
+  const sectionWidth = width / GENERATOR_BAND_KEYS.length;
+  const barWidth = sectionWidth * 0.6;
+  const chartSpacing = sectionWidth * 0.4;
+  // Gifted Charts applies initialSpacing to both its scroll container and bar row.
+  const initialSpacing = sectionWidth * 0.1;
+  const onLayout = (event: LayoutChangeEvent) => {
+    const nextWidth = Math.floor(event.nativeEvent.layout.width);
+    if (nextWidth > 0 && nextWidth !== width) setWidth(nextWidth);
+  };
+
+  return (
+    <View
+      accessibilityLabel={`번호대 분포, ${summary}`}
+      accessible
+      onLayout={onLayout}
+      style={styles.bandChartFrame}
+      testID="condition-band-chart">
+      {width > 0 ? (
+        <BarChart
+          animationDuration={380}
+          backgroundColor="transparent"
+          barWidth={barWidth}
+          barBorderTopLeftRadius={5}
+          barBorderTopRightRadius={5}
+          data={data}
+          disableScroll
+          endSpacing={0}
+          frontColor={styles.bandChartBar.backgroundColor}
+          height={116}
+          hideRules
+          hideYAxisText
+          initialSpacing={initialSpacing}
+          isAnimated
+          labelsDistanceFromXaxis={7}
+          labelsExtraHeight={22}
+          maxValue={maxCount * 1.18}
+          noOfSections={3}
+          parentWidth={width}
+          showValuesAsTopLabel
+          spacing={chartSpacing}
+          topLabelTextStyle={styles.bandChartValue}
+          width={width}
+          xAxisColor={styles.bandChartAxis.backgroundColor}
+          xAxisLabelTextStyle={styles.bandChartLabel}
+          xAxisTextNumberOfLines={1}
+          xAxisThickness={StyleSheet.hairlineWidth}
+          yAxisLabelWidth={0}
+          yAxisThickness={0}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function DistributionMeter({
+  label,
+  limits,
+  testID,
+  value,
+  valueLabel,
+}: {
+  label: string;
+  limits: { min: number; max: number };
+  testID: string;
+  value: number;
+  valueLabel: string;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const percentage = clampPercentage(value, limits.min, limits.max);
+
+  return (
+    <View
+      accessibilityLabel={`${label}, ${valueLabel}, 전체 범위 ${limits.min}에서 ${limits.max}`}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: limits.min, max: limits.max, now: value, text: valueLabel }}
+      style={styles.distributionMeter}
+      testID={testID}>
+      <View style={styles.distributionMeterHeader}>
+        <Text style={styles.distributionMeterLabel}>{label}</Text>
+        <Text style={styles.distributionMeterValue}>{valueLabel}</Text>
+      </View>
+      <View style={styles.distributionMeterTrack}>
+        <View style={[styles.distributionMeterFill, { width: `${percentage}%` }]} />
+        <View style={[styles.distributionMeterMarker, { left: `${percentage}%` }]} />
+      </View>
+      <View style={styles.distributionMeterRange}>
+        <Text style={styles.distributionMeterRangeText}>{limits.min}</Text>
+        <Text style={styles.distributionMeterRangeText}>{limits.max}</Text>
+      </View>
+    </View>
+  );
+}
+
+function SameEndingProfile({
+  numbers,
+  patternLabel,
+}: {
+  numbers: readonly number[];
+  patternLabel: string;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const groups = [...numbers]
+    .sort((left, right) => left - right)
+    .reduce<Map<number, number[]>>((result, number) => {
+      const ending = number % 10;
+      result.set(ending, [...(result.get(ending) ?? []), number]);
+      return result;
+    }, new Map());
+  const orderedGroups = [...groups.entries()].sort((left, right) => (
+    right[1].length - left[1].length || left[1][0] - right[1][0]
+  ));
+
+  return (
+    <View
+      accessibilityLabel={`동끝수 형태, ${patternLabel}`}
+      accessible
+      style={styles.sameEndingProfile}
+      testID="condition-same-ending-profile">
+      <View style={styles.distributionCardHeader}>
+        <Text style={styles.distributionCardTitle}>동끝수 형태</Text>
+        <Text style={styles.distributionCardValue}>{patternLabel}</Text>
+      </View>
+      <View style={styles.sameEndingGroups}>
+        {orderedGroups.map(([ending, group]) => {
+          const connected = group.length > 1;
+          return (
+            <View
+              accessibilityLabel={`${ending}로 끝나는 번호 ${group.join(', ')}`}
+              accessible
+              key={`${ending}-${group.join('-')}`}
+              style={[styles.sameEndingGroup, connected && styles.sameEndingGroupConnected]}>
+              {group.map((number) => (
+                <View
+                  key={number}
+                  style={[styles.sameEndingNumber, connected && styles.sameEndingNumberConnected]}>
+                  <Text style={[styles.sameEndingNumberText, connected && styles.sameEndingNumberTextConnected]}>
+                    {number}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.sameEndingLegend}>
+        <View style={styles.sameEndingLegendDot} />
+        <Text style={styles.sameEndingLegendText}>같은 배경으로 묶인 번호는 끝수가 같아요.</Text>
+      </View>
+    </View>
+  );
+}
+
+function RatioProfile({
+  leftCount,
+  leftLabel,
+  rightLabel,
+  testID,
+  title,
+}: {
+  leftCount: number;
+  leftLabel: string;
+  rightLabel: string;
+  testID: string;
+  title: string;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const rightCount = 6 - leftCount;
+
+  return (
+    <View
+      accessibilityLabel={`${title}, ${leftLabel} ${leftCount}, ${rightLabel} ${rightCount}`}
+      accessible
+      style={styles.ratioProfile}
+      testID={testID}>
+      <Text style={styles.ratioTitle}>{title}</Text>
+      <View style={styles.ratioCountRow}>
+        <Text style={styles.ratioCountPrimary}>{leftLabel} {leftCount}</Text>
+        <Text style={styles.ratioCountSecondary}>{rightLabel} {rightCount}</Text>
+      </View>
+      <View style={styles.ratioSegments}>
+        {Array.from({ length: 6 }, (_, index) => (
+          <View
+            key={index}
+            style={[styles.ratioSegment, index < leftCount && styles.ratioSegmentPrimary]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function DistributionProfile({ analysis }: { analysis: CombinationAnalysis }) {
+  const styles = useThemedStyles(createStyles);
+  const metrics = analysis.conditionMetrics;
+
+  return (
+    <View style={styles.distributionProfile} testID="condition-distribution-profile">
+      <SameEndingProfile
+        numbers={analysis.numbers}
+        patternLabel={SAME_ENDING_LABELS[metrics.sameEndingPattern]}
+      />
+      <View style={styles.distributionMeterCard}>
+        <DistributionMeter
+          label="표준편차"
+          limits={GENERATOR_METRIC_LIMITS.standardDeviation}
+          testID="condition-meter-standard-deviation"
+          value={metrics.standardDeviation}
+          valueLabel={metrics.standardDeviation.toFixed(1)}
+        />
+        <View style={styles.distributionMeterDivider} />
+        <DistributionMeter
+          label="번호 총합"
+          limits={GENERATOR_METRIC_LIMITS.sum}
+          testID="condition-meter-sum"
+          value={metrics.sum}
+          valueLabel={String(metrics.sum)}
+        />
+        <View style={styles.distributionMeterDivider} />
+        <DistributionMeter
+          label="끝수 총합"
+          limits={GENERATOR_METRIC_LIMITS.lastDigitSum}
+          testID="condition-meter-last-digit-sum"
+          value={metrics.lastDigitSum}
+          valueLabel={String(metrics.lastDigitSum)}
+        />
+      </View>
+      <View style={styles.ratioProfiles}>
+        <RatioProfile
+          leftCount={metrics.oddCount}
+          leftLabel="홀"
+          rightLabel="짝"
+          testID="condition-ratio-odd-even"
+          title="홀짝 비율"
+        />
+        <RatioProfile
+          leftCount={metrics.lowCount}
+          leftLabel="저"
+          rightLabel="고"
+          testID="condition-ratio-low-high"
+          title="저고 비율"
+        />
+      </View>
+    </View>
+  );
+}
+
+type MetricNumberTone = 'carry' | 'neighbor' | 'reference';
+
+function MetricNumberChips({
+  bonus,
+  compact = false,
+  highlightedBonus = false,
+  highlightedNumbers = [],
+  numbers,
+  testIDPrefix,
+  tone,
+}: {
+  bonus?: number | null;
+  compact?: boolean;
+  highlightedBonus?: boolean;
+  highlightedNumbers?: readonly number[];
+  numbers: readonly number[];
+  testIDPrefix: string;
+  tone: MetricNumberTone;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const highlightedNumberSet = new Set(highlightedNumbers);
+  if (numbers.length === 0 && bonus == null) {
+    return (
+      <Text style={[styles.metricNumberEmpty, compact && styles.metricNumberEmptyCompact]}>
+        {compact ? '없음' : '해당 없음'}
+      </Text>
+    );
+  }
+  return (
+    <View style={[styles.metricNumberList, compact && styles.metricNumberListCompact]}>
+      {numbers.map((number) => {
+        const highlighted = highlightedNumberSet.has(number);
+        return (
+          <View
+            accessibilityLabel={`${number}번${highlighted ? ', 선택한 관계의 기준 번호' : ''}`}
+            accessibilityState={{ selected: highlighted }}
+            accessible
+            key={number}
+            style={[
+              styles.metricNumberChip,
+              tone === 'carry' && styles.metricNumberChipCarry,
+              tone === 'neighbor' && styles.metricNumberChipNeighbor,
+              highlighted && styles.metricNumberChipHighlighted,
+            ]}
+            testID={`${testIDPrefix}-${number}`}>
+            <Text style={[
+              styles.metricNumberText,
+              tone === 'carry' && styles.metricNumberTextCarry,
+              tone === 'neighbor' && styles.metricNumberTextNeighbor,
+              highlighted && styles.metricNumberTextHighlighted,
+            ]}>
+              {number}
+            </Text>
+          </View>
+        );
+      })}
+      {bonus != null ? (
+        <View
+          accessibilityLabel={`보너스 ${bonus}번${highlightedBonus ? ', 선택한 관계의 기준 번호' : ''}`}
+          accessibilityState={{ selected: highlightedBonus }}
+          accessible
+          style={[styles.metricBonusChip, highlightedBonus && styles.metricBonusChipHighlighted]}
+          testID={`${testIDPrefix}-bonus-${bonus}`}>
+          <Text style={[styles.metricBonusMark, highlightedBonus && styles.metricBonusTextHighlighted]}>B</Text>
+          <Text style={[styles.metricBonusNumber, highlightedBonus && styles.metricBonusTextHighlighted]}>{bonus}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function CharacterSegments({ count, total }: {
+  count: number;
+  total: number;
+}) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View
+      importantForAccessibility="no-hide-descendants"
+      style={styles.characterSegments}>
+      {Array.from({ length: total }, (_, index) => (
+        <View
+          key={index}
+          style={[styles.characterSegment, index < count && styles.characterSegmentActive]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function NumberCharacterGroup({
+  items,
+  title,
+}: {
+  items: { label: string; numbers: readonly number[]; testID: string }[];
+  title: string;
+}) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.characterGroupCard}>
+      <Text style={styles.characterGroupTitle}>{title}</Text>
+      {items.map((item, index) => (
+        <View
+          key={item.label}
+          style={[
+            styles.characterTrait,
+            index < items.length - 1 && styles.characterTraitDivider,
+          ]}
+          testID={item.testID}>
+          <Text style={styles.characterTraitLabel}>{item.label}</Text>
+          <MetricNumberChips
+            compact
+            numbers={item.numbers}
+            testIDPrefix={`${item.testID}-number`}
+            tone="neighbor"
+          />
+          <Text style={styles.characterTraitCount}>{item.numbers.length}개</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function NumberCharacterProfile({
+  metrics,
+}: {
+  metrics: CombinationAnalysis['conditionMetrics'];
+}) {
+  const styles = useThemedStyles(createStyles);
+  const acStepCount = Math.max(0, Math.min(10, metrics.acValue));
+  return (
+    <View style={styles.numberCharacterProfile} testID="condition-number-character-profile">
+      <View
+        accessibilityLabel={`A/C 값 ${metrics.acValue}, 범위 0에서 10`}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 10, now: metrics.acValue, text: String(metrics.acValue) }}
+        style={styles.acProfile}
+        testID="condition-ac-profile">
+        <View style={styles.acProfileHeader}>
+          <View>
+            <Text style={styles.acProfileTitle}>A/C 값</Text>
+            <Text style={styles.acProfileDescription}>서로 다른 번호 간격의 다양성</Text>
+          </View>
+          <Text style={styles.acProfileValue}>{metrics.acValue}</Text>
+        </View>
+        <CharacterSegments count={acStepCount} total={10} />
+        <View style={styles.acProfileRange}>
+          <Text style={styles.acProfileRangeText}>0</Text>
+          <Text style={styles.acProfileRangeText}>10</Text>
+        </View>
+      </View>
+
+      <NumberCharacterGroup
+        items={[
+          { label: '소수', numbers: metrics.primeNumbers, testID: 'condition-prime-profile' },
+          { label: '완전제곱수', numbers: metrics.squareNumbers, testID: 'condition-square-profile' },
+          { label: '합성수', numbers: metrics.compositeNumbers, testID: 'condition-composite-profile' },
+        ]}
+        title="수의 종류"
+      />
+      <NumberCharacterGroup
+        items={([3, 4, 5] as const).map((multiple) => ({
+          label: `${multiple}의 배수`,
+          numbers: metrics.multipleNumbers[multiple],
+          testID: `condition-multiple-${multiple}-profile`,
+        }))}
+        title="배수 포함"
+      />
+    </View>
+  );
+}
+
+function RecentNumberRelations({
+  bonusIncluded,
+  metrics,
+}: {
+  bonusIncluded: boolean;
+  metrics: CombinationAnalysis['conditionMetrics'];
+}) {
+  const styles = useThemedStyles(createStyles);
+  const [activeRelation, setActiveRelation] = useState<'carry' | 'neighbor' | null>(null);
+  const roundLabel = metrics.previousRound ? `${metrics.previousRound}회 당첨 번호` : '기준 회차 없음';
+  const relationReferenceNumbers = activeRelation === 'carry'
+    ? metrics.previousNumbers.filter((number) => metrics.carryNumbers.includes(number))
+    : activeRelation === 'neighbor'
+      ? metrics.previousNumbers.filter((number) => (
+        metrics.neighborNumbers.some((neighbor) => Math.abs(neighbor - number) === 1)
+      ))
+      : [];
+  const previousBonusIsHighlighted = bonusIncluded && metrics.previousBonus != null && (
+    activeRelation === 'carry'
+      ? metrics.carryNumbers.includes(metrics.previousBonus)
+      : activeRelation === 'neighbor'
+        ? metrics.neighborNumbers.some((neighbor) => Math.abs(neighbor - metrics.previousBonus!) === 1)
+        : false
+  );
+  const previousAccessibilityLabel = metrics.previousNumbers.length
+    ? `직전 회차 번호, ${metrics.previousNumbers.join(', ')}${bonusIncluded && metrics.previousBonus != null ? `, 보너스 ${metrics.previousBonus}` : ''}`
+    : '직전 회차 번호 없음';
+
+  return (
+    <View style={styles.recentNumberStatistics}>
+      <View
+        accessibilityLabel={previousAccessibilityLabel}
+        accessible
+        style={styles.previousDrawCard}
+        testID="condition-previous-draw">
+        <View style={styles.previousDrawHeader}>
+          <View style={styles.previousDrawCopy}>
+            <Text style={styles.previousDrawTitle}>직전 회차 번호</Text>
+            <Text style={styles.previousDrawRound}>{roundLabel}</Text>
+          </View>
+          <View style={styles.previousDrawFilterBadge}>
+            <Text style={styles.previousDrawFilterText}>보너스 {bonusIncluded ? '포함' : '제외'}</Text>
+          </View>
+        </View>
+        <MetricNumberChips
+          bonus={bonusIncluded ? metrics.previousBonus : null}
+          highlightedBonus={previousBonusIsHighlighted}
+          highlightedNumbers={relationReferenceNumbers}
+          numbers={metrics.previousNumbers}
+          testIDPrefix="condition-previous-number"
+          tone="reference"
+        />
+      </View>
+
+      <View style={styles.relationSectionHeader}>
+        <Text style={styles.relationSectionTitle}>현재 조합과의 관계</Text>
+        <Text style={styles.relationSectionHint}>
+          {activeRelation === 'carry'
+            ? '이월수의 기준 번호를 강조했어요.'
+            : activeRelation === 'neighbor'
+              ? '이웃수의 기준 번호를 강조했어요.'
+              : '카드를 눌러 직전 번호를 확인하세요.'}
+        </Text>
+      </View>
+
+      <View style={styles.relationCards}>
+        <Pressable
+          accessibilityLabel={`이월수 ${metrics.carryCount}개, ${metrics.carryNumbers.length ? metrics.carryNumbers.join(', ') : '해당 없음'}, 직전 기준 번호 보기`}
+          accessibilityRole="button"
+          accessibilityState={{ selected: activeRelation === 'carry' }}
+          onPress={() => setActiveRelation((current) => current === 'carry' ? null : 'carry')}
+          style={({ pressed }) => [
+            styles.relationCard,
+            activeRelation === 'carry' && styles.relationCardSelected,
+            webPointerStyle,
+            pressed && styles.pressed,
+          ]}
+          testID="condition-relation-carry">
+          <View style={styles.relationHeader}>
+            <Text style={styles.relationTitle}>이월수</Text>
+            <Text style={styles.relationCount}>{metrics.carryCount}개</Text>
+          </View>
+          <Text style={styles.relationDescription}>직전 회차와 같은 번호</Text>
+          <MetricNumberChips
+            numbers={metrics.carryNumbers}
+            testIDPrefix="condition-carry-number"
+            tone="carry"
+          />
+        </Pressable>
+
+        <Pressable
+          accessibilityLabel={`이웃수 ${metrics.neighborCount}개, ${metrics.neighborNumbers.length ? metrics.neighborNumbers.join(', ') : '해당 없음'}, 직전 기준 번호 보기`}
+          accessibilityRole="button"
+          accessibilityState={{ selected: activeRelation === 'neighbor' }}
+          onPress={() => setActiveRelation((current) => current === 'neighbor' ? null : 'neighbor')}
+          style={({ pressed }) => [
+            styles.relationCard,
+            activeRelation === 'neighbor' && styles.relationCardSelected,
+            webPointerStyle,
+            pressed && styles.pressed,
+          ]}
+          testID="condition-relation-neighbor">
+          <View style={styles.relationHeader}>
+            <Text style={styles.relationTitle}>이웃수</Text>
+            <Text style={styles.relationCount}>{metrics.neighborCount}개</Text>
+          </View>
+          <Text style={styles.relationDescription}>직전 번호의 앞·뒤(±1)</Text>
+          <MetricNumberChips
+            numbers={metrics.neighborNumbers}
+            testIDPrefix="condition-neighbor-number"
+            tone="neighbor"
+          />
+        </Pressable>
+      </View>
+
+      <View style={styles.consecutiveSummary}>
+        <View style={styles.consecutiveCopy}>
+          <Text style={styles.consecutiveLabel}>연번 형태</Text>
+          <Text style={styles.consecutiveDescription}>현재 조합 안의 연속 번호</Text>
+        </View>
+        <Text style={styles.consecutiveValue}>{CONSECUTIVE_LABELS[metrics.consecutivePattern]}</Text>
+      </View>
+    </View>
+  );
+}
 
 function ConditionStatistics({
   analysis,
   bonusIncluded,
-  latestRound,
 }: {
   analysis: CombinationAnalysis;
   bonusIncluded: boolean;
-  latestRound: number;
 }) {
   const styles = useThemedStyles(createStyles);
   const [activeTab, setActiveTab] = useState<ConditionStatTab>('분포');
   const metrics = analysis.conditionMetrics;
-  const rows: Record<ConditionStatTab, ConditionStatRow[]> = {
-    '분포': [
-      { label: '동끝수 형태', value: SAME_ENDING_LABELS[metrics.sameEndingPattern] },
-      { label: '표준편차', value: metrics.standardDeviation.toFixed(1) },
-      { label: '번호 총합', value: String(metrics.sum) },
-      { label: '끝수 총합', value: String(metrics.lastDigitSum) },
-      { label: '홀짝 비율', value: `${metrics.oddCount} : ${6 - metrics.oddCount}` },
-      { label: '저고 비율', value: `${metrics.lowCount} : ${metrics.highCount}` },
-    ],
-    '수 성격': [
-      { label: 'A/C 값', value: String(metrics.acValue) },
-      { label: '소수 개수', value: `${metrics.primeCount}개` },
-      { label: '완전제곱수 개수', value: `${metrics.squareCount}개` },
-      { label: '합성수 개수', value: `${metrics.compositeCount}개` },
-      { label: '3의 배수', value: `${metrics.multipleCounts[3]}개` },
-      { label: '4의 배수', value: `${metrics.multipleCounts[4]}개` },
-      { label: '5의 배수', value: `${metrics.multipleCounts[5]}개` },
-    ],
-    '직전·연번': [
-      { label: '이월수 개수', value: `${metrics.carryCount}개` },
-      { label: '이웃수 개수', value: `${metrics.neighborCount}개` },
-      { label: '연번 형태', value: CONSECUTIVE_LABELS[metrics.consecutivePattern] },
-    ],
-    '번호대·과거': [
-      ...GENERATOR_BAND_KEYS.map((band) => ({
-        label: `${band} 번호대`,
-        value: `${metrics.bandCounts[band]}개`,
-      })),
-      {
-        label: '과거 1–3등 동일 이력',
-        value: metrics.pastPrizeRanks.length
-          ? metrics.pastPrizeRanks.map((rank) => `${rank}등`).join(' · ')
-          : '없음',
-      },
-    ],
-  };
-
   return (
     <SectionCard testID="result-section-condition-statistics" title="조건별 통계">
       <Text style={styles.conditionStatsDescription}>
@@ -160,31 +723,18 @@ function ConditionStatistics({
         })}
       </ScrollView>
 
-      <View style={styles.conditionStatList}>
-        {rows[activeTab].map((item, index) => (
-          <View
-            accessibilityLabel={`${item.label}, ${item.value}`}
-            accessible
-            key={item.label}
-            style={[
-              styles.conditionStatRow,
-              index < rows[activeTab].length - 1 && styles.conditionStatRowDivider,
-            ]}>
-            <Text style={styles.conditionStatLabel}>{item.label}</Text>
-            <Text style={styles.conditionStatValue}>{item.value}</Text>
-          </View>
-        ))}
-      </View>
-
-      {activeTab === '직전·연번' ? (
-        <Text style={styles.conditionStatsNote}>
-          이월수·이웃수는 {latestRound}회와 보너스 번호 {bonusIncluded ? '포함' : '제외'} 기준입니다.
-        </Text>
+      {activeTab === '분포' ? (
+        <DistributionProfile analysis={analysis} />
+      ) : activeTab === '수 성격' ? (
+        <NumberCharacterProfile metrics={metrics} />
       ) : activeTab === '번호대·과거' ? (
-        <Text style={styles.conditionStatsNote}>
-          과거 등수 이력은 전체 회차의 본번호와 보너스 번호를 기준으로 확인합니다.
-        </Text>
+        <View style={styles.bandStatistics}>
+          <BandCountChart counts={metrics.bandCounts} />
+        </View>
+      ) : activeTab === '직전·연번' ? (
+        <RecentNumberRelations bonusIncluded={bonusIncluded} metrics={metrics} />
       ) : null}
+
     </SectionCard>
   );
 }
@@ -308,19 +858,23 @@ export function CombinationResult({
   canRegenerate = false,
   favorite = false,
   isPro = false,
+  canUseAiExplanation = isPro,
   purchased = false,
+  requiresAiLogin = false,
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
+  const headline = describeCombinationHeadline(analysis);
+  const headlineEvidence = headlineEvidenceLabel(analysis, headline);
   const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
+  const [stickyNumbersVisible, setStickyNumbersVisible] = useState(false);
   const [favoriteSelection, setFavoriteSelection] = useState<{ key: string; value: boolean } | null>(null);
   const [purchasedSelection, setPurchasedSelection] = useState<{ key: string; value: boolean } | null>(null);
   const libraryNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedProfileYRef = useRef(0);
+  const selectedNumbersBottomRef = useRef(0);
+  const stickyNumbersVisibleRef = useRef(false);
   const individualNumbers = [...analysis.individualNumbers].sort(
     (left, right) => right.appearanceCount - left.appearanceCount || left.number - right.number,
-  );
-  const maxIndividualAppearance = Math.max(
-    ...individualNumbers.map((item) => item.appearanceCount),
-    1,
   );
   const maxDistribution = Math.max(...Object.values(analysis.matchDistribution), 1);
   const recent = analysis.recentMeaningfulMatch;
@@ -361,6 +915,15 @@ export function CombinationResult({
     showLibraryNotice(selected ? '즐겨찾기에 등록되었습니다.' : '즐겨찾기에서 해제되었습니다.');
   };
 
+  const handleResultScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const threshold = selectedProfileYRef.current + selectedNumbersBottomRef.current;
+    if (threshold <= 0) return;
+    const visible = event.nativeEvent.contentOffset.y >= threshold;
+    if (visible === stickyNumbersVisibleRef.current) return;
+    stickyNumbersVisibleRef.current = visible;
+    setStickyNumbersVisible(visible);
+  };
+
   return (
     <View style={styles.screen}>
       <SubScreenHeader
@@ -376,10 +939,27 @@ export function CombinationResult({
         )}
         title="조합 분석"
       />
+      {stickyNumbersVisible ? (
+        <Animated.View
+          accessibilityLabel={`선택 번호 ${analysis.numbers.join(', ')}`}
+          accessible
+          entering={FadeIn.duration(120)}
+          exiting={FadeOut.duration(100)}
+          pointerEvents="none"
+          style={styles.stickyNumberBar}
+          testID="result-sticky-numbers">
+          <CombinationNumberPills compact numbers={analysis.numbers} />
+        </Animated.View>
+      ) : null}
       <ScrollView
         contentContainerStyle={styles.content}
+        onScroll={handleResultScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         testID="combination-result-scroll">
+      <View
+        onLayout={(event) => { selectedProfileYRef.current = event.nativeEvent.layout.y; }}
+        testID="result-selected-profile">
       <AppCard style={styles.selectedProfile}>
         <View style={styles.profileLibraryActions}>
           <LibraryStatusActions
@@ -390,7 +970,16 @@ export function CombinationResult({
             testID="result-card-actions"
           />
         </View>
-        <CombinationNumberPills numbers={analysis.numbers} />
+        <View
+          accessibilityElementsHidden={stickyNumbersVisible}
+          importantForAccessibility={stickyNumbersVisible ? 'no-hide-descendants' : 'auto'}
+          onLayout={(event) => {
+            const { height, y } = event.nativeEvent.layout;
+            selectedNumbersBottomRef.current = y + height;
+          }}
+          testID="result-selected-numbers-anchor">
+          <CombinationNumberPills numbers={analysis.numbers} />
+        </View>
         <Text style={styles.profileMeta}>
           <Text style={styles.profileMetaMuted}>최근 </Text>
           <Text style={styles.profileMetaStrong}>
@@ -406,28 +995,17 @@ export function CombinationResult({
             {' · 연\u2060속\u00A0'}{consecutiveLabel}
           </Text>
         </Text>
-        {canRegenerate ? (
-          <Pressable
-            accessibilityLabel={isPro
-              ? '같은 조건으로 다시 뽑기'
-              : '같은 조건으로 다시 뽑기, Pro 전용'}
-            accessibilityRole="button"
-            onPress={onRegenerate}
-            style={({ pressed }) => [
-              styles.regenerateButton,
-              webPointerStyle,
-              pressed && styles.pressed,
-            ]}>
-            <Ionicons color={styles.regenerateIcon.color} name="shuffle-outline" size={17} />
-            <Text style={styles.regenerateText}>같은 조건으로 다시 뽑기</Text>
-            {!isPro ? (
-              <View style={styles.regenerateProBadge}>
-                <Text style={styles.regenerateProText}>PRO</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        ) : null}
+        <View style={styles.headlineBlock} testID="combination-headline-card">
+          <View
+            accessibilityLabel={`조합 요약, ${headline.text}, 근거 지표 ${headlineEvidence}`}
+            accessible
+            testID="combination-headline">
+            <Text style={styles.headlineText}>{headline.text}</Text>
+            <Text style={styles.headlineSource}>{headlineEvidence}</Text>
+          </View>
+        </View>
       </AppCard>
+      </View>
 
       <View style={styles.filterRow}>
         <AnalysisControls
@@ -441,12 +1019,6 @@ export function CombinationResult({
           variant="plain"
         />
       </View>
-
-      <AiCombinationExplanation
-        analysis={analysis}
-        isPro={isPro}
-        onOpenPro={onOpenPro}
-      />
 
       <AppCard style={styles.prizeSection} testID="result-section-prize">
         <View style={styles.prizeHeadingRow}>
@@ -558,36 +1130,98 @@ export function CombinationResult({
       <ConditionStatistics
         analysis={analysis}
         bonusIncluded={bonusIncluded}
-        latestRound={latestRound}
       />
 
       <SectionCard title="번호별 분석">
-        <View style={styles.numberBarList}>
-          {individualNumbers.map((item) => (
-            <View
-              accessibilityLabel={`${item.number}번, ${item.appearanceCount}회, 전체 ${item.appearanceRank}위`}
-              accessible
-              key={item.number}
-              style={styles.numberBarRow}
-              testID={`individual-number-row-${item.number}`}>
-              <Text style={styles.numberBarNumber}>{formatNumber(item.number)}</Text>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${(item.appearanceCount / maxIndividualAppearance) * 100}%` },
-                  ]}
-                  testID={`individual-number-bar-${item.number}`}
-                />
+        <View style={styles.numberInsightGrid}>
+          {individualNumbers.map((item) => {
+            const appearanceRate = analysis.activeDrawCount
+              ? (item.appearanceCount / analysis.activeDrawCount) * 100
+              : 0;
+            const rankLabel = analysis.activeDrawCount ? `전체 ${item.appearanceRank}위` : '순위 없음';
+            const averageGapLabel = item.appearanceCount >= 2
+              ? `${item.averageGap.toFixed(1)}회`
+              : '-';
+            return (
+              <View
+                accessibilityLabel={`${item.number}번, 출현 ${item.appearanceCount}회, ${rankLabel}, 평균 출현 간격 ${averageGapLabel}, 현재 ${item.currentGap}회째 미출현`}
+                accessible
+                key={item.number}
+                style={styles.numberInsightCard}
+                testID={`individual-number-card-${item.number}`}>
+                <Text style={styles.numberInsightRank}>{rankLabel}</Text>
+                <View style={styles.numberInsightHero}>
+                  <View style={styles.numberInsightCircle}>
+                    <Text style={styles.numberInsightNumber}>{formatNumber(item.number)}</Text>
+                  </View>
+                  <View style={styles.numberInsightFrequency}>
+                    <Text style={styles.numberInsightCount}>{item.appearanceCount}회</Text>
+                    <Text style={styles.numberInsightRate}>출현 {appearanceRate.toFixed(1)}%</Text>
+                  </View>
+                </View>
+                <View style={styles.numberInsightMetrics}>
+                  <View style={styles.numberInsightMetricRow}>
+                    <Text style={styles.numberInsightMetricLabel}>평균 출현 간격</Text>
+                    <Text style={styles.numberInsightMetricValue}>{averageGapLabel}</Text>
+                  </View>
+                  <View style={styles.numberInsightMetricRow}>
+                    <Text style={styles.numberInsightMetricLabel}>현재 미출현</Text>
+                    <Text style={styles.numberInsightMetricValue}>{item.currentGap}회</Text>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.numberBarCount}>{item.appearanceCount}회</Text>
-              <Text style={styles.numberBarRank}>{item.appearanceRank}위</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </SectionCard>
 
       <FrequentCombinations analysis={analysis} />
+
+      <View style={styles.resultFooter} testID="combination-result-footer">
+        <AiCombinationExplanation
+          analysis={analysis}
+          isPro={canUseAiExplanation}
+          onOpenPro={onOpenPro}
+          requiresLogin={requiresAiLogin}
+        />
+        <Text style={styles.resultDisclaimer}>
+          모든 수치는 과거 회차의 당첨 번호 기록을 집계한 것으로,{`\n`}
+          앞으로의 추첨 결과를 예측하거나 보장하지 않아요.
+        </Text>
+        <Pressable
+          accessibilityLabel="새 조합 분석하기"
+          accessibilityRole="button"
+          onPress={onStartOver}
+          style={({ pressed }) => [
+            styles.newAnalysisButton,
+            webPointerStyle,
+            pressed && styles.pressed,
+          ]}>
+          <Text style={styles.newAnalysisText}>새 조합 분석하기</Text>
+        </Pressable>
+        {canRegenerate ? (
+          <Pressable
+            accessibilityLabel={isPro
+              ? '같은 조건으로 다시 뽑기'
+              : '같은 조건으로 다시 뽑기, Pro 전용'}
+            accessibilityRole="button"
+            onPress={onRegenerate}
+            style={({ pressed }) => [
+              styles.footerRegenerateButton,
+              webPointerStyle,
+              pressed && styles.pressed,
+            ]}>
+            <Ionicons color={styles.footerRegenerateIcon.color} name="star" size={16} />
+            <Text style={styles.footerRegenerateText}>같은 조건으로 다시 뽑기</Text>
+            {!isPro ? (
+              <View style={styles.footerProBadge}>
+                <Text style={styles.footerProText}>Pro</Text>
+              </View>
+            ) : null}
+            <Ionicons color={styles.footerChevron.color} name="chevron-forward" size={20} />
+          </Pressable>
+        ) : null}
+      </View>
       </ScrollView>
       {libraryNotice ? (
         <Animated.View
@@ -610,6 +1244,21 @@ export function CombinationResult({
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screen: { flex: 1 },
+  stickyNumberBar: {
+    position: 'absolute',
+    top: TOP_BAR_HEIGHT,
+    left: 0,
+    right: 0,
+    zIndex: 19,
+    minHeight: 48,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 7,
+    justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
+    boxShadow: colors.cardShadow,
+  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -625,36 +1274,83 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   startOverIcon: { color: colors.textSecondary },
   selectedProfile: {
     position: 'relative',
-    alignItems: 'center',
+    alignItems: 'stretch',
     padding: spacing.lg,
     paddingTop: spacing.huge + spacing.sm,
   },
-  regenerateButton: {
-    alignSelf: 'stretch',
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accentBorder,
-    backgroundColor: colors.surfaceAccent,
-  },
-  regenerateIcon: { color: colors.accentPrimary },
-  regenerateText: {
-    color: colors.accentPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.semibold,
-  },
-  regenerateProBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.round, backgroundColor: colors.surface },
-  regenerateProText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 0.6 },
   profileLibraryActions: {
     position: 'absolute',
     top: spacing.sm,
     right: spacing.md,
   },
+  headlineBlock: {
+    alignSelf: 'stretch',
+    marginTop: spacing.lg,
+  },
+  headlineText: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.medium,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  headlineSource: {
+    marginTop: spacing.sm,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  resultFooter: {
+    paddingTop: spacing.md,
+    gap: spacing.xl,
+  },
+  resultDisclaimer: {
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  newAnalysisButton: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.lg,
+    backgroundColor: colors.accentPrimary,
+  },
+  newAnalysisText: {
+    color: '#FFFFFF',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+  },
+  footerRegenerateButton: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  footerRegenerateIcon: { color: colors.textPrimary },
+  footerRegenerateText: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
+  },
+  footerProBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surface,
+  },
+  footerProText: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
+  },
+  footerChevron: { color: colors.textPrimary },
   profileMeta: {
     alignSelf: 'stretch',
     color: colors.textSecondary,
@@ -748,7 +1444,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: typography.sizes.label,
     fontWeight: typography.weights.semibold,
     marginBottom: spacing.lg,
   },
@@ -766,8 +1462,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   conditionStatsDescription: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    lineHeight: 18,
+    fontSize: typography.sizes.small,
+    lineHeight: 20,
     marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
@@ -792,7 +1488,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   conditionTabText: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
+    fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
   },
   conditionTabTextSelected: {
@@ -825,11 +1521,550 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
-  conditionStatsNote: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 17,
+  numberCharacterProfile: {
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  acProfile: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceElevated,
+  },
+  acProfileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  acProfileTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  acProfileDescription: {
+    marginTop: 3,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+  },
+  acProfileValue: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  characterSegments: {
+    width: '100%',
     marginTop: spacing.md,
+    flexDirection: 'row',
+    gap: 3,
+  },
+  characterSegment: {
+    flex: 1,
+    height: 7,
+    borderRadius: radius.round,
+    backgroundColor: colors.borderStrong,
+  },
+  characterSegmentActive: {
+    backgroundColor: colors.accentPrimary,
+  },
+  acProfileRange: {
+    marginTop: 5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  acProfileRangeText: {
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    fontVariant: ['tabular-nums'],
+  },
+  characterGroupCard: {
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceElevated,
+  },
+  characterGroupTitle: {
+    paddingTop: spacing.md,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  characterTrait: {
+    minHeight: 58,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  characterTraitDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+  },
+  characterTraitLabel: {
+    width: 88,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+  },
+  characterTraitCount: {
+    minWidth: 28,
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  distributionProfile: {
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  sameEndingProfile: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
+  },
+  distributionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  distributionCardTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  distributionCardValue: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+  },
+  sameEndingGroups: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sameEndingGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  sameEndingGroupConnected: {
+    padding: 3,
+    borderRadius: radius.round,
+    backgroundColor: colors.accentPrimary,
+  },
+  sameEndingNumber: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  sameEndingNumberConnected: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.accentPrimary,
+  },
+  sameEndingNumberText: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  sameEndingNumberTextConnected: {
+    color: '#FFFFFF',
+  },
+  sameEndingLegend: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  sameEndingLegendDot: {
+    width: 6,
+    height: 6,
+    borderRadius: radius.round,
+    backgroundColor: colors.accentPrimary,
+  },
+  sameEndingLegendText: {
+    flex: 1,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+  },
+  distributionMeterCard: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceElevated,
+  },
+  distributionMeter: {
+    minHeight: 64,
+    justifyContent: 'center',
+  },
+  distributionMeterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  distributionMeterLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+  },
+  distributionMeterValue: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.label,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  distributionMeterTrack: {
+    position: 'relative',
+    height: 6,
+    marginTop: spacing.sm,
+    borderRadius: radius.round,
+    backgroundColor: colors.divider,
+  },
+  distributionMeterFill: {
+    height: '100%',
+    borderRadius: radius.round,
+    backgroundColor: colors.accentPrimary,
+  },
+  distributionMeterMarker: {
+    position: 'absolute',
+    top: -3,
+    width: 12,
+    height: 12,
+    marginLeft: -6,
+    borderRadius: radius.round,
+    borderWidth: 2,
+    borderColor: colors.surfaceElevated,
+    backgroundColor: colors.accentPrimary,
+  },
+  distributionMeterRange: {
+    marginTop: 5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  distributionMeterRangeText: {
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    fontVariant: ['tabular-nums'],
+  },
+  distributionMeterDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.divider,
+  },
+  ratioProfiles: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  ratioProfile: {
+    flex: 1,
+    minWidth: 0,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceElevated,
+  },
+  ratioTitle: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+  },
+  ratioCountRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  ratioCountPrimary: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  ratioCountSecondary: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  ratioSegments: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    gap: 3,
+  },
+  ratioSegment: {
+    flex: 1,
+    height: 7,
+    borderRadius: radius.round,
+    backgroundColor: colors.borderStrong,
+  },
+  ratioSegmentPrimary: {
+    backgroundColor: colors.accentPrimary,
+  },
+  recentNumberStatistics: {
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  previousDrawCard: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 0,
+    backgroundColor: colors.surfaceElevated,
+  },
+  previousDrawHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  previousDrawCopy: {
+    flex: 1,
+  },
+  previousDrawTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  previousDrawRound: {
+    marginTop: 3,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+  },
+  previousDrawFilterBadge: {
+    minHeight: 25,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    backgroundColor: colors.surfaceAccent,
+  },
+  previousDrawFilterText: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+  },
+  metricNumberList: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  metricNumberListCompact: {
+    flex: 1,
+    marginTop: 0,
+  },
+  metricNumberChip: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  metricNumberChipCarry: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.accentPrimary,
+  },
+  metricNumberChipNeighbor: {
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
+  },
+  metricNumberChipHighlighted: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.accentPrimary,
+  },
+  metricNumberText: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  metricNumberTextCarry: {
+    color: '#FFFFFF',
+  },
+  metricNumberTextNeighbor: {
+    color: colors.accentPrimary,
+  },
+  metricNumberTextHighlighted: {
+    color: '#FFFFFF',
+  },
+  metricBonusChip: {
+    minWidth: 42,
+    height: 30,
+    paddingHorizontal: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
+  },
+  metricBonusMark: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
+  },
+  metricBonusNumber: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  metricBonusChipHighlighted: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.accentPrimary,
+  },
+  metricBonusTextHighlighted: {
+    color: '#FFFFFF',
+  },
+  metricNumberEmpty: {
+    marginTop: spacing.md,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+  },
+  metricNumberEmptyCompact: {
+    flex: 1,
+    marginTop: 0,
+  },
+  relationCards: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  relationSectionHeader: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  relationSectionTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  relationSectionHint: {
+    flex: 1,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+    textAlign: 'right',
+  },
+  relationCard: {
+    flex: 1,
+    minWidth: 0,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  relationCardSelected: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.surfaceAccent,
+  },
+  relationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  relationTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+  },
+  relationCount: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  relationDescription: {
+    marginTop: 4,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+  },
+  consecutiveSummary: {
+    minHeight: 54,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceElevated,
+  },
+  consecutiveCopy: {
+    flex: 1,
+  },
+  consecutiveLabel: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
+  consecutiveDescription: {
+    marginTop: 3,
+    color: colors.textTertiary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 18,
+  },
+  consecutiveValue: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.label,
+    fontWeight: typography.weights.bold,
+  },
+  bandStatistics: {
+    paddingTop: spacing.lg,
+  },
+  bandChartFrame: {
+    minHeight: 164,
+    overflow: 'hidden',
+  },
+  bandChartBar: {
+    backgroundColor: colors.accentPrimary,
+  },
+  bandChartZero: {
+    backgroundColor: colors.borderStrong,
+  },
+  bandChartAxis: {
+    backgroundColor: colors.borderStrong,
+  },
+  bandChartLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    lineHeight: 16,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  bandChartValue: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
   },
   prizeSection: {
     borderRadius: radius.md,
@@ -962,34 +2197,92 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.lg,
   },
-  numberBarList: {
-    gap: spacing.md,
+  numberInsightGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.sm,
   },
-  numberBarRow: {
-    minHeight: 24,
+  numberInsightCard: {
+    width: '48%',
+    minHeight: 170,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceElevated,
+  },
+  numberInsightRank: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+  },
+  numberInsightHero: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  numberBarNumber: {
-    width: 30,
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: typography.weights.semibold,
-    marginRight: spacing.sm,
+  numberInsightCircle: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.surface,
   },
-  numberBarCount: {
-    width: 52,
+  numberInsightNumber: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  numberInsightFrequency: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-end',
+  },
+  numberInsightCount: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.label,
     fontWeight: typography.weights.semibold,
     textAlign: 'right',
-    marginLeft: spacing.sm,
+    fontVariant: ['tabular-nums'],
   },
-  numberBarRank: {
-    width: 36,
+  numberInsightRate: {
+    marginTop: 2,
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: typography.sizes.caption,
     textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  numberInsightMetrics: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  numberInsightMetricRow: {
+    minHeight: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  numberInsightMetricLabel: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+  },
+  numberInsightMetricValue: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   comboRow: {
     minHeight: 38,
