@@ -45,15 +45,15 @@ describe('ProPaywallModal', () => {
     expect(screen.getByText('₩4,900')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('radio', { name: '월간 ₩4,900' }));
+      await fireEvent.press(screen.getByRole('radio', { name: '월간 ₩4,900' }));
     });
     await act(async () => {
-      fireEvent.press(screen.getByText('월간 Pro 시작'));
+      await fireEvent.press(screen.getByText('월간 Pro 시작'));
     });
     expect(onPurchase).toHaveBeenCalledWith('$rc_monthly');
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '구매 복원' }));
+      await fireEvent.press(screen.getByRole('button', { name: '구매 복원' }));
     });
     expect(onRestore).toHaveBeenCalledTimes(1);
   });

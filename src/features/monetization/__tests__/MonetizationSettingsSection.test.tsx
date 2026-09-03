@@ -36,7 +36,7 @@ describe('MonetizationSettingsSection', () => {
     expect(screen.getByText('게스트')).toBeTruthy();
     expect(screen.getByText('광고 후 결과를 확인해요.')).toBeTruthy();
     expect(screen.getByText('조건 99개 · 조합 2개')).toBeTruthy();
-    fireEvent.press(screen.getByText('Pro'));
+    await fireEvent.press(screen.getByText('Pro'));
     expect(mockOpenPaywall).toHaveBeenCalledWith('settings');
   });
 

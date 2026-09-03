@@ -9,7 +9,7 @@ describe('SubScreenBackButton', () => {
     const screen = await render(<SubScreenBackButton onPress={onPress} />);
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
     });
 
     expect(onPress).toHaveBeenCalledTimes(1);

@@ -39,19 +39,19 @@ describe('NumberSelector', () => {
     expect(getByTestId('analyze-combination-button').props.accessibilityState.disabled).toBe(true);
     for (const number of [1, 2, 3, 4, 5, 6]) {
       await act(async () => {
-        fireEvent.press(getByTestId(`combination-number-${number}`));
+        await fireEvent.press(getByTestId(`combination-number-${number}`));
       });
     }
 
     expect(getByTestId('analyze-combination-button').props.accessibilityState.disabled).toBe(false);
     expect(getByTestId('combination-number-7').props.accessibilityState.disabled).toBe(true);
     await act(async () => {
-      fireEvent.press(getByTestId('combination-number-7'));
+      await fireEvent.press(getByTestId('combination-number-7'));
     });
     expect(getByTestId('combination-number-7').props.accessibilityState.checked).toBe(false);
 
     await act(async () => {
-      fireEvent.press(getByTestId('analyze-combination-button'));
+      await fireEvent.press(getByTestId('analyze-combination-button'));
     });
     expect(onAnalyze).toHaveBeenCalledTimes(1);
   });
@@ -59,17 +59,17 @@ describe('NumberSelector', () => {
   test('cycles a number through selected, excluded, and unselected', async () => {
     const { getByTestId, queryByTestId } = await render(<Harness onAnalyze={() => undefined} />);
     await act(async () => {
-      fireEvent.press(getByTestId('combination-number-12'));
+      await fireEvent.press(getByTestId('combination-number-12'));
     });
     expect(getByTestId('combination-number-12').props.accessibilityState.checked).toBe(true);
     await act(async () => {
-      fireEvent.press(getByTestId('combination-number-12'));
+      await fireEvent.press(getByTestId('combination-number-12'));
     });
     expect(getByTestId('combination-number-12').props.accessibilityState.checked).toBe(false);
     expect(getByTestId('combination-number-12').props.accessibilityLabel).toContain('제외됨');
     expect(queryByTestId('excluded-mark-12')).toBeNull();
     await act(async () => {
-      fireEvent.press(getByTestId('combination-number-12'));
+      await fireEvent.press(getByTestId('combination-number-12'));
     });
     expect(getByTestId('combination-number-12').props.accessibilityLabel).toBe('12번');
     expect(queryByTestId('excluded-mark-12')).toBeNull();

@@ -19,7 +19,7 @@ describe('ContentHomeScreen', () => {
     expect(screen.getByText(/당첨을 예측하거나 보장하지 않습니다/)).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '로또의 허와 실: 우리는 무엇을 사고 있는가' }));
+      await fireEvent.press(screen.getByRole('button', { name: '로또의 허와 실: 우리는 무엇을 사고 있는가' }));
     });
 
     expect(mockPush).toHaveBeenCalledWith({

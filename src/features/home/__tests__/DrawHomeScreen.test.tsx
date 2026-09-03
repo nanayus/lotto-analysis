@@ -87,10 +87,10 @@ describe('DrawHomeScreen', () => {
     expect(screen.getByLabelText('랜덤조합 게임 수')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('radio', { name: '3게임' }));
+      await fireEvent.press(screen.getByRole('radio', { name: '3게임' }));
     });
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /조건 뽑기/ }));
+      await fireEvent.press(screen.getByRole('button', { name: /조건 뽑기/ }));
     });
 
     expect(mockNavigate).toHaveBeenCalledWith({
@@ -116,10 +116,10 @@ describe('DrawHomeScreen', () => {
     const screen = await render(<DrawHomeScreen />);
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('radio', { name: '5게임' }));
+      await fireEvent.press(screen.getByRole('radio', { name: '5게임' }));
     });
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '랜덤으로 5게임 뽑기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '랜덤으로 5게임 뽑기' }));
     });
 
     expect(mockNavigate).toHaveBeenCalledWith({

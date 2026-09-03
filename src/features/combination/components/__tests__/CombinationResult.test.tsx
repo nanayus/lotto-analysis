@@ -217,8 +217,8 @@ describe('CombinationResult', () => {
       .toEqual({ selected: false });
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '같은 조건으로 다시 뽑기, Pro 전용' }));
-      fireEvent.press(getByRole('button', { name: '구매한 번호로 표시' }));
+      await fireEvent.press(getByRole('button', { name: '같은 조건으로 다시 뽑기, Pro 전용' }));
+      await fireEvent.press(getByRole('button', { name: '구매한 번호로 표시' }));
     });
     expect(getByTestId('library-action-toast')).toBeTruthy();
     expect(getByText('구매번호로 등록되었습니다.')).toBeTruthy();
@@ -226,13 +226,13 @@ describe('CombinationResult', () => {
       .toEqual({ selected: true });
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '즐겨찾기에 추가' }));
+      await fireEvent.press(getByRole('button', { name: '즐겨찾기에 추가' }));
     });
     expect(getByText('즐겨찾기에 등록되었습니다.')).toBeTruthy();
     expect(getByRole('button', { name: '즐겨찾기 해제' }).props.accessibilityState)
       .toEqual({ selected: true });
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '전체 기록' }));
+      await fireEvent.press(getByRole('button', { name: '전체 기록' }));
     });
 
     expect(onRegenerate).toHaveBeenCalledTimes(1);
@@ -477,7 +477,7 @@ describe('CombinationResult', () => {
     expect(queryByRole('button', { name: '전체 5개 보기' })).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '2개 조합 더보기' }));
+      await fireEvent.press(getByRole('button', { name: '2개 조합 더보기' }));
     });
 
     expect(getByText('20 · 26')).toBeTruthy();
@@ -485,7 +485,7 @@ describe('CombinationResult', () => {
     expect(getByRole('button', { name: '조합 목록 접기' })).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByTestId('combination-size-tab-3'));
+      await fireEvent.press(getByTestId('combination-size-tab-3'));
     });
 
     expect(queryByText('01 · 07')).toBeNull();
@@ -495,13 +495,13 @@ describe('CombinationResult', () => {
     expect(queryByText('01 · 20 · 26')).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '1개 조합 더보기' }));
+      await fireEvent.press(getByRole('button', { name: '1개 조합 더보기' }));
     });
 
     expect(getByText('01 · 20 · 26')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByTestId('combination-size-tab-2'));
+      await fireEvent.press(getByTestId('combination-size-tab-2'));
     });
 
     expect(queryByText('20 · 26')).toBeNull();
@@ -556,7 +556,7 @@ describe('CombinationResult', () => {
     expect(queryByText('소수 개수')).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByRole('tab', { name: '수 성격 통계' }));
+      await fireEvent.press(getByRole('tab', { name: '수 성격 통계' }));
     });
     expect(getByTestId('condition-stat-tab-수 성격').props.accessibilityState.selected).toBe(true);
     expect(getByText('A/C 값')).toBeTruthy();
@@ -576,7 +576,7 @@ describe('CombinationResult', () => {
     expect(queryByText('동끝수 형태')).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByRole('tab', { name: '직전·연번 통계' }));
+      await fireEvent.press(getByRole('tab', { name: '직전·연번 통계' }));
     });
     expect(getByText('직전 회차 번호')).toBeTruthy();
     expect(getByText('100회 당첨 번호')).toBeTruthy();
@@ -595,14 +595,14 @@ describe('CombinationResult', () => {
     expect(getByTestId('condition-previous-number-7').props.accessibilityState.selected).toBe(false);
 
     await act(async () => {
-      fireEvent.press(getByTestId('condition-relation-carry'));
+      await fireEvent.press(getByTestId('condition-relation-carry'));
     });
     expect(getByTestId('condition-relation-carry').props.accessibilityState.selected).toBe(true);
     expect(getByTestId('condition-previous-number-7').props.accessibilityState.selected).toBe(true);
     expect(getByText('이월수의 기준 번호를 강조했어요.')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByTestId('condition-relation-neighbor'));
+      await fireEvent.press(getByTestId('condition-relation-neighbor'));
     });
     expect(getByTestId('condition-relation-carry').props.accessibilityState.selected).toBe(false);
     expect(getByTestId('condition-relation-neighbor').props.accessibilityState.selected).toBe(true);
@@ -612,7 +612,7 @@ describe('CombinationResult', () => {
     expect(getByText('이웃수의 기준 번호를 강조했어요.')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(getByRole('tab', { name: '번호대·과거 통계' }));
+      await fireEvent.press(getByRole('tab', { name: '번호대·과거 통계' }));
     });
     expect(getByTestId('condition-band-chart')).toBeTruthy();
     expect(getByTestId('condition-band-chart').props.accessibilityLabel).toContain('40–45 0개');

@@ -59,20 +59,20 @@ describe('AllNumberComparison', () => {
     expect(queryByText('순위')).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '13번, 출현 횟수 113회' }));
+      await fireEvent.press(getByRole('button', { name: '13번, 출현 횟수 113회' }));
     });
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '현재 미출현 횟수' }));
+      await fireEvent.press(getByRole('button', { name: '현재 미출현 횟수' }));
     });
     expect(getByTestId('all-number-item-13').props.accessibilityLabel)
       .toBe('13번, 현재 미출현 횟수 13회');
     expect(getByTestId('all-number-metric-currentGap').props.accessibilityState)
       .toEqual({ selected: true });
     await act(async () => {
-      fireEvent.press(getByRole('switch', { name: '보너스 번호 제외' }));
+      await fireEvent.press(getByRole('switch', { name: '보너스 번호 제외' }));
     });
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '번호분석으로 돌아가기' }));
+      await fireEvent.press(getByRole('button', { name: '번호분석으로 돌아가기' }));
     });
 
     expect(onSelect).toHaveBeenCalledWith(13);

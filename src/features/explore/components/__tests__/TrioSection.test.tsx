@@ -21,7 +21,7 @@ describe('TrioSection', () => {
       />,
     );
 
-    fireEvent.press(getAllByRole('button', { name: '24번 탐색' })[0]);
+    await fireEvent.press(getAllByRole('button', { name: '24번 탐색' })[0]);
 
     expect(onSelectNumber).toHaveBeenCalledWith(24);
   });

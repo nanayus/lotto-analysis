@@ -21,11 +21,11 @@ describe('ReferralCodeOnboardingModal', () => {
     expect(applyButton.props.accessibilityState?.disabled ?? applyButton.props.disabled).toBeTruthy();
 
     await act(async () => {
-      fireEvent.changeText(screen.getByLabelText('친구에게 받은 초대 코드'), 'abcd1234');
+      await fireEvent.changeText(screen.getByLabelText('친구에게 받은 초대 코드'), 'abcd1234');
     });
     await waitFor(() => expect(screen.getByDisplayValue('ABCD1234')).toBeTruthy());
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '로그인하고 등록' }));
+      await fireEvent.press(screen.getByRole('button', { name: '로그인하고 등록' }));
     });
 
     expect(onApply).toHaveBeenCalledWith('ABCD1234');
@@ -44,7 +44,7 @@ describe('ReferralCodeOnboardingModal', () => {
       />,
     );
 
-    fireEvent.press(screen.getByRole('button', { name: '다음에 입력' }));
+    await fireEvent.press(screen.getByRole('button', { name: '다음에 입력' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { AccountSettingsSection } from './AccountSettingsSection';
-import { canViewReleaseNotes } from './releaseNotes';
 import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ACCOUNT_LINKING_ENABLED } from '@/features/auth/featureFlags';
@@ -24,7 +23,7 @@ import {
 } from '@/theme';
 
 const FAQ_URL = 'https://wondly.net/#faq-title';
-const PRIVACY_URL = 'https://wondly.net/privacy';
+const PRIVACY_URL = 'https://lotto.wondly.net/privacy';
 
 const DISPLAY_OPTIONS: readonly { label: string; value: ThemeMode }[] = [
   { label: '밝은 UI', value: 'light' },
@@ -44,7 +43,6 @@ export function SettingsScreen() {
   const [displaySheetVisible, setDisplaySheetVisible] = useState(false);
   const activeDisplayLabel = DISPLAY_OPTIONS.find((option) => option.value === mode)?.label;
   const version = Constants.expoConfig?.version ?? '정보 없음';
-  const releaseNotesVisible = state.status === 'authenticated' && canViewReleaseNotes(state.user.email);
 
   const selectDisplayMode = (nextMode: ThemeMode) => {
     setMode(nextMode);
@@ -60,8 +58,8 @@ export function SettingsScreen() {
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          {ACCOUNT_LINKING_ENABLED || state.status === 'authenticated'
-            ? <AccountSettingsSection />
+          {ACCOUNT_LINKING_ENABLED || state.status === 'anonymous' || state.status === 'authenticated'
+            ? <AccountSettingsSection showAccountLinking={ACCOUNT_LINKING_ENABLED} />
             : null}
 
           <MonetizationSettingsSection />
@@ -96,7 +94,7 @@ export function SettingsScreen() {
               </Pressable>
               <View style={styles.separator} />
               <Pressable
-                accessibilityHint="Wondly 웹사이트에서 개인정보처리방침을 엽니다"
+                accessibilityHint="Lotto Insight 개인정보처리방침을 엽니다"
                 accessibilityRole="link"
                 onPress={() => openExternalUrl(PRIVACY_URL)}
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
@@ -104,25 +102,18 @@ export function SettingsScreen() {
                 <Text aria-hidden style={styles.externalMark}>↗</Text>
               </Pressable>
               <View style={styles.separator} />
-              {releaseNotesVisible ? (
-                <Pressable
-                  accessibilityHint="버전별 변경 내역을 확인합니다"
-                  accessibilityLabel={`버전 ${version}, 변경 내역 보기`}
-                  accessibilityRole="button"
-                  onPress={() => router.push('/release-notes')}
-                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-                  <Text style={styles.rowLabel}>버전</Text>
-                  <View style={styles.rowTrailing}>
-                    <Text style={styles.rowValue}>{version}</Text>
-                    <Text aria-hidden style={styles.chevron}>›</Text>
-                  </View>
-                </Pressable>
-              ) : (
-                <View accessibilityLabel={`버전 ${version}`} style={styles.row}>
-                  <Text style={styles.rowLabel}>버전</Text>
+              <Pressable
+                accessibilityHint="버전별 변경 내역을 확인합니다"
+                accessibilityLabel={`버전 ${version}, 변경 내역 보기`}
+                accessibilityRole="button"
+                onPress={() => router.push('/release-notes')}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+                <Text style={styles.rowLabel}>버전</Text>
+                <View style={styles.rowTrailing}>
                   <Text style={styles.rowValue}>{version}</Text>
+                  <Text aria-hidden style={styles.chevron}>›</Text>
                 </View>
-              )}
+              </Pressable>
             </View>
           </View>
         </ScrollView>

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { router } from 'expo-router';
 import { Linking } from 'react-native';
@@ -8,7 +8,7 @@ import { SettingsScreen } from '@/features/settings/SettingsScreen';
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
-  default: { expoConfig: { version: '0.0.1' } },
+  default: { expoConfig: { version: '1.0.0' } },
 }));
 
 let mockAuthState: AuthState = { status: 'guest' };
@@ -47,13 +47,13 @@ describe('SettingsScreen', () => {
     const view = await render(<SettingsScreen />);
 
     expect(view.queryByText('계정 연결 · 선택')).toBeNull();
-    expect(view.getByText('0.0.1')).toBeTruthy();
-    fireEvent.press(view.getByText('디스플레이'));
+    expect(view.getByText('1.0.0')).toBeTruthy();
+    await fireEvent.press(view.getByText('디스플레이'));
     await waitFor(() => expect(view.getByText('밝은 UI')).toBeTruthy());
     expect(view.getByText('밝은 UI')).toBeTruthy();
     expect(view.getByText('어두운 UI')).toBeTruthy();
     expect(view.getAllByText('휴대폰 설정에 따라 바뀜')).toHaveLength(2);
-    fireEvent.press(view.getByText('밝은 UI'));
+    await fireEvent.press(view.getByText('밝은 UI'));
     await waitFor(() => expect(view.queryByText('어두운 UI')).toBeNull());
   });
 
@@ -61,37 +61,17 @@ describe('SettingsScreen', () => {
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const view = await render(<SettingsScreen />);
 
-    await act(async () => {
-      fireEvent.press(view.getByText('FAQ'));
-    });
+    await fireEvent.press(view.getByText('FAQ'));
     expect(openUrl).toHaveBeenCalledWith('https://wondly.net/#faq-title');
 
-    await act(async () => {
-      fireEvent.press(view.getByText('개인정보처리방침'));
-    });
-    expect(openUrl).toHaveBeenCalledWith('https://wondly.net/privacy');
+    await fireEvent.press(view.getByText('개인정보처리방침'));
+    expect(openUrl).toHaveBeenCalledWith('https://lotto.wondly.net/privacy');
   });
 
-  it('opens release notes only for the configured owner account', async () => {
-    const guestView = await render(<SettingsScreen />);
-    expect(guestView.queryByRole('button', { name: /변경 내역 보기/ })).toBeNull();
-    await act(async () => guestView.unmount());
+  it('opens release notes for every viewer', async () => {
+    const view = await render(<SettingsScreen />);
 
-    mockAuthState = {
-      status: 'authenticated',
-      user: {
-        displayName: 'Owner',
-        email: 'ynleesss@gmail.com',
-        photoUrl: null,
-        providers: ['google.com'],
-        uid: 'owner',
-      },
-    };
-    const ownerView = await render(<SettingsScreen />);
-
-    await act(async () => {
-      fireEvent.press(ownerView.getByRole('button', { name: '버전 0.0.1, 변경 내역 보기' }));
-    });
+    await fireEvent.press(view.getByRole('button', { name: '버전 1.0.0, 변경 내역 보기' }));
     expect(mockPush).toHaveBeenCalledWith('/release-notes');
   });
 });

@@ -68,8 +68,8 @@ describe('SubScreenHeader', () => {
     expect(screen.getByText('상세 화면')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
-      fireEvent.press(screen.getByText('도움말'));
+      await fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
+      await fireEvent.press(screen.getByText('도움말'));
     });
 
     expect(onBack).toHaveBeenCalledTimes(1);
@@ -90,7 +90,7 @@ describe('MainTabHeader', () => {
     const screen = await render(<MainTabHeader />);
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '테스터 계정' }));
+      await fireEvent.press(screen.getByRole('button', { name: '테스터 계정' }));
     });
 
     expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/settings');
@@ -101,7 +101,7 @@ describe('MainTabHeader', () => {
 
     expect(screen.getByText('FREE')).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: 'FREE 플랜, Pro 혜택 보기' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'FREE 플랜, Pro 혜택 보기' }));
     });
 
     expect(mockOpenPaywall).toHaveBeenCalledWith('main-header');
@@ -114,7 +114,7 @@ describe('MainTabHeader', () => {
 
     expect(screen.getByText('PRO')).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: 'PRO 플랜, 이용 정보 보기' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'PRO 플랜, 이용 정보 보기' }));
     });
 
     expect(screen.getByText('Pro를 이용 중이에요')).toBeTruthy();

@@ -16,7 +16,7 @@ describe('NumberSlider', () => {
       <NumberSlider initialNumber={1} onValueChange={onValueChange} />,
     );
 
-    fireEvent(getByTestId('number-slider'), 'accessibilityAction', {
+    await fireEvent(getByTestId('number-slider'), 'accessibilityAction', {
       nativeEvent: { actionName: 'decrement' },
     });
 
@@ -30,7 +30,7 @@ describe('NumberSlider', () => {
       <NumberSlider initialNumber={45} onValueChange={onValueChange} />,
     );
 
-    fireEvent(getByTestId('number-slider'), 'accessibilityAction', {
+    await fireEvent(getByTestId('number-slider'), 'accessibilityAction', {
       nativeEvent: { actionName: 'increment' },
     });
 
@@ -44,7 +44,7 @@ describe('NumberSlider', () => {
       <NumberSlider initialNumber={17} onValueChange={onValueChange} />,
     );
 
-    fireEvent.press(getByTestId('number-option-19'));
+    await fireEvent.press(getByTestId('number-option-19'));
 
     await waitFor(() => {
       expect(getByTestId('number-slider').props.accessibilityValue.now).toBe(19);
@@ -59,7 +59,7 @@ describe('NumberSlider', () => {
       <NumberSlider initialNumber={17} onValueChange={onValueChange} />,
     );
 
-    fireEvent.press(getByTestId('number-option-17'));
+    await fireEvent.press(getByTestId('number-option-17'));
 
     expect(onValueChange).not.toHaveBeenCalled();
   });

@@ -128,7 +128,7 @@ describe('CombinationGeneratorScreen', () => {
   test('explains that guests see results after an ad', async () => {
     mockIsPro = false;
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByRole('button', { name: '2개 조건 적용, 광고 후 결과 보기' })).toBeTruthy();
     expect(screen.getByText('광고 후 결과 보기')).toBeTruthy();
   });
@@ -136,7 +136,7 @@ describe('CombinationGeneratorScreen', () => {
   test('keeps the header, access banner, and tabs outside the vertical condition scroller', async () => {
     mockIsPro = false;
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
     const conditionContent = screen.getByTestId('condition-content');
     expect(screen.getAllByTestId('sub-screen-header').length).toBeGreaterThan(0);
@@ -146,10 +146,10 @@ describe('CombinationGeneratorScreen', () => {
 
     expect(screen.getByText('조건 무제한 · 추천 조건')).toBeTruthy();
     expect(screen.queryByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeNull();
-    await act(async () => { fireEvent.press(screen.getByText('Pro 보기')); });
+    await act(async () => { await fireEvent.press(screen.getByText('Pro 보기')); });
     expect(mockOpenPaywall).toHaveBeenCalledWith('condition-ai-explanation');
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '회원 혜택 안내 닫기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '회원 혜택 안내 닫기' })); });
     expect(screen.queryByTestId('condition-access-banner')).toBeNull();
     expect(screen.getByRole('tab', { name: '번호' })).toBeTruthy();
   });
@@ -161,7 +161,7 @@ describe('CombinationGeneratorScreen', () => {
       status: 'ready',
     };
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByRole('button', { name: '2개 조건 적용, 결과 바로 보기' })).toBeTruthy();
     expect(screen.getByText('결과 바로 보기')).toBeTruthy();
   });
@@ -170,12 +170,12 @@ describe('CombinationGeneratorScreen', () => {
     mockPush.mockClear();
     const screen = await renderScreen();
     expect(screen.getByRole('button', { name: '조건 설정, 2개 적용 중' })).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
     expect(screen.queryByText('선택하지 않은 항목은 제한 없이 적용돼요.')).toBeNull();
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
-    await act(async () => { fireEvent.press(screen.getByText('3개 조건 적용')); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByLabelText('7번')); });
+    await act(async () => { await fireEvent.press(screen.getByText('3개 조건 적용')); });
     await waitFor(() => expect(screen.getByText('고정 7')).toBeTruthy());
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith({
       pathname: '/combination-analysis',
@@ -193,7 +193,7 @@ describe('CombinationGeneratorScreen', () => {
     mockPush.mockClear();
     const screen = await render(<DirectSessionHarness />);
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+      await fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
     });
 
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
@@ -202,9 +202,9 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByText('조건 뽑기')).toBeNull();
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
 
-    await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
+    await act(async () => { await fireEvent.press(screen.getByLabelText('7번')); });
     await act(async () => {
-      fireEvent.press(screen.getByText('4개 조건 적용'));
+      await fireEvent.press(screen.getByText('4개 조건 적용'));
     });
     expect(screen.getByText('조합을 만들고 있어요')).toBeTruthy();
     expect(screen.getByTestId('direct-condition-shell')).toBeTruthy();
@@ -228,10 +228,10 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
 
-    await act(async () => { fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
+    await act(async () => { await fireEvent.press(screen.getByLabelText('조합 선택 화면 다시 열기')); });
     expect(screen.getByTestId('recommendation-prompt')).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+      await fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
     });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
   }, 7000);
@@ -241,10 +241,10 @@ describe('CombinationGeneratorScreen', () => {
     mockReplace.mockClear();
     const screen = await render(<DirectSessionHarness />);
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+      await fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
     });
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '조건 선택 취소' }));
+      await fireEvent.press(screen.getByRole('button', { name: '조건 선택 취소' }));
     });
 
     expect(mockBack).toHaveBeenCalledTimes(1);
@@ -262,7 +262,7 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByTestId('condition-editor')).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' }));
+      await fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용' }));
     });
 
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
@@ -275,7 +275,7 @@ describe('CombinationGeneratorScreen', () => {
     const screen = await render(<DirectSessionHarness />);
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
+      await fireEvent.press(screen.getByRole('button', { name: '추천 조건 적용 없이 직접 설정' }));
     });
     expect(screen.queryByTestId('recommendation-prompt')).toBeNull();
     expect(screen.getByText('3개 조건 적용')).toBeTruthy();
@@ -312,8 +312,8 @@ describe('CombinationGeneratorScreen', () => {
 
   test('shows the seven-column number selector in the Number tab and keeps selection state', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
 
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
     expect(screen.getByTestId('number-status-grid')).toBeTruthy();
@@ -329,25 +329,25 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByText('방식을 고른 뒤 번호를 눌러주세요.')).toBeNull();
     expect(screen.queryByText('고정수는 최대 6개이며 고정수와 제외수는 자동으로 겹치지 않게 처리됩니다.')).toBeNull();
 
-    await act(async () => { fireEvent.press(screen.getByLabelText('7번')); });
+    await act(async () => { await fireEvent.press(screen.getByLabelText('7번')); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '제외수' })); });
-    await act(async () => { fireEvent.press(screen.getByLabelText('8번')); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '제외수' })); });
+    await act(async () => { await fireEvent.press(screen.getByLabelText('8번')); });
     expect(screen.getByLabelText('8번, 제외수')).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '번호' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '번호' })); });
     expect(screen.getByLabelText('7번, 고정수')).toBeTruthy();
     expect(screen.getByLabelText('8번, 제외수')).toBeTruthy();
   });
 
   test('fits the number grid to the measured card width on narrow screens', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '고정수 · 제외수 조건' })); });
 
     await act(async () => {
-      fireEvent(screen.getByTestId('fixed-excluded-content'), 'layout', {
+      await fireEvent(screen.getByTestId('fixed-excluded-content'), 'layout', {
         nativeEvent: { layout: { height: 400, width: 280, x: 0, y: 0 } },
       });
     });
@@ -361,7 +361,7 @@ describe('CombinationGeneratorScreen', () => {
 
   test('keeps every category in one list and updates the tab while scrolling vertically', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
     const content = screen.getByTestId('condition-content');
     ['번호', '분포', '수 성격', '직전·연번', '번호대·과거'].forEach((label) => {
@@ -375,12 +375,12 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('tab', { name: '번호' }).props.accessibilityState).toEqual({ selected: true });
 
     await act(async () => {
-      [0, 1000, 2000, 3000, 4000].forEach((y, index) => {
-        fireEvent(screen.getByTestId(`condition-group-${index}`), 'layout', {
+      for (const [index, y] of [0, 1000, 2000, 3000, 4000].entries()) {
+        await fireEvent(screen.getByTestId(`condition-group-${index}`), 'layout', {
           nativeEvent: { layout: { height: 800, width: 390, x: 0, y } },
         });
-      });
-      fireEvent.scroll(content, {
+      }
+      await fireEvent.scroll(content, {
         nativeEvent: {
           contentOffset: { x: 0, y: 1050 },
           layoutMeasurement: { height: 500, width: 390 },
@@ -394,10 +394,10 @@ describe('CombinationGeneratorScreen', () => {
 
   test('keeps carry and neighbor bonus toggles in their section headers', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '직전·연번' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '이월수 개수 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '이웃수 개수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '직전·연번' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '이월수 개수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '이웃수 개수 조건' })); });
 
     expect(screen.getByTestId('carry-bonus-toggle')).toBeTruthy();
     expect(screen.getByTestId('neighbor-bonus-toggle')).toBeTruthy();
@@ -409,10 +409,10 @@ describe('CombinationGeneratorScreen', () => {
 
   test('labels ratio direction and shows number-trait examples', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
 
     expect(screen.getByLabelText('홀수 대 짝수 순서')).toBeTruthy();
     expect(screen.getByLabelText('저번호 1–22 대 고번호 23–45 순서')).toBeTruthy();
@@ -434,18 +434,18 @@ describe('CombinationGeneratorScreen', () => {
       '저번호 1–22 0개, 고번호 23–45 6개',
     ]);
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '수 성격' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '소수 개수 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '완전제곱수 개수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '수 성격' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '소수 개수 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '완전제곱수 개수 조건' })); });
     expect(screen.getByLabelText('해당 번호: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43')).toBeTruthy();
     expect(screen.getByLabelText('해당 번호: 4, 9, 16, 25, 36')).toBeTruthy();
   });
 
   test('starts with two range conditions and leaves Pro conditions available', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState)
       .toEqual({ checked: true, disabled: false });
@@ -460,11 +460,11 @@ describe('CombinationGeneratorScreen', () => {
   test('lets guests select more than two conditions within the configured allowance', async () => {
     mockIsPro = false;
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
     const nextCondition = screen.getByRole('switch', { name: '끝수 총합 조건' });
     expect(nextCondition.props.accessibilityState).toEqual({ checked: false, disabled: false });
-    await act(async () => { fireEvent.press(nextCondition); });
+    await act(async () => { await fireEvent.press(nextCondition); });
 
     expect(screen.getByRole('switch', { name: '끝수 총합 조건' }).props.accessibilityState)
       .toEqual({ checked: true, disabled: false });
@@ -474,10 +474,10 @@ describe('CombinationGeneratorScreen', () => {
 
   test('lets Pro select more than two conditions without an upgrade prompt', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '끝수 총합 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '끝수 총합 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '저고 비율 조건' })); });
 
     const nextCondition = screen.getByRole('switch', { name: 'A/C 값 조건' });
     expect(nextCondition.props.accessibilityState).toEqual({ checked: false, disabled: false });
@@ -486,32 +486,32 @@ describe('CombinationGeneratorScreen', () => {
 
   test('collapses inactive filters and restores their previous selections when enabled again', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
 
     const balancedRatio = screen.getByRole('checkbox', { name: '홀수 3개, 짝수 3개' });
-    await act(async () => { fireEvent.press(balancedRatio); });
+    await act(async () => { await fireEvent.press(balancedRatio); });
     expect(screen.getByLabelText('홀짝 비율')).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
     expect(screen.queryByLabelText('홀짝 비율')).toBeNull();
     expect(screen.queryByText('비활성 · 제한 없이 적용')).toBeNull();
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '홀짝 비율 조건' })); });
     expect(screen.getByRole('checkbox', { name: '홀수 3개, 짝수 3개' }).props.accessibilityState)
       .toEqual({ checked: true });
 
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     expect(screen.queryByLabelText('표준편차 최솟값')).toBeNull();
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('12.0');
   });
 
   test('does not repeat the recommended preset action inside the condition list', async () => {
     mockIsPro = true;
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
 
     expect(screen.getByText('2개 조건 적용')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '추천 조건 적용' })).toBeNull();
@@ -523,8 +523,8 @@ describe('CombinationGeneratorScreen', () => {
 
   test('shows definitions, examples, and historical frequencies from distribution help buttons', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
 
     expect(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '표준편차 설명 보기' })).toBeTruthy();
@@ -541,41 +541,41 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('button', { name: '40-45 번호대 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '과거 등수 조합 제외 설명 보기' })).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
     expect(screen.getByTestId('condition-help-dialog')).toBeTruthy();
     expect(screen.getByText('예: 3, 13, 22, 32, 41, 45 → 2수 2쌍 (3·13 / 22·32)')).toBeTruthy();
     expect(screen.getByTestId('condition-help-historical-value').props.children).toBe('2수 1쌍');
     expect(screen.getByText('593회 · 47.9%')).toBeTruthy();
     expect(screen.getByText(/다음 회차의 당첨 가능성이나 추천을 의미하지 않습니다/)).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '확인' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '확인' })); });
     expect(screen.queryByTestId('condition-help-dialog')).toBeNull();
   });
 
   test('asks before applying a historical value and applies it only after confirmation', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
 
     const historicalValue = screen.getByRole('button', { name: '2수 1쌍, 동끝수 형태 조건에 반영' });
-    await act(async () => { fireEvent.press(historicalValue); });
+    await act(async () => { await fireEvent.press(historicalValue); });
     expect(screen.getByTestId('condition-help-apply-prompt')).toBeTruthy();
     expect(screen.getByText('이 값을 조건에 반영할까요?')).toBeTruthy();
     expect(screen.getByText('과거 최다값 “2수 1쌍”으로 동끝수 형태 조건을 설정합니다.')).toBeTruthy();
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '아니요' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '아니요' })); });
     expect(screen.queryByTestId('condition-help-apply-prompt')).toBeNull();
     expect(screen.getByTestId('condition-help-dialog')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '확인' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '확인' })); });
     expect(screen.getByRole('switch', { name: '동끝수 형태 조건' }).props.accessibilityState)
       .toEqual({ checked: false, disabled: false });
 
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '2수 1쌍, 동끝수 형태 조건에 반영' }));
+      await fireEvent.press(screen.getByRole('button', { name: '2수 1쌍, 동끝수 형태 조건에 반영' }));
     });
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '예' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '예' })); });
     expect(screen.queryByTestId('condition-help-dialog')).toBeNull();
     expect(screen.getByRole('switch', { name: '동끝수 형태 조건' }).props.accessibilityState)
       .toEqual({ checked: true, disabled: false });
@@ -585,8 +585,8 @@ describe('CombinationGeneratorScreen', () => {
 
   test('shows historical range presets enabled, preserves edits across toggles, and resets them', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
 
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
     expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('12.0');
@@ -597,43 +597,43 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getAllByText('과거 최다').length).toBeGreaterThanOrEqual(2);
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('표준편차 최솟값'), 'endEditing', { nativeEvent: { text: '11.0' } });
+      await fireEvent(screen.getByLabelText('표준편차 최솟값'), 'endEditing', { nativeEvent: { text: '11.0' } });
     });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '표준편차 조건' })); });
     expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('11.0');
 
-    await act(async () => { fireEvent.press(screen.getByLabelText('조건 초기화')); });
+    await act(async () => { await fireEvent.press(screen.getByLabelText('조건 초기화')); });
     expect(screen.getByRole('switch', { name: '표준편차 조건' }).props.accessibilityState).toEqual({ checked: true, disabled: false });
     expect(screen.getByLabelText('표준편차 최솟값').props.value).toBe('12.0');
   });
 
   test('renders selectable same-ending and consecutive visual cards with accessible labels', async () => {
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '동끝수 형태 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '동끝수 형태 조건' })); });
 
     const sameEnding = screen.getByTestId('pattern-sameEnding-2+2');
     expect(sameEnding.props.accessibilityState).toEqual({ checked: false });
-    await act(async () => { fireEvent.press(sameEnding); });
+    await act(async () => { await fireEvent.press(sameEnding); });
     expect(screen.getByTestId('pattern-sameEnding-2+2').props.accessibilityState).toEqual({ checked: true });
 
-    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '직전·연번' })); });
-    await act(async () => { fireEvent.press(screen.getByRole('switch', { name: '연번 형태 조건' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('tab', { name: '직전·연번' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '연번 형태 조건' })); });
     expect(screen.getByLabelText('없음, 과거 최다')).toBeTruthy();
     const consecutive = screen.getByTestId('pattern-consecutive-3+2');
-    await act(async () => { fireEvent.press(consecutive); });
+    await act(async () => { await fireEvent.press(consecutive); });
     expect(screen.getByTestId('pattern-consecutive-3+2').props.accessibilityState).toEqual({ checked: true });
   });
 
   test('generates one combination and hands it to the existing analysis tab', async () => {
     mockPush.mockClear();
     const screen = await renderScreen();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조합 만들기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조합 만들기' })); });
     await waitFor(() => expect(screen.getByText('생성된 번호')).toBeTruthy());
     expect(screen.getByText('다시 만들기')).toBeTruthy();
-    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조합 분석하기' })); });
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조합 분석하기' })); });
     expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/combination-analysis' }));
   });
 });

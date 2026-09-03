@@ -34,7 +34,7 @@ describe('RecentTimeline', () => {
       .toBe(1);
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: '번호 등장 상세보기' }));
+      await fireEvent.press(getByRole('button', { name: '번호 등장 상세보기' }));
     });
 
     expect(onOpenHistory).toHaveBeenCalledTimes(1);

@@ -83,11 +83,11 @@ describe('MyNumbersScreen', () => {
 
     const screen = await render(<MyNumbersScreen />);
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '생성 조건 보기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '생성 조건 보기' }));
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '같은 조건으로 다시 뽑기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '같은 조건으로 다시 뽑기' }));
     });
 
     await waitFor(() => expect(addCombination).toHaveBeenCalledWith(
@@ -139,9 +139,9 @@ describe('MyNumbersScreen', () => {
 
     const screen = await render(<MyNumbersScreen />);
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '생성 조건 보기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '생성 조건 보기' }));
     });
-    fireEvent.press(screen.getByRole('button', {
+    await fireEvent.press(screen.getByRole('button', {
       name: '같은 조건으로 다시 뽑기, Pro 전용',
     }));
 

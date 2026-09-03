@@ -1914,12 +1914,12 @@ Do not turn descriptive statistics into claims about future winning probability.
 
 # 69. Release Versioning and Change History
 
-The app version starts at `0.0.1` and uses patch increments for each remote push that contains new product changes:
+The first public app version is `1.0.0` and uses patch increments for each remote push that contains new product changes:
 
 ```text
-0.0.1
-0.0.2
-0.0.3
+1.0.0
+1.0.1
+1.0.2
 ...
 ```
 
@@ -1933,4 +1933,4 @@ Before pushing new changes to the remote Git repository:
 
 Do not push new product changes without both the version bump and matching release-note entry.
 
-The in-app release-note list must remain visible only when the authenticated email is `ynleesss@gmail.com`. The version itself may remain visible to every user, but only that account may open the release-note screen. Keep direct-route access guarded as well.
+The in-app release-note list and direct route must remain visible to every user without an account or UID restriction.

@@ -11,7 +11,11 @@ const providerLabels: Record<AuthProviderId, string> = {
   'google.com': 'Google',
 };
 
-export function AccountSettingsSection() {
+type AccountSettingsSectionProps = {
+  showAccountLinking?: boolean;
+};
+
+export function AccountSettingsSection({ showAccountLinking = true }: AccountSettingsSectionProps) {
   const styles = useThemedStyles(createStyles);
   const {
     deleteAccount,
@@ -38,20 +42,22 @@ export function AccountSettingsSection() {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>계정</Text>
         <View style={styles.card}>
-          <Pressable
-            accessibilityHint="Apple 또는 Google 계정을 선택적으로 연결합니다"
-            accessibilityRole="button"
-            onPress={() => openLogin()}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-            <View style={styles.loginCopy}>
-              <Text style={styles.rowLabel}>계정 연결 · 선택</Text>
-              <Text style={styles.rowDescription}>번호를 다른 기기에서도 이어볼 때만 필요해요.</Text>
-            </View>
-            <Ionicons color="#2997FF" name="person-circle-outline" size={25} />
-          </Pressable>
+          {showAccountLinking ? (
+            <Pressable
+              accessibilityHint="Apple 또는 Google 계정을 선택적으로 연결합니다"
+              accessibilityRole="button"
+              onPress={() => openLogin()}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <View style={styles.loginCopy}>
+                <Text style={styles.rowLabel}>계정 연결 · 선택</Text>
+                <Text style={styles.rowDescription}>번호를 다른 기기에서도 이어볼 때만 필요해요.</Text>
+              </View>
+              <Ionicons color="#2997FF" name="person-circle-outline" size={25} />
+            </Pressable>
+          ) : null}
           {state.status === 'anonymous' ? (
             <>
-              <View style={styles.separator} />
+              {showAccountLinking ? <View style={styles.separator} /> : null}
               <Pressable
                 accessibilityRole="button"
                 disabled={isWorking}

@@ -1,7 +1,8 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
+import { AccessibilityInfo } from 'react-native';
 
 import {
   cloneGeneratorConditions,
@@ -129,6 +130,7 @@ function SeededCombinationScreen() {
 
 describe('CombinationScreen', () => {
   beforeEach(() => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
     mockBack.mockClear();
     mockCanGoBack.mockReturnValue(false);
     mockReplace.mockClear();
@@ -170,6 +172,10 @@ describe('CombinationScreen', () => {
       toggleFavorite: jest.fn(),
       togglePurchased: jest.fn(),
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('lets a guest continue to the rewarded-ad result gate', async () => {
@@ -245,7 +251,7 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('combination-number-grid')).toBeNull();
     expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByRole('button', { name: '번호 다시 선택하기' }));
+    await fireEvent.press(screen.getByRole('button', { name: '번호 다시 선택하기' }));
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/combination-analysis',
       params: { returnTo: 'random-draw' },
@@ -263,7 +269,7 @@ describe('CombinationScreen', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '새 조합 분석' })).toBeTruthy());
     expect(screen.getByText('설명 보기')).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '새 조합 분석' }));
+      await fireEvent.press(screen.getByRole('button', { name: '새 조합 분석' }));
     });
 
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/draw');
@@ -289,7 +295,7 @@ describe('CombinationScreen', () => {
     expect(screen.queryByText('이번 주 무료 분석을 모두 사용했어요')).toBeNull();
     expect(screen.queryByTestId('result-section-prize')).toBeNull();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' }));
     expect(mockOpenPaywall).toHaveBeenCalledWith('analysis-limit');
 
     expect(mockShowRewardedAd).not.toHaveBeenCalled();
@@ -306,7 +312,7 @@ describe('CombinationScreen', () => {
     );
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '분석하기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '분석하기' }));
     });
 
     await waitFor(() => expect(screen.getByText('결과를 여는 방법을 선택하세요')).toBeTruthy());
@@ -338,7 +344,7 @@ describe('CombinationScreen', () => {
     await waitFor(() => expect(screen.getByTestId('result-section-prize')).toBeTruthy());
     mockAuthStatus = 'guest';
     await act(async () => {
-      screen.rerender(
+      await screen.rerender(
         <CombinationDraftProvider>
           <SeededCombinationScreen />
         </CombinationDraftProvider>,
@@ -361,7 +367,7 @@ describe('CombinationScreen', () => {
     const regenerateButton = await waitFor(() => screen.getByRole('button', {
       name: '같은 조건으로 다시 뽑기, Pro 전용',
     }));
-    fireEvent.press(regenerateButton);
+    await fireEvent.press(regenerateButton);
     expect(mockOpenPaywall).toHaveBeenCalledWith('same-condition-regeneration');
     expect(mockGenerateCombination).not.toHaveBeenCalled();
   });
@@ -377,7 +383,7 @@ describe('CombinationScreen', () => {
       name: '같은 조건으로 다시 뽑기',
     }));
     await act(async () => {
-      fireEvent.press(regenerateButton);
+      await fireEvent.press(regenerateButton);
     });
 
     expect(screen.getByText('같은 조건으로 다시 뽑는 중')).toBeTruthy();
@@ -411,7 +417,7 @@ describe('CombinationScreen', () => {
 
     await waitFor(() => expect(screen.getByText('조합 분석')).toBeTruthy());
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
     });
 
     expect(mockBack).toHaveBeenCalledTimes(1);
@@ -432,7 +438,7 @@ describe('CombinationScreen', () => {
 
     await waitFor(() => expect(screen.getByText('조합 분석')).toBeTruthy());
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
+      await fireEvent.press(screen.getByRole('button', { name: '이전 화면으로 돌아가기' }));
     });
 
     expect(mockBack).toHaveBeenCalledTimes(1);

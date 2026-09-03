@@ -82,7 +82,7 @@ describe('RangeControl', () => {
     );
 
     await act(async () => {
-      fireEvent.changeText(screen.getByLabelText('번호 총합 최솟값'), '100');
+      await fireEvent.changeText(screen.getByLabelText('번호 총합 최솟값'), '100');
     });
 
     const previewStyle = StyleSheet.flatten(screen.getByTestId('range-thumb-번호 총합-min').props.style);
@@ -90,7 +90,7 @@ describe('RangeControl', () => {
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
-      fireEvent(screen.getByLabelText('번호 총합 최솟값'), 'endEditing', {
+      await fireEvent(screen.getByLabelText('번호 총합 최솟값'), 'endEditing', {
         nativeEvent: { text: '100' },
       });
     });

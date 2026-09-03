@@ -1,31 +1,14 @@
 import { router } from 'expo-router';
-import { useEffect } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
-import { useAuth } from '@/features/auth/AuthContext';
-import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
+import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
-import { canViewReleaseNotes, RELEASE_NOTES } from './releaseNotes';
+import { RELEASE_NOTES } from './releaseNotes';
 
 export function ReleaseNotesScreen() {
-  const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { state } = useAuth();
-  const isAllowed = state.status === 'authenticated' && canViewReleaseNotes(state.user.email);
-
-  useEffect(() => {
-    if (state.status !== 'loading' && !isAllowed) router.replace('/(tabs)/settings');
-  }, [isAllowed, state.status]);
-
-  if (!isAllowed) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        {state.status === 'loading' ? <ActivityIndicator color={colors.accentPrimary} /> : null}
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>

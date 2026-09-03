@@ -19,10 +19,10 @@ describe('PairSection', () => {
     const scroll = getByTestId('pair-horizontal-scroll');
 
     await act(async () => {
-      fireEvent(viewport, 'layout', { nativeEvent: { layout: { width: 180 } } });
+      await fireEvent(viewport, 'layout', { nativeEvent: { layout: { width: 180 } } });
     });
     await act(async () => {
-      fireEvent(scroll, 'contentSizeChange', 600, 64);
+      await fireEvent(scroll, 'contentSizeChange', 600, 64);
     });
 
     const contentStyle = StyleSheet.flatten(scroll.props.contentContainerStyle);
@@ -40,7 +40,7 @@ describe('PairSection', () => {
       <PairSection onSelectNumber={onSelectNumber} pairs={pairs} />,
     );
 
-    fireEvent.press(getByRole('button', { name: '4번 탐색' }));
+    await fireEvent.press(getByRole('button', { name: '4번 탐색' }));
 
     expect(onSelectNumber).toHaveBeenCalledWith(4);
   });

@@ -33,7 +33,7 @@ describe('AppThemeProvider', () => {
 
     await waitFor(() => expect(view.getByTestId('theme-state').props.children).toBe('dark:dark:true'));
 
-    fireEvent.press(view.getByText('밝게 전환'));
+    await fireEvent.press(view.getByText('밝게 전환'));
 
     await waitFor(() => expect(view.getByTestId('theme-state').props.children).toBe('light:light:true'));
     await waitFor(() => expect(AsyncStorage.setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, 'light'));

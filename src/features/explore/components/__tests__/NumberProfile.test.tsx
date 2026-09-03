@@ -31,7 +31,7 @@ describe('NumberProfile', () => {
     expect(queryByText('출현 순위')).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByRole('button', { name: /전체 번호 보기/ }));
+      await fireEvent.press(getByRole('button', { name: /전체 번호 보기/ }));
     });
 
     expect(onOpenComparison).toHaveBeenCalledTimes(1);
