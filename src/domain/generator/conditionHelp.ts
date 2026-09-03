@@ -3,9 +3,18 @@ import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import {
   buildGeneratorRangePresets,
   calculateCombinationMetrics,
+  cloneGeneratorConditions,
   CONSECUTIVE_LABELS,
   SAME_ENDING_LABELS,
 } from './combinationGenerator';
+import type {
+  ConsecutivePattern,
+  CountValue,
+  GeneratorConditions,
+  GeneratorSectionKey,
+  NumberBandKey,
+  SameEndingPattern,
+} from './types';
 
 export type ConditionHelpKey =
   | 'fixedExcluded'
@@ -41,8 +50,23 @@ export type ConditionHelpContent = {
   historicalLabel: string;
   historicalPercentage: number;
   sourceLabel: string;
+  suggestion: ConditionHelpSuggestion | null;
   title: string;
 };
+
+export type ConditionHelpSuggestion =
+  | { kind: 'fixedNumber'; number: number }
+  | { field: 'standardDeviation' | 'sum' | 'lastDigitSum'; kind: 'range'; max: number; min: number }
+  | {
+    field: 'sameEndingPatterns' | 'consecutivePatterns' | 'oddCounts' | 'highLowCounts' | 'acValues'
+      | 'primeCounts' | 'squareCounts' | 'compositeCounts';
+    kind: 'singleValue';
+    section: GeneratorSectionKey;
+    value: number | SameEndingPattern | ConsecutivePattern;
+  }
+  | { kind: 'multipleCount'; multiple: 3 | 4 | 5; section: GeneratorSectionKey; value: CountValue }
+  | { band: NumberBandKey; kind: 'bandCount'; section: GeneratorSectionKey; value: CountValue }
+  | { field: 'carry' | 'neighbor'; kind: 'recentCount'; section: GeneratorSectionKey; withBonus: CountValue; withoutBonus: CountValue };
 
 export type ConditionHelpMap = Record<ConditionHelpKey, ConditionHelpContent>;
 
@@ -58,6 +82,10 @@ function mostFrequent<T extends string | number>(values: readonly T[]) {
 
 function percentage(count: number, total: number) {
   return total ? Number(((count / total) * 100).toFixed(1)) : 0;
+}
+
+function countValue(value: number) {
+  return Math.max(0, Math.min(6, value)) as CountValue;
 }
 
 export function buildConditionHelp(history: readonly LottoHistoryDraw[]): ConditionHelpMap {
@@ -123,6 +151,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
     historicalHeading = '과거 1등번호에서 가장 자주 나온 값',
     historicalLabel,
     itemSourceLabel = sourceLabel,
+    suggestion = null,
     title,
   }: {
     denominator?: number;
@@ -133,6 +162,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
     historicalHeading?: string;
     historicalLabel: string;
     itemSourceLabel?: string;
+    suggestion?: ConditionHelpSuggestion | null;
     title: string;
   }): ConditionHelpContent => {
     const historicalPercentage = percentage(historicalCount, denominator);
@@ -145,6 +175,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       historicalLabel,
       historicalPercentage,
       sourceLabel: itemSourceLabel,
+      suggestion,
       title,
     };
   };
@@ -154,11 +185,13 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
     description: string,
     example: string,
     top: [number, number] | undefined,
+    suggestion: ConditionHelpSuggestion | null,
   ) => item({
     description,
     example,
     historicalCount: top?.[1] ?? 0,
     historicalLabel: top ? `${top[0]}개` : '데이터 없음',
+    suggestion: top ? suggestion : null,
     title,
   });
 
@@ -170,6 +203,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       historicalLabel: topNumber ? `${topNumber[0]}번` : '데이터 없음',
       historicalCount: topNumber?.[1] ?? 0,
       historicalHeading: '과거 1등 본번호에서 가장 자주 나온 번호',
+      suggestion: topNumber ? { kind: 'fixedNumber', number: topNumber[0] } : null,
     }),
     sameEnding: item({
       title: '동끝수 형태',
@@ -177,6 +211,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 3, 13, 22, 32, 41, 45 → 2수 2쌍 (3·13 / 22·32)',
       historicalLabel: sameEnding ? SAME_ENDING_LABELS[sameEnding[0]] : '데이터 없음',
       historicalCount: sameEnding?.[1] ?? 0,
+      suggestion: sameEnding ? { field: 'sameEndingPatterns', kind: 'singleValue', section: 'sameEnding', value: sameEnding[0] } : null,
     }),
     standardDeviation: item({
       title: '표준편차',
@@ -184,6 +219,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 10.0~15.0을 선택하면 원래 계산값이 양끝을 포함해 이 범위인 조합만 허용합니다.',
       historicalLabel: history.length ? `${rangePresets.standardDeviation.min.toFixed(1)}~${rangePresets.standardDeviation.max.toFixed(1)}` : '데이터 없음',
       historicalCount: rangePresets.standardDeviation.count,
+      suggestion: history.length ? { field: 'standardDeviation', kind: 'range', min: rangePresets.standardDeviation.min, max: rangePresets.standardDeviation.max } : null,
     }),
     sum: item({
       title: '번호 총합',
@@ -191,6 +227,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 3, 7, 12, 19, 34, 45의 번호 총합은 120입니다.',
       historicalLabel: history.length ? `${rangePresets.sum.min}~${rangePresets.sum.max}` : '데이터 없음',
       historicalCount: rangePresets.sum.count,
+      suggestion: history.length ? { field: 'sum', kind: 'range', min: rangePresets.sum.min, max: rangePresets.sum.max } : null,
     }),
     lastDigitSum: item({
       title: '끝수 총합',
@@ -198,6 +235,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 3, 7, 12, 19, 34, 45 → 3+7+2+9+4+5 = 30',
       historicalLabel: history.length ? `${rangePresets.lastDigitSum.min}~${rangePresets.lastDigitSum.max}` : '데이터 없음',
       historicalCount: rangePresets.lastDigitSum.count,
+      suggestion: history.length ? { field: 'lastDigitSum', kind: 'range', min: rangePresets.lastDigitSum.min, max: rangePresets.lastDigitSum.max } : null,
     }),
     oddEven: item({
       title: '홀짝 비율',
@@ -205,6 +243,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 3:3은 홀수 3개와 짝수 3개를 의미합니다.',
       historicalLabel: odd ? `${odd[0]}:${6 - odd[0]}` : '데이터 없음',
       historicalCount: odd?.[1] ?? 0,
+      suggestion: odd ? { field: 'oddCounts', kind: 'singleValue', section: 'oddEven', value: odd[0] } : null,
     }),
     lowHigh: item({
       title: '저고 비율',
@@ -212,6 +251,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 4:2는 저번호 4개와 고번호 2개를 의미합니다.',
       historicalLabel: low ? `${low[0]}:${6 - low[0]}` : '데이터 없음',
       historicalCount: low?.[1] ?? 0,
+      suggestion: low ? { field: 'highLowCounts', kind: 'singleValue', section: 'lowHigh', value: low[0] } : null,
     }),
     acValue: item({
       title: 'A/C 값',
@@ -219,28 +259,32 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '계산식: A/C = 서로 다른 차이값 개수 - 5. 여러 값을 선택하면 그중 하나만 만족해도 됩니다.',
       historicalLabel: acValue ? String(acValue[0]) : '데이터 없음',
       historicalCount: acValue?.[1] ?? 0,
+      suggestion: acValue ? { field: 'acValues', kind: 'singleValue', section: 'acValue', value: acValue[0] } : null,
     }),
     primeCount: countItem(
       '소수 개수',
       '1과 자기 자신으로만 나누어지는 소수가 6개 번호에 몇 개 포함되는지를 셉니다. 1은 소수가 아니에요.',
       '1~45의 소수: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43',
       primeCount,
+      primeCount ? { field: 'primeCounts', kind: 'singleValue', section: 'primeCount', value: primeCount[0] } : null,
     ),
     squareCount: countItem(
       '완전제곱수 개수',
       '자연수 n의 제곱인 번호가 몇 개 포함되는지를 셉니다.',
       '1~45에서 사용하는 완전제곱수: 4, 9, 16, 25, 36',
       squareCount,
+      squareCount ? { field: 'squareCounts', kind: 'singleValue', section: 'squareCount', value: squareCount[0] } : null,
     ),
     compositeCount: countItem(
       '합성수 개수',
       '1보다 크면서 소수가 아닌 번호가 몇 개 포함되는지를 셉니다. 1은 소수와 합성수 어느 쪽에도 포함되지 않아요.',
       '예: 4, 6, 8, 9, 10은 합성수이며 완전제곱수·배수 조건과 중복 집계될 수 있습니다.',
       compositeCount,
+      compositeCount ? { field: 'compositeCounts', kind: 'singleValue', section: 'compositeCount', value: compositeCount[0] } : null,
     ),
-    multiple3: countItem('3의 배수', '3으로 나누어떨어지는 번호의 개수를 셉니다.', '예: 3, 6, 9, 12, 15 … 45', multiple3),
-    multiple4: countItem('4의 배수', '4로 나누어떨어지는 번호의 개수를 셉니다.', '예: 4, 8, 12, 16, 20 … 44', multiple4),
-    multiple5: countItem('5의 배수', '5로 나누어떨어지는 번호의 개수를 셉니다.', '예: 5, 10, 15, 20, 25 … 45', multiple5),
+    multiple3: countItem('3의 배수', '3으로 나누어떨어지는 번호의 개수를 셉니다.', '예: 3, 6, 9, 12, 15 … 45', multiple3, multiple3 ? { kind: 'multipleCount', multiple: 3, section: 'multiple3', value: countValue(multiple3[0]) } : null),
+    multiple4: countItem('4의 배수', '4로 나누어떨어지는 번호의 개수를 셉니다.', '예: 4, 8, 12, 16, 20 … 44', multiple4, multiple4 ? { kind: 'multipleCount', multiple: 4, section: 'multiple4', value: countValue(multiple4[0]) } : null),
+    multiple5: countItem('5의 배수', '5로 나누어떨어지는 번호의 개수를 셉니다.', '예: 5, 10, 15, 20, 25 … 45', multiple5, multiple5 ? { kind: 'multipleCount', multiple: 5, section: 'multiple5', value: countValue(multiple5[0]) } : null),
     carryCount: item({
       title: '이월수 개수',
       description: '직전 회차 번호와 이번 후보 조합에 공통으로 들어 있는 번호의 개수입니다. 보너스 포함을 켜면 직전 보너스도 비교 집합에 추가해요.',
@@ -253,6 +297,10 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
         : undefined,
       historicalHeading: '직전 회차와 비교했을 때 가장 자주 나온 개수',
       itemSourceLabel: previousSourceLabel,
+      suggestion: previousMain.carry && previousWithBonus.carry ? {
+        field: 'carry', kind: 'recentCount', section: 'carryCount',
+        withBonus: countValue(previousWithBonus.carry[0]), withoutBonus: countValue(previousMain.carry[0]),
+      } : null,
     }),
     neighborCount: item({
       title: '이웃수 개수',
@@ -268,6 +316,10 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
         : undefined,
       historicalHeading: '직전 회차와 비교했을 때 가장 자주 나온 개수',
       itemSourceLabel: previousSourceLabel,
+      suggestion: previousMain.neighbor && previousWithBonus.neighbor ? {
+        field: 'neighbor', kind: 'recentCount', section: 'neighborCount',
+        withBonus: countValue(previousWithBonus.neighbor[0]), withoutBonus: countValue(previousMain.neighbor[0]),
+      } : null,
     }),
     consecutivePattern: item({
       title: '연번 형태',
@@ -275,12 +327,13 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       example: '예: 5, 6, 12, 13, 22, 40 → 2연번 2회. 5, 6, 7, 20, 21, 40 → 3연번 1회 + 2연번 1회',
       historicalLabel: consecutive ? CONSECUTIVE_LABELS[consecutive[0]] : '데이터 없음',
       historicalCount: consecutive?.[1] ?? 0,
+      suggestion: consecutive ? { field: 'consecutivePatterns', kind: 'singleValue', section: 'consecutivePattern', value: consecutive[0] } : null,
     }),
-    band1To9: countItem('1-9 번호대', '1부터 9까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 1, 2, 3, 4, 5, 6, 7, 8, 9', band1To9),
-    band10To19: countItem('10-19 번호대', '10부터 19까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 10~19', band10To19),
-    band20To29: countItem('20-29 번호대', '20부터 29까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 20~29', band20To29),
-    band30To39: countItem('30-39 번호대', '30부터 39까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 30~39', band30To39),
-    band40To45: countItem('40-45 번호대', '40부터 45까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 40, 41, 42, 43, 44, 45', band40To45),
+    band1To9: countItem('1-9 번호대', '1부터 9까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 1, 2, 3, 4, 5, 6, 7, 8, 9', band1To9, band1To9 ? { band: '1-9', kind: 'bandCount', section: 'band1To9', value: countValue(band1To9[0]) } : null),
+    band10To19: countItem('10-19 번호대', '10부터 19까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 10~19', band10To19, band10To19 ? { band: '10-19', kind: 'bandCount', section: 'band10To19', value: countValue(band10To19[0]) } : null),
+    band20To29: countItem('20-29 번호대', '20부터 29까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 20~29', band20To29, band20To29 ? { band: '20-29', kind: 'bandCount', section: 'band20To29', value: countValue(band20To29[0]) } : null),
+    band30To39: countItem('30-39 번호대', '30부터 39까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 30~39', band30To39, band30To39 ? { band: '30-39', kind: 'bandCount', section: 'band30To39', value: countValue(band30To39[0]) } : null),
+    band40To45: countItem('40-45 번호대', '40부터 45까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 40, 41, 42, 43, 44, 45', band40To45, band40To45 ? { band: '40-45', kind: 'bandCount', section: 'band40To45', value: countValue(band40To45[0]) } : null),
     pastRanks: item({
       title: '과거 등수 조합 제외',
       description: '과거 전체 회차와 비교해 1등·2등·3등 상당으로 이미 등장한 후보 조합을 생성 대상에서 제외합니다.',
@@ -294,4 +347,65 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
 
   helpCache.set(history, result);
   return result;
+}
+
+export function describeConditionHelpSuggestion(
+  content: ConditionHelpContent,
+  conditions: GeneratorConditions,
+) {
+  const suggestion = content.suggestion;
+  if (!suggestion) return null;
+  if (suggestion.kind === 'fixedNumber') {
+    return `${suggestion.number}번을 고정수로 반영합니다.`;
+  }
+  if (suggestion.kind === 'recentCount') {
+    const current = conditions[suggestion.field];
+    const value = current.includeBonus ? suggestion.withBonus : suggestion.withoutBonus;
+    return `현재 보너스 ${current.includeBonus ? '포함' : '제외'} 기준 ${value}개를 ${content.title} 조건에 반영합니다.`;
+  }
+  return `과거 최다값 “${content.historicalLabel}”으로 ${content.title} 조건을 설정합니다.`;
+}
+
+export function applyConditionHelpSuggestion(
+  conditions: GeneratorConditions,
+  suggestion: ConditionHelpSuggestion,
+) {
+  const next = cloneGeneratorConditions(conditions);
+  if (suggestion.kind === 'fixedNumber') {
+    next.enabledSections = { ...next.enabledSections, fixedExcluded: true };
+    next.excludedNumbers = next.excludedNumbers.filter((number) => number !== suggestion.number);
+    if (!next.fixedNumbers.includes(suggestion.number) && next.fixedNumbers.length < 6) {
+      next.fixedNumbers = [...next.fixedNumbers, suggestion.number].sort((left, right) => left - right);
+    }
+    return next;
+  }
+  if (suggestion.kind === 'range') {
+    next[suggestion.field] = { enabled: true, min: suggestion.min, max: suggestion.max };
+    return next;
+  }
+
+  next.enabledSections = { ...next.enabledSections, [suggestion.section]: true };
+  if (suggestion.kind === 'singleValue') {
+    switch (suggestion.field) {
+      case 'sameEndingPatterns': next.sameEndingPatterns = [suggestion.value as SameEndingPattern]; break;
+      case 'consecutivePatterns': next.consecutivePatterns = [suggestion.value as ConsecutivePattern]; break;
+      case 'oddCounts': next.oddCounts = [suggestion.value as CountValue]; break;
+      case 'highLowCounts': next.highLowCounts = [suggestion.value as CountValue]; break;
+      case 'acValues': next.acValues = [suggestion.value as number]; break;
+      case 'primeCounts': next.primeCounts = [suggestion.value as CountValue]; break;
+      case 'squareCounts': next.squareCounts = [suggestion.value as CountValue]; break;
+      case 'compositeCounts': next.compositeCounts = [suggestion.value as CountValue]; break;
+    }
+  } else if (suggestion.kind === 'multipleCount') {
+    next.multipleCounts[suggestion.multiple] = [suggestion.value];
+  } else if (suggestion.kind === 'bandCount') {
+    next.bandCounts[suggestion.band] = [suggestion.value];
+  } else {
+    const current = next[suggestion.field];
+    next[suggestion.field] = {
+      ...current,
+      allowed: [current.includeBonus ? suggestion.withBonus : suggestion.withoutBonus],
+    };
+  }
+  return next;
 }

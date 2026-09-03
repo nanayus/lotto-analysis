@@ -552,6 +552,37 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.queryByTestId('condition-help-dialog')).toBeNull();
   });
 
+  test('asks before applying a historical value and applies it only after confirmation', async () => {
+    const screen = await renderScreen();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+    await act(async () => { fireEvent.press(screen.getByRole('tab', { name: '분포' })); });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
+
+    const historicalValue = screen.getByRole('button', { name: '2수 1쌍, 동끝수 형태 조건에 반영' });
+    await act(async () => { fireEvent.press(historicalValue); });
+    expect(screen.getByTestId('condition-help-apply-prompt')).toBeTruthy();
+    expect(screen.getByText('이 값을 조건에 반영할까요?')).toBeTruthy();
+    expect(screen.getByText('과거 최다값 “2수 1쌍”으로 동끝수 형태 조건을 설정합니다.')).toBeTruthy();
+
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '아니요' })); });
+    expect(screen.queryByTestId('condition-help-apply-prompt')).toBeNull();
+    expect(screen.getByTestId('condition-help-dialog')).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '확인' })); });
+    expect(screen.getByRole('switch', { name: '동끝수 형태 조건' }).props.accessibilityState)
+      .toEqual({ checked: false, disabled: false });
+
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: '2수 1쌍, 동끝수 형태 조건에 반영' }));
+    });
+    await act(async () => { fireEvent.press(screen.getByRole('button', { name: '예' })); });
+    expect(screen.queryByTestId('condition-help-dialog')).toBeNull();
+    expect(screen.getByRole('switch', { name: '동끝수 형태 조건' }).props.accessibilityState)
+      .toEqual({ checked: true, disabled: false });
+    expect(screen.getByRole('checkbox', { name: '2수 1쌍, 과거 최다' }).props.accessibilityState)
+      .toEqual({ checked: true });
+  });
+
   test('shows historical range presets enabled, preserves edits across toggles, and resets them', async () => {
     const screen = await renderScreen();
     await act(async () => { fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });

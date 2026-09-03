@@ -33,7 +33,9 @@ import {
   SAME_ENDING_LABELS,
 } from '@/domain/generator/combinationGenerator';
 import {
+  applyConditionHelpSuggestion,
   buildConditionHelp,
+  describeConditionHelpSuggestion,
   type ConditionHelpKey,
 } from '@/domain/generator/conditionHelp';
 import type {
@@ -592,6 +594,7 @@ export function ConditionSheet({
   const [draft, setDraft] = useState(() => cloneGeneratorConditions(conditions));
   const [numberMode, setNumberMode] = useState<'fixed' | 'excluded'>('fixed');
   const [activeHelp, setActiveHelp] = useState<ConditionHelpKey | null>(null);
+  const [pendingHelpApplication, setPendingHelpApplication] = useState<ConditionHelpKey | null>(null);
   const [accessBannerVisible, setAccessBannerVisible] = useState(true);
   const [conditionLimitPromptVisible, setConditionLimitPromptVisible] = useState(false);
   const [page, setPage] = useState(0);
@@ -618,6 +621,7 @@ export function ConditionSheet({
   const historicalSameEnding = SAME_ENDING_OPTIONS.find(([, label]) => label === conditionHelp.sameEnding.historicalLabel)?.[0];
   const historicalConsecutive = CONSECUTIVE_OPTIONS.find(([, label]) => label === conditionHelp.consecutivePattern.historicalLabel)?.[0];
   const helpContent = activeHelp ? conditionHelp[activeHelp] : null;
+  const pendingHelpContent = pendingHelpApplication ? conditionHelp[pendingHelpApplication] : null;
   const enabledConditionCount = enabledGeneratorConditionCount(draft);
   const conditionLimitReached = conditionSelectionLimit !== null
     && enabledConditionCount >= conditionSelectionLimit;
@@ -640,6 +644,12 @@ export function ConditionSheet({
       ...draft,
       enabledSections: { ...draft.enabledSections, [key]: enabled },
     });
+  };
+  const confirmHelpApplication = () => {
+    if (!pendingHelpContent?.suggestion) return;
+    commitDraft(applyConditionHelpSuggestion(draft, pendingHelpContent.suggestion));
+    setPendingHelpApplication(null);
+    setActiveHelp(null);
   };
   const sectionAccessProps = (key: GeneratorSectionKey) => ({
     activationLocked: conditionLimitReached && !sectionEnabled(key),
@@ -1131,7 +1141,7 @@ export function ConditionSheet({
             </Pressable>
           </View>
 
-        {helpContent ? (
+        {helpContent && !pendingHelpApplication ? (
           <View accessibilityViewIsModal style={styles.helpOverlay}>
             <Pressable
               accessibilityLabel="조건 설명 닫기"
@@ -1160,14 +1170,31 @@ export function ConditionSheet({
                   <Text style={styles.helpLabel}>예시</Text>
                   <Text style={styles.helpExample}>{helpContent.example}</Text>
                 </View>
-                <View style={styles.helpHistoryCard}>
+                <Pressable
+                  accessibilityLabel={helpContent.suggestion
+                    ? `${helpContent.historicalLabel}, ${helpContent.title} 조건에 반영`
+                    : undefined}
+                  accessibilityRole={helpContent.suggestion ? 'button' : undefined}
+                  disabled={!helpContent.suggestion}
+                  onPress={() => activeHelp && setPendingHelpApplication(activeHelp)}
+                  style={({ pressed }) => [
+                    styles.helpHistoryCard,
+                    helpContent.suggestion && styles.helpHistoryCardAction,
+                    pressed && styles.pressed,
+                  ]}>
                   <Text style={styles.helpHistoryEyebrow}>{helpContent.historicalHeading}</Text>
                   <Text style={styles.helpHistoryValue} testID="condition-help-historical-value">
                     {helpContent.historicalLabel}
                   </Text>
                   <Text style={styles.helpHistoryCount}>{helpContent.historicalDetail}</Text>
                   <Text style={styles.helpSource}>{helpContent.sourceLabel}</Text>
-                </View>
+                  {helpContent.suggestion ? (
+                    <View style={styles.helpHistoryActionRow}>
+                      <Text style={styles.helpHistoryActionText}>조건에 반영</Text>
+                      <Ionicons color={styles.helpHistoryActionText.color} name="chevron-forward" size={14} />
+                    </View>
+                  ) : null}
+                </Pressable>
                 <Text style={styles.helpDisclaimer}>
                   과거 출현 비율을 설명하는 참고 정보이며, 다음 회차의 당첨 가능성이나 추천을 의미하지 않습니다.
                 </Text>
@@ -1175,6 +1202,37 @@ export function ConditionSheet({
               <Pressable accessibilityRole="button" onPress={() => setActiveHelp(null)} style={styles.helpConfirmButton}>
                 <Text style={styles.helpConfirmText}>확인</Text>
               </Pressable>
+            </View>
+          </View>
+        ) : null}
+        {pendingHelpContent?.suggestion ? (
+          <View accessibilityViewIsModal style={styles.helpApplyOverlay}>
+            <Pressable
+              accessibilityLabel="과거 최다 조건 반영 취소"
+              onPress={() => setPendingHelpApplication(null)}
+              style={styles.helpBackdrop}
+            />
+            <View
+              style={[styles.recommendationDialog, { width: Math.min(sheetWidth - (spacing.xl * 2), 400) }]}
+              testID="condition-help-apply-prompt">
+              <Text style={styles.recommendationTitle}>이 값을 조건에 반영할까요?</Text>
+              <Text style={styles.recommendationDescription}>
+                {describeConditionHelpSuggestion(pendingHelpContent, draft)}
+              </Text>
+              <View style={styles.recommendationActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setPendingHelpApplication(null)}
+                  style={styles.recommendationCancelButton}>
+                  <Text style={styles.recommendationCancelText}>아니요</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={confirmHelpApplication}
+                  style={styles.recommendationApplyButton}>
+                  <Text style={styles.recommendationApplyText}>예</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         ) : null}
@@ -1256,7 +1314,9 @@ export function ConditionSheet({
   return (
     <Modal
       animationType={reduceMotion ? 'none' : 'slide'}
-      onRequestClose={() => activeHelp ? setActiveHelp(null) : onClose()}
+      onRequestClose={() => pendingHelpApplication
+        ? setPendingHelpApplication(null)
+        : activeHelp ? setActiveHelp(null) : onClose()}
       presentationStyle="fullScreen"
       testID="condition-sheet-modal"
       visible={visible}>
@@ -1480,10 +1540,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.xs, borderRadius: radius.md, borderWidth: 1, borderColor: colors.accentBorder,
     backgroundColor: colors.surfaceAccent, padding: spacing.md,
   },
+  helpHistoryCardAction: { cursor: 'pointer' },
   helpHistoryEyebrow: { color: colors.highlight, fontSize: typography.sizes.caption },
   helpHistoryValue: { color: colors.textPrimary, fontSize: 22, fontWeight: typography.weights.bold, marginTop: spacing.xs },
   helpHistoryCount: { color: colors.accentSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   helpSource: { color: colors.textSecondary, fontSize: 10, marginTop: spacing.xs },
+  helpHistoryActionRow: {
+    minHeight: 30, marginTop: spacing.sm, paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.accentBorder,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.xs,
+  },
+  helpHistoryActionText: {
+    color: colors.accentPrimary, fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+  },
   helpDisclaimer: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
   helpConfirmButton: {
     minHeight: 48, marginHorizontal: spacing.xl, marginBottom: spacing.xl,
@@ -1493,6 +1563,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   helpConfirmText: { color: colors.background, fontSize: typography.sizes.small, fontWeight: typography.weights.bold },
   recommendationOverlay: {
     position: 'absolute', inset: 0, zIndex: 40,
+    alignItems: 'center', justifyContent: 'center', padding: spacing.xl,
+  },
+  helpApplyOverlay: {
+    position: 'absolute', inset: 0, zIndex: 50,
     alignItems: 'center', justifyContent: 'center', padding: spacing.xl,
   },
   recommendationDialog: {
