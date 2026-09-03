@@ -17,7 +17,12 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import type { AnalysisPeriod } from '@/domain/analytics/types';
 import { describeCombinationHeadline } from '@/domain/combination/describeCombinationHeadline';
-import type { CombinationAnalysis, CombinationSize, PrizeRank } from '@/domain/combination/types';
+import type {
+  CombinationAnalysis,
+  CombinationSize,
+  IndividualNumberAnalysis,
+  PrizeRank,
+} from '@/domain/combination/types';
 import {
   CONSECUTIVE_LABELS,
   GENERATOR_BAND_KEYS,
@@ -94,6 +99,15 @@ const webTabStyle = Platform.select({
 
 function formatNumber(number: number) {
   return String(number).padStart(2, '0');
+}
+
+type NumberGapHighlight = 'critical' | 'notable' | null;
+
+function numberGapHighlight(item: IndividualNumberAnalysis): NumberGapHighlight {
+  if (item.appearanceCount < 2 || item.averageGap <= 0) return null;
+  if (item.currentGap >= item.averageGap * 2) return 'critical';
+  if (item.currentGap > item.averageGap) return 'notable';
+  return null;
 }
 
 function SectionCard({ children, testID, title }: {
@@ -1266,17 +1280,51 @@ export function CombinationResult({
             const averageGapLabel = item.appearanceCount >= 2
               ? `${item.averageGap.toFixed(1)}회`
               : '-';
+            const gapHighlight = numberGapHighlight(item);
+            const gapHighlightLabel = gapHighlight === 'critical'
+              ? '평균 2배 이상'
+              : gapHighlight === 'notable' ? '평균 초과' : null;
             return (
               <View
-                accessibilityLabel={`${item.number}번, 출현 ${item.appearanceCount}회, ${rankLabel}, 평균 출현 간격 ${averageGapLabel}, 현재 ${item.currentGap}회째 미출현`}
+                accessibilityLabel={`${item.number}번, 출현 ${item.appearanceCount}회, ${rankLabel}, 평균 출현 간격 ${averageGapLabel}, 현재 ${item.currentGap}회째 미출현${gapHighlightLabel ? `, ${gapHighlightLabel}` : ''}`}
                 accessible
                 key={item.number}
-                style={styles.numberInsightCard}
+                style={[
+                  styles.numberInsightCard,
+                  gapHighlight === 'notable' && styles.numberInsightCardNotable,
+                  gapHighlight === 'critical' && styles.numberInsightCardCritical,
+                ]}
                 testID={`individual-number-card-${item.number}`}>
-                <Text style={styles.numberInsightRank}>{rankLabel}</Text>
+                <View style={styles.numberInsightHeader}>
+                  <Text style={[
+                    styles.numberInsightRank,
+                    gapHighlight === 'critical' && styles.numberInsightRankCritical,
+                  ]}>{rankLabel}</Text>
+                  {gapHighlightLabel ? (
+                    <View
+                      style={[
+                        styles.numberInsightGapBadge,
+                        gapHighlight === 'critical' && styles.numberInsightGapBadgeCritical,
+                      ]}
+                      testID={`individual-number-gap-status-${item.number}`}>
+                      <Text style={[
+                        styles.numberInsightGapBadgeText,
+                        gapHighlight === 'critical' && styles.numberInsightGapBadgeTextCritical,
+                      ]}>{gapHighlightLabel}</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <View style={styles.numberInsightHero}>
-                  <View style={styles.numberInsightCircle}>
-                    <Text style={styles.numberInsightNumber}>{formatNumber(item.number)}</Text>
+                  <View style={[
+                    styles.numberInsightCircle,
+                    gapHighlight === 'notable' && styles.numberInsightCircleNotable,
+                    gapHighlight === 'critical' && styles.numberInsightCircleCritical,
+                  ]}>
+                    <Text style={[
+                      styles.numberInsightNumber,
+                      gapHighlight === 'notable' && styles.numberInsightNumberNotable,
+                      gapHighlight === 'critical' && styles.numberInsightNumberCritical,
+                    ]}>{formatNumber(item.number)}</Text>
                   </View>
                   <View style={styles.numberInsightFrequency}>
                     <Text style={styles.numberInsightCount}>{item.appearanceCount}회</Text>
@@ -1290,7 +1338,15 @@ export function CombinationResult({
                   </View>
                   <View style={styles.numberInsightMetricRow}>
                     <Text style={styles.numberInsightMetricLabel}>현재 미출현</Text>
-                    <Text style={styles.numberInsightMetricValue}>{item.currentGap}회</Text>
+                    <Text
+                      style={[
+                        styles.numberInsightMetricValue,
+                        gapHighlight === 'notable' && styles.numberInsightMetricValueNotable,
+                        gapHighlight === 'critical' && styles.numberInsightMetricValueCritical,
+                      ]}
+                      testID={`individual-number-current-gap-${item.number}`}>
+                      {item.currentGap}회
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -2354,11 +2410,44 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.divider,
     backgroundColor: colors.surfaceElevated,
   },
+  numberInsightCardNotable: {
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
+  },
+  numberInsightCardCritical: {
+    borderWidth: 1,
+    borderColor: colors.hot,
+    backgroundColor: colors.surfaceDanger,
+  },
+  numberInsightHeader: {
+    minHeight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
   numberInsightRank: {
     color: colors.accentPrimary,
     fontSize: typography.sizes.caption,
     fontWeight: typography.weights.semibold,
   },
+  numberInsightRankCritical: { color: colors.hot },
+  numberInsightGapBadge: {
+    minHeight: 22,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.round,
+    backgroundColor: colors.surface,
+  },
+  numberInsightGapBadgeCritical: { backgroundColor: colors.surface },
+  numberInsightGapBadgeText: {
+    color: colors.accentPrimary,
+    fontSize: 9,
+    fontWeight: typography.weights.semibold,
+  },
+  numberInsightGapBadgeTextCritical: { color: colors.hot },
   numberInsightHero: {
     marginTop: spacing.md,
     flexDirection: 'row',
@@ -2375,12 +2464,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.accentPrimary,
     backgroundColor: colors.surface,
   },
+  numberInsightCircleNotable: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: colors.surface,
+  },
+  numberInsightCircleCritical: {
+    borderColor: colors.hot,
+    backgroundColor: colors.surface,
+  },
   numberInsightNumber: {
     color: colors.textPrimary,
     fontSize: typography.sizes.section,
     fontWeight: typography.weights.bold,
     fontVariant: ['tabular-nums'],
   },
+  numberInsightNumberNotable: { color: colors.accentPrimary },
+  numberInsightNumberCritical: { color: colors.hot },
   numberInsightFrequency: {
     flex: 1,
     minWidth: 0,
@@ -2426,6 +2525,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
+  numberInsightMetricValueNotable: { color: colors.accentPrimary },
+  numberInsightMetricValueCritical: { color: colors.hot },
   comboRow: {
     minHeight: 38,
     flexDirection: 'row',

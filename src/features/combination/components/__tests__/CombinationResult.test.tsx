@@ -3,6 +3,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { StyleSheet } from 'react-native';
 
 import type { CombinationAnalysis } from '@/domain/combination/types';
+import { darkColors } from '@/theme';
 
 import { CombinationResult } from '../CombinationResult';
 
@@ -47,7 +48,7 @@ const analysis: CombinationAnalysis = {
   },
   highestMainMatch: 3,
   individualNumbers: [
-    { appearanceCount: 136, appearanceRank: 45, averageGap: 6.8, currentGap: 7, number: 1 },
+    { appearanceCount: 136, appearanceRank: 45, averageGap: 6.8, currentGap: 15, number: 1 },
     { appearanceCount: 179, appearanceRank: 4, averageGap: 5.9, currentGap: 1, number: 7 },
     { appearanceCount: 177, appearanceRank: 5, averageGap: 6.1, currentGap: 0, number: 12 },
     { appearanceCount: 170, appearanceRank: 15, averageGap: 6.3, currentGap: 2, number: 19 },
@@ -105,8 +106,8 @@ const analysis: CombinationAnalysis = {
 };
 
 describe('CombinationResult', () => {
-  test('sorts number insight cards and shows appearance gaps', async () => {
-    const { getAllByTestId, getByTestId, getByText } = await render(
+  test('sorts number insight cards and highlights notable appearance gaps', async () => {
+    const { getAllByTestId, getByTestId, getByText, queryByTestId } = await render(
       <CombinationResult
         analysis={analysis}
         bonusIncluded={false}
@@ -137,6 +138,23 @@ describe('CombinationResult', () => {
     expect(getByText('179회')).toBeTruthy();
     expect(getByText('전체 4위')).toBeTruthy();
     expect(getByText('5.9회')).toBeTruthy();
+    expect(getByText('평균 초과')).toBeTruthy();
+    expect(getByText('평균 2배 이상')).toBeTruthy();
+    expect(queryByTestId('individual-number-gap-status-7')).toBeNull();
+    expect(StyleSheet.flatten(getByTestId('individual-number-card-26').props.style)).toMatchObject({
+      backgroundColor: darkColors.surfaceAccent,
+      borderColor: darkColors.accentBorder,
+    });
+    expect(StyleSheet.flatten(getByTestId('individual-number-current-gap-26').props.style).color)
+      .toBe(darkColors.accentPrimary);
+    expect(StyleSheet.flatten(getByTestId('individual-number-card-1').props.style)).toMatchObject({
+      backgroundColor: darkColors.surfaceDanger,
+      borderColor: darkColors.hot,
+    });
+    expect(StyleSheet.flatten(getByTestId('individual-number-current-gap-1').props.style).color)
+      .toBe(darkColors.hot);
+    expect(getByTestId('individual-number-card-1').props.accessibilityLabel)
+      .toContain('평균 2배 이상');
   });
 
   test('shows the selected combination as one compact profile', async () => {
