@@ -18,7 +18,7 @@ export default function AccountDeletionScreen() {
           <Text style={styles.eyebrow}>ACCOUNT DELETION</Text>
           <Text style={styles.title}>계정 및 데이터 삭제</Text>
           <Text style={styles.description}>
-            Lotto Insight 계정과 계정에 연결된 기기·클라우드 저장 번호를 영구 삭제할 수 있습니다. 삭제한 데이터는 복구할 수 없습니다.
+            Lotto Insight 계정과 연결된 서버·클라우드 데이터를 영구 삭제할 수 있습니다. 이 기기에 저장된 번호는 삭제되지 않습니다.
           </Text>
           <View style={styles.card}>
           {state.status === 'loading' ? (
@@ -31,10 +31,23 @@ export default function AccountDeletionScreen() {
                 <Text style={styles.primaryText}>로그인</Text>
               </Pressable>
             </>
+          ) : state.status === 'anonymous' ? (
+            <>
+              <Text style={styles.cardTitle}>익명 이용 정보</Text>
+              <Text style={styles.cardCopy}>
+                서버의 익명 식별 정보를 삭제합니다. 스토어 구독은 해지되지 않으며 기기에 저장된 번호는 남아 있습니다.
+              </Text>
+              <Pressable
+                disabled={isWorking}
+                onPress={() => void deleteAccount().catch(() => undefined)}
+                style={styles.deleteButton}>
+                {isWorking ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.deleteText}>익명 이용 정보 삭제</Text>}
+              </Pressable>
+            </>
           ) : (
             <>
               <Text style={styles.cardTitle}>{state.user.email ?? '로그인된 계정'}</Text>
-              <Text style={styles.cardCopy}>삭제를 누르면 다시 로그인한 뒤 계정과 저장 데이터를 삭제합니다.</Text>
+              <Text style={styles.cardCopy}>삭제를 누르면 다시 로그인한 뒤 계정과 저장 데이터를 삭제합니다. 스토어 구독은 별도로 해지해야 합니다.</Text>
               <Pressable
                 disabled={isWorking}
                 onPress={() => void deleteAccount().catch(() => undefined)}

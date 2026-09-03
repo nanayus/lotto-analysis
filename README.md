@@ -13,7 +13,7 @@ npm run android
 npm run web
 ```
 
-Firebase Apple·Google 로그인과 계정 동기화 설정은 [Firebase 인증 설정](./docs/FIREBASE_AUTH_SETUP_KO.md)을 참고하세요. Firebase 환경변수가 없으면 앱은 기존처럼 guest 모드로 동작합니다.
+Firebase 익명 인증과 선택적 Apple·Google 계정 연결은 [Firebase 인증 설정](./docs/FIREBASE_AUTH_SETUP_KO.md)을 참고하세요. RevenueCat Pro 결제·복원 설정은 [RevenueCat 설정](./docs/REVENUECAT_SETUP_KO.md)을 참고하세요. Firebase 환경변수가 없으면 앱은 기존처럼 guest 모드로 동작합니다.
 
 검증 명령:
 

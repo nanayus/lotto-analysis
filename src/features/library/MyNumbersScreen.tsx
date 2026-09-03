@@ -140,7 +140,7 @@ export function MyNumbersScreen() {
                 else openLogin('library-cloud');
               }}>
                 <Text style={styles.storageNoticeAction}>
-                  {proPlanEnabled ? 'Pro' : authState.status === 'guest' ? '로그인' : '확인'}
+                  {proPlanEnabled ? 'Pro' : authState.status !== 'authenticated' ? '로그인' : '확인'}
                 </Text>
               </Pressable>
             ) : null}

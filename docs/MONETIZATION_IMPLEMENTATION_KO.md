@@ -17,7 +17,7 @@ type AccountTier = 'guest' | 'pro';
 | `canUseAiExplanation` | `false` | `true` |
 | `canRegenerateWithSameConditions` | `false` | `true` |
 | `canUseCustomPeriod` | `false` | `true` |
-| `storageMode` | `device` | `cloud` |
+| `storageMode` | `device` | `device`, 연결 계정은 `cloud` |
 
 ## 결과 공개
 
@@ -44,7 +44,8 @@ type AccountTier = 'guest' | 'pro';
 
 - 게스트 번호는 공용 기기 저장 키에 보관한다.
 - 기존 로그인 사용자별 기기 저장 데이터가 있으면 공용 기기 저장으로 병합한다.
-- Pro 전환 시 기기 데이터를 클라우드 데이터와 병합한다.
+- 익명 Pro는 기기 저장을 유지한다.
+- Pro 사용자가 Apple·Google 계정을 연결하면 기기 데이터를 클라우드 데이터와 병합한다.
 - 게스트는 저장·구매 표시·즐겨찾기를 로그인 없이 사용할 수 있다.
 
 ## 같은 조건으로 다시 뽑기
@@ -79,5 +80,7 @@ type AccountTier = 'guest' | 'pro';
 4. 게스트도 번호를 기기에 저장하고 다시 볼 수 있다.
 5. 게스트의 새 분석과 재열람 모두 광고 흐름을 거친다.
 6. Pro는 광고 없이 결과를 본다.
-7. 로그인만으로 게스트 한도가 늘어나지 않는다.
-8. 게스트의 같은 조건 다시 뽑기는 Pro 안내로 연결되고, Pro는 로딩 후 새 결과를 본다.
+7. 계정 연결만으로 게스트 한도가 늘어나지 않는다.
+8. 익명 사용자의 스토어 구매가 Pro로 반영되고 구매 복원 후에도 다시 활성화된다.
+9. 익명 Pro는 기기 저장, 연결 계정 Pro는 클라우드 저장을 사용한다.
+10. 게스트의 같은 조건 다시 뽑기는 Pro 안내로 연결되고, Pro는 로딩 후 새 결과를 본다.

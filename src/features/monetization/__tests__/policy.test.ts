@@ -14,8 +14,8 @@ describe('membership tier policy', () => {
     });
   });
 
-  test('gives Pro advanced analysis, cloud storage, and ad-free results', () => {
-    expect(productAccessFor('pro')).toMatchObject({
+  test('gives linked Pro accounts advanced analysis, cloud storage, and ad-free results', () => {
+    expect(productAccessFor('pro', { linkedAccount: true })).toMatchObject({
       canRegenerateWithSameConditions: true,
       canSaveNumbers: true,
       canUseAiExplanation: true,
@@ -28,8 +28,9 @@ describe('membership tier policy', () => {
     });
   });
 
-  test('does not allow a guest-shaped Pro tier', () => {
-    expect(accountTier({ authenticated: false, isPro: true })).toBe('guest');
+  test('allows an anonymous store subscriber to have the Pro tier', () => {
+    expect(accountTier({ isPro: true })).toBe('pro');
+    expect(productAccessFor('pro').storageMode).toBe('device');
   });
 
   test('unlocks every product feature while preserving guest device storage', () => {
@@ -48,7 +49,7 @@ describe('membership tier policy', () => {
 
   test('uses cloud storage after login during the open-access period', () => {
     expect(productAccessFor('guest', {
-      authenticated: true,
+      linkedAccount: true,
       unlockAllFeatures: true,
     }).storageMode).toBe('cloud');
   });

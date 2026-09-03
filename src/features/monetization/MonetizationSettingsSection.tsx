@@ -5,17 +5,22 @@ import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '
 
 import { useMonetization } from './MonetizationContext';
 
-const PRO_FEATURES = [
+const BASE_PRO_FEATURES = [
   { icon: 'ban-outline', label: '광고 없이 결과 확인' },
   { icon: 'options-outline', label: '조건 무제한 · 추천 조건' },
   { icon: 'sparkles-outline', label: 'AI 해설 · 같은 조건 다시 뽑기 · Custom' },
-  { icon: 'cloud-done-outline', label: '클라우드 저장 · 기기간 동기화' },
 ] as const;
 
 export function MonetizationSettingsSection() {
   const styles = useThemedStyles(createStyles);
   const { openPaywall, productAccess, proPlanEnabled = true } = useMonetization();
   const isPro = productAccess.tier === 'pro';
+  const proFeatures = [
+    ...BASE_PRO_FEATURES,
+    productAccess.storageMode === 'cloud'
+      ? { icon: 'cloud-done-outline' as const, label: '클라우드 저장 · 기기간 동기화' }
+      : { icon: 'phone-portrait-outline' as const, label: '내 번호 기기 저장 · 구매는 복원 가능' },
+  ];
   const guestFeatures = [
     { icon: 'play-circle-outline', label: '광고 후 분석 결과 확인' },
     {
@@ -24,7 +29,7 @@ export function MonetizationSettingsSection() {
     },
     { icon: 'phone-portrait-outline', label: '내 번호 기기 저장' },
   ] as const;
-  const features = isPro ? PRO_FEATURES : guestFeatures;
+  const features = isPro ? proFeatures : guestFeatures;
 
   if (!proPlanEnabled) return null;
 
@@ -43,7 +48,9 @@ export function MonetizationSettingsSection() {
                 </View>
                 <Text style={styles.planDescription}>
                   {isPro
-                    ? '광고 없이 모든 기기에서 이어봐요.'
+                    ? productAccess.storageMode === 'cloud'
+                      ? '광고 없이 모든 기기에서 이어봐요.'
+                      : '광고 없이 이용하고, 구매는 스토어에서 복원해요.'
                     : '광고 후 결과를 확인해요.'}
                 </Text>
               </View>

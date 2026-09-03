@@ -13,10 +13,12 @@ function formatExpiryDate(value: string | null) {
 export function ProStatusModal({
   expiresAt,
   onClose,
+  onManage,
   visible,
 }: {
   expiresAt: string | null;
   onClose: () => void;
+  onManage?: () => void;
   visible: boolean;
 }) {
   const styles = useThemedStyles(createStyles);
@@ -36,8 +38,16 @@ export function ProStatusModal({
             <Text style={styles.statusValue}>{formatExpiryDate(expiresAt)}</Text>
           </View>
           <Text style={styles.description}>
-            광고 없이 결과를 확인하고, 추천 조건·AI 해설·클라우드 동기화를 이용할 수 있어요.
+            광고 없이 결과를 확인하고 추천 조건과 AI 해설을 이용할 수 있어요.
           </Text>
+          {onManage ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={onManage}
+              style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
+              <Text style={styles.manageText}>구독 관리</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             onPress={onClose}
@@ -85,6 +95,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: spacing.lg, color: colors.textSecondary, fontSize: typography.sizes.small,
     lineHeight: 20, textAlign: 'center',
   },
+  manageButton: { minHeight: 42, marginTop: spacing.md, alignItems: 'center', justifyContent: 'center' },
+  manageText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   confirmButton: {
     width: '100%', minHeight: 48, marginTop: spacing.xl,
     alignItems: 'center', justifyContent: 'center',

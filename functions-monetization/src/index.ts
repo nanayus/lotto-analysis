@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp, type Transaction } from 'firebase-admin/firestore';
-import { defineSecret } from 'firebase-functions/params';
+import { defineBoolean, defineSecret } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 initializeApp();
@@ -12,10 +12,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const REFERRAL_APPLICATION_WINDOW_MS = 7 * DAY_MS;
 const GEMINI_MODEL = 'gemini-3.6-flash';
 const geminiApiKey = defineSecret('GEMINI_API_KEY');
+const revenueCatSecretApiKey = defineSecret('REVENUECAT_SECRET_API_KEY');
+const REVENUECAT_ENTITLEMENT_ID = process.env.REVENUECAT_ENTITLEMENT_ID?.trim() || 'pro';
 
-// Pro 상품을 다시 운영할 때 true로 바꾸면 기존 분석 제한과 결제 UI가 복구됩니다.
+// 앱의 EXPO_PUBLIC_PRO_PLAN_ENABLED와 같은 값으로 배포합니다.
 // AI 해설은 공개 기간에도 Pro 전용으로 유지해 호출 비용을 보호합니다.
-const PRO_PLAN_ENABLED = false;
+const proPlanEnabled = defineBoolean('PRO_PLAN_ENABLED', { default: false });
 
 type MonetizationProfile = {
   createdAt: Timestamp;
@@ -29,6 +31,11 @@ type AccessState = {
   inviteCode: string;
   isPro: boolean;
   proExpiresAt: string | null;
+};
+
+type RevenueCatAccess = {
+  expiresAt: Date | null;
+  isPro: boolean;
 };
 
 type ProfileRead = {
@@ -81,15 +88,62 @@ function persistProfile(transaction: Transaction, read: ProfileRead, uid: string
   transaction.set(read.inviteReference, { uid }, { merge: true });
 }
 
-function toAccessState(profile: MonetizationProfile, now: Date, hasReferral: boolean): AccessState {
-  const proExpiresAt = profile.proExpiresAt?.toDate() ?? null;
+function toAccessState(
+  profile: MonetizationProfile,
+  now: Date,
+  hasReferral: boolean,
+  revenueCatAccess?: RevenueCatAccess | null,
+): AccessState {
+  const storedProExpiresAt = profile.proExpiresAt?.toDate() ?? null;
+  const proExpiresAt = revenueCatAccess?.expiresAt ?? storedProExpiresAt;
   const referralWindowOpen = now.getTime() - profile.createdAt.toDate().getTime()
     <= REFERRAL_APPLICATION_WINDOW_MS;
   return {
     canApplyReferralCode: referralWindowOpen && !hasReferral,
     inviteCode: profile.inviteCode,
-    isPro: Boolean(proExpiresAt && proExpiresAt.getTime() > now.getTime()),
+    isPro: revenueCatAccess?.isPro
+      ?? Boolean(proExpiresAt && proExpiresAt.getTime() > now.getTime()),
     proExpiresAt: proExpiresAt?.toISOString() ?? null,
+  };
+}
+
+async function readRevenueCatAccess(uid: string, now: Date): Promise<RevenueCatAccess | null> {
+  const apiKey = revenueCatSecretApiKey.value().trim();
+  if (!apiKey) return null;
+  let response: Response;
+  try {
+    response = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch (error) {
+    console.error('RevenueCat access request failed', { error, uid });
+    throw new HttpsError('unavailable', '구독 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+  if (!response.ok) {
+    console.error('RevenueCat access request rejected', { status: response.status, uid });
+    throw new HttpsError('unavailable', '구독 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+  const body = await response.json() as {
+    subscriber?: {
+      entitlements?: Record<string, {
+        expires_date?: string | null;
+        grace_period_expires_date?: string | null;
+      }>;
+    };
+  };
+  const entitlement = body.subscriber?.entitlements?.[REVENUECAT_ENTITLEMENT_ID];
+  if (!entitlement) return { expiresAt: null, isPro: false };
+  const candidateDates = [entitlement.expires_date, entitlement.grace_period_expires_date]
+    .flatMap((value) => {
+      if (!value) return [];
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? [] : [date];
+    });
+  const expiresAt = candidateDates.sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
+  return {
+    expiresAt,
+    isPro: expiresAt ? expiresAt.getTime() > now.getTime() : true,
   };
 }
 
@@ -154,18 +208,19 @@ function geminiTextFrom(value: unknown) {
 
 export const askCombinationAi = onCall({
   region: REGION,
-  secrets: [geminiApiKey],
+  secrets: [geminiApiKey, revenueCatSecretApiKey],
   timeoutSeconds: 60,
 }, async (request) => {
   const uid = requireUid(request.auth);
   const now = new Date();
   const database = getFirestore();
-  const [profileSnapshot, referralSnapshot] = await Promise.all([
+  const [profileSnapshot, referralSnapshot, purchaseAccess] = await Promise.all([
     database.doc(`users/${uid}/monetization/access`).get(),
     database.doc(`referrals/${uid}`).get(),
+    readRevenueCatAccess(uid, now),
   ]);
   const profile = normalizeProfile(profileSnapshot.data(), uid, now);
-  if (!toAccessState(profile, now, referralSnapshot.exists).isPro) {
+  if (!toAccessState(profile, now, referralSnapshot.exists, purchaseAccess).isPro) {
     throw new HttpsError('permission-denied', 'AI combination explanation is available on Pro.');
   }
 
@@ -218,40 +273,59 @@ export const askCombinationAi = onCall({
   return { answer, model: GEMINI_MODEL };
 });
 
-export const getMonetizationAccessState = onCall({ region: REGION }, async (request) => {
+export const getMonetizationAccessState = onCall({
+  region: REGION,
+  secrets: [revenueCatSecretApiKey],
+}, async (request) => {
   const uid = requireUid(request.auth);
   const database = getFirestore();
   const referralReference = database.doc(`referrals/${uid}`);
   const now = new Date();
+  const purchaseAccess = await readRevenueCatAccess(uid, now);
   return database.runTransaction(async (transaction) => {
     const [read, referralSnapshot] = await Promise.all([
       readProfile(transaction, uid, now),
       transaction.get(referralReference),
     ]);
+    if (purchaseAccess?.expiresAt) {
+      read.profile.proExpiresAt = Timestamp.fromDate(purchaseAccess.expiresAt);
+    }
     persistProfile(transaction, read, uid);
-    return toAccessState(read.profile, now, referralSnapshot.exists);
+    return toAccessState(read.profile, now, referralSnapshot.exists, purchaseAccess);
   });
 });
 
-export const authorizeCombinationAnalysis = onCall({ region: REGION }, async (request) => {
+export const authorizeCombinationAnalysis = onCall({
+  region: REGION,
+  secrets: [revenueCatSecretApiKey],
+}, async (request) => {
   const uid = requireUid(request.auth);
   const numbers = normalizedNumbers(request.data?.numbers);
   const combinationKey = numbers.join('-');
   const database = getFirestore();
   const referralReference = database.doc(`referrals/${uid}`);
   const now = new Date();
+  const purchaseAccess = await readRevenueCatAccess(uid, now);
 
   return database.runTransaction(async (transaction) => {
     const [profileRead, referralSnapshot] = await Promise.all([
       readProfile(transaction, uid, now),
       transaction.get(referralReference),
     ]);
+    if (purchaseAccess?.expiresAt) {
+      profileRead.profile.proExpiresAt = Timestamp.fromDate(purchaseAccess.expiresAt);
+    }
     persistProfile(transaction, profileRead, uid);
-    const accessState = toAccessState(profileRead.profile, now, referralSnapshot.exists);
+    const accessState = toAccessState(
+      profileRead.profile,
+      now,
+      referralSnapshot.exists,
+      purchaseAccess,
+    );
     return {
       accessState,
       combinationKey,
-      decision: (!PRO_PLAN_ENABLED || accessState.isPro)
+      decision: (!proPlanEnabled.value() || accessState.isPro)
         ? 'AUTHORIZED_PRO' as const
         : 'REWARD_OR_PRO_REQUIRED' as const,
     };

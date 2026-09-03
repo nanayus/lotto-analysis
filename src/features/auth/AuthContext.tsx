@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   onAuthStateChanged,
   revokeAccessToken,
+  signInAnonymously,
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
@@ -96,9 +97,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!auth) return;
-    return onAuthStateChanged(auth, (firebaseUser) => {
+    const firebaseAuth = auth;
+    return onAuthStateChanged(firebaseAuth, (firebaseUser) => {
       if (!firebaseUser) {
-        setState({ status: 'guest' });
+        setState({ status: 'loading' });
+        void signInAnonymously(firebaseAuth).catch((anonymousError) => {
+          setError(messageForError(anonymousError));
+          setState({ status: 'guest' });
+        });
+        return;
+      }
+      if (firebaseUser.isAnonymous) {
+        setState({ status: 'anonymous', uid: firebaseUser.uid });
         return;
       }
       const appUser = toAppUser(firebaseUser);
@@ -186,6 +196,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const signOut = useCallback(async () => {
     if (!auth) return;
+    setState({ status: 'loading' });
     await firebaseSignOut(auth);
   }, []);
 
@@ -194,28 +205,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setWorking(true);
     setError(null);
     try {
-      const provider = auth.currentUser.providerData.some((item) => item.providerId === 'apple.com')
+      const currentUser = auth.currentUser;
+      const provider = currentUser.providerData.some((item) => item.providerId === 'apple.com')
         ? 'apple.com'
         : 'google.com';
-      const reauthentication = await reauthenticateProvider(auth.currentUser, provider);
-      if (reauthentication.appleAccessToken) {
+      const reauthentication = currentUser.isAnonymous
+        ? {}
+        : await reauthenticateProvider(currentUser, provider);
+      if ('appleAccessToken' in reauthentication && reauthentication.appleAccessToken) {
         await revokeAccessToken(auth, reauthentication.appleAccessToken);
       }
       const callDeleteAccount = httpsCallable<
         { appleAuthorizationCode?: string; appleClientKind?: 'native' | 'service' },
         { deleted: boolean }
       >(functions, 'deleteAccount');
-      const uid = auth.currentUser.uid;
+      const uid = currentUser.uid;
       await callDeleteAccount({
-        appleAuthorizationCode: reauthentication.appleAuthorizationCode,
-        appleClientKind: reauthentication.appleClientKind,
+        appleAuthorizationCode: 'appleAuthorizationCode' in reauthentication
+          ? reauthentication.appleAuthorizationCode
+          : undefined,
+        appleClientKind: 'appleClientKind' in reauthentication
+          ? reauthentication.appleClientKind
+          : undefined,
       });
       await AsyncStorage.removeItem(`lotto.numberLibrary.user.${uid}.v1`).catch(() => undefined);
       if (Platform.OS === 'web' && typeof sessionStorage !== 'undefined') {
         sessionStorage.removeItem(PENDING_INTENT_KEY);
         sessionStorage.removeItem('lotto.combinationDraft.v1');
       }
-      if (provider === 'google.com') await disconnectGoogleProvider();
+      if (!currentUser.isAnonymous && provider === 'google.com') await disconnectGoogleProvider();
       await firebaseSignOut(auth).catch(() => undefined);
     } catch (deleteError) {
       setError(messageForError(deleteError));

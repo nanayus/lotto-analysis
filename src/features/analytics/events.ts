@@ -16,6 +16,11 @@ export type AnalyticsEventName =
   | 'login_started'
   | 'paywall_closed'
   | 'paywall_viewed'
+  | 'purchase_completed'
+  | 'purchase_failed'
+  | 'purchase_restore_failed'
+  | 'purchase_restored'
+  | 'purchase_started'
   | 'reward_ad_completed'
   | 'reward_ad_failed'
   | 'reward_ad_started';

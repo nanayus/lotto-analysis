@@ -1,13 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { radius, spacing, typography, type ThemeColors, useThemedStyles } from '@/theme';
+import type { RevenueCatPackage } from './revenueCatClient';
 
 const BENEFITS = [
   '모든 분석 결과를 광고 없이 바로 확인',
   'AI 조합 해설과 후속 질문',
   '같은 조건 다시 뽑기와 회차 범위 직접 선택',
-  '내 번호 클라우드 저장과 기기간 동기화',
+  '스토어 계정으로 언제든 구매 복원',
 ] as const;
 
 const SOURCE_TITLES: Record<string, string> = {
@@ -19,17 +21,42 @@ const SOURCE_TITLES: Record<string, string> = {
 };
 
 export function ProPaywallModal({
+  error,
+  isConfigured,
+  isWorking,
   onClose,
+  onPurchase,
+  onRestore,
+  packages,
   source,
   visible,
 }: {
+  error: string | null;
+  isConfigured: boolean;
+  isWorking: boolean;
   onClose: () => void;
+  onPurchase: (identifier: string) => Promise<boolean>;
+  onRestore: () => Promise<boolean>;
+  packages: RevenueCatPackage[];
   source?: string | null;
   visible: boolean;
 }) {
   const styles = useThemedStyles(createStyles);
   const isAiExplanation = source === 'ai-combination-explanation';
   const title = source ? SOURCE_TITLES[source] : undefined;
+  const sortedPackages = useMemo(() => [...packages].sort((left, right) => {
+    const order = { annual: 0, monthly: 1, other: 2 } as const;
+    return order[left.kind] - order[right.kind];
+  }), [packages]);
+  const [selectedIdentifier, setSelectedIdentifier] = useState<string | null>(null);
+  const selectedPackage = sortedPackages.find((item) => item.identifier === selectedIdentifier)
+    ?? sortedPackages[0];
+
+  const packageLabel = (item: RevenueCatPackage) => {
+    if (item.kind === 'annual') return '연간';
+    if (item.kind === 'monthly') return '월간';
+    return item.title;
+  };
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -55,20 +82,60 @@ export function ProPaywallModal({
             ))}
           </View>
           <View style={styles.plans}>
-            <View style={[styles.plan, styles.planRecommended]}>
-              <View><Text style={styles.planName}>연간</Text><Text style={styles.planHint}>약 34% 할인</Text></View>
-              <Text style={styles.planPrice}>₩39,000</Text>
-            </View>
-            <View style={styles.plan}>
-              <Text style={styles.planName}>월간</Text>
-              <Text style={styles.planPrice}>₩4,900</Text>
-            </View>
+            {sortedPackages.map((item) => {
+              const selected = item.identifier === selectedPackage?.identifier;
+              return (
+                <Pressable
+                  accessibilityLabel={`${packageLabel(item)} ${item.priceString}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  key={item.identifier}
+                  onPress={() => setSelectedIdentifier(item.identifier)}
+                  style={({ pressed }) => [
+                    styles.plan,
+                    selected && styles.planRecommended,
+                    pressed && styles.pressed,
+                  ]}>
+                  <View>
+                    <Text style={styles.planName}>{packageLabel(item)}</Text>
+                    {item.kind === 'annual' ? <Text style={styles.planHint}>추천</Text> : null}
+                  </View>
+                  <Text style={styles.planPrice}>{item.priceString}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-          <View accessibilityRole="button" accessibilityState={{ disabled: true }} style={styles.disabledButton}>
-            <Text style={styles.disabledButtonText}>스토어 결제 연결 준비 중</Text>
-          </View>
+          <Pressable
+            accessibilityLabel={selectedPackage ? `${packageLabel(selectedPackage)} Pro 시작` : '상품 정보를 확인할 수 없음'}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isWorking || !selectedPackage }}
+            disabled={isWorking || !selectedPackage}
+            onPress={() => selectedPackage && void onPurchase(selectedPackage.identifier)}
+            style={({ pressed }) => [
+              styles.purchaseButton,
+              (!selectedPackage || isWorking) && styles.buttonDisabled,
+              pressed && styles.pressed,
+            ]}>
+            {isWorking ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.purchaseButtonText}>
+                {selectedPackage ? `${packageLabel(selectedPackage)} Pro 시작` : '상품 정보를 확인할 수 없어요'}
+              </Text>
+            )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!isConfigured || isWorking}
+            onPress={() => void onRestore()}
+            style={({ pressed }) => [styles.restoreButton, pressed && styles.pressed]}>
+            <Text style={[styles.restoreText, (!isConfigured || isWorking) && styles.restoreTextDisabled]}>
+              구매 복원
+            </Text>
+          </Pressable>
+          {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
           <Text style={styles.notice}>
-            실제 결제는 App Store·Google Play 상품과 RevenueCat 연결 후 활성화됩니다.
+            구독은 선택한 스토어 계정으로 결제되며 해지 전까지 자동 갱신됩니다. 저장한 번호는 계정을 연결하기 전까지 이 기기에만 보관됩니다.
           </Text>
         </View>
       </View>
@@ -94,7 +161,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   planName: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
   planHint: { marginTop: 2, color: colors.accentPrimary, fontSize: typography.sizes.caption },
   planPrice: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold },
-  disabledButton: { height: 48, marginTop: spacing.lg, borderRadius: radius.round, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentDisabled },
-  disabledButtonText: { color: colors.textSecondary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
+  purchaseButton: { height: 48, marginTop: spacing.lg, borderRadius: radius.round, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary },
+  purchaseButtonText: { color: '#FFFFFF', fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
+  buttonDisabled: { backgroundColor: colors.accentDisabled },
+  restoreButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
+  restoreText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  restoreTextDisabled: { color: colors.textTertiary },
+  error: { marginTop: spacing.xs, color: colors.hot, fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center' },
   notice: { marginTop: spacing.md, color: colors.textTertiary, fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  pressed: { opacity: 0.72 },
 });

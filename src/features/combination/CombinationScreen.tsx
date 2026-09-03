@@ -30,6 +30,7 @@ import { fillCombinationRandomly } from './randomFill';
 import { CombinationComparison } from './components/CombinationComparison';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useAuth } from '@/features/auth/AuthContext';
+import { authUid } from '@/features/auth/types';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { isAnalysisAuthorized } from '@/features/monetization/types';
 import {
@@ -123,6 +124,7 @@ export function CombinationScreen() {
     togglePurchased,
   } = useNumberLibrary();
   const { consumePendingIntent, openLogin, state: authState } = useAuth();
+  const activeUid = authUid(authState);
   const {
     authorizeAnalysis,
     openPaywall,
@@ -679,7 +681,7 @@ export function CombinationScreen() {
                 analysis={analysisState.snapshot}
                 bonusIncluded={analysisState.includeBonus}
                 canRegenerate={Boolean(savedAnalysisCombination?.generatorConditions)}
-                canUseAiExplanation={productAccess.canUseAiExplanation && authState.status === 'authenticated'}
+                canUseAiExplanation={productAccess.canUseAiExplanation && Boolean(activeUid)}
                 favorite={savedAnalysisCombination?.favorite}
                 firstRound={firstRound}
                 isPro={productAccess.canRegenerateWithSameConditions}
@@ -689,7 +691,7 @@ export function CombinationScreen() {
                 onOpenHistory={() => setMode({ kind: 'history' })}
                 onOpenPrizeRank={(rank) => setMode({ kind: 'prizeRank', rank })}
                 onOpenPro={() => {
-                  if (!proPlanEnabled && authState.status !== 'authenticated') {
+                  if (!proPlanEnabled && !activeUid) {
                     openLogin('ai-combination-explanation');
                     return;
                   }
@@ -703,7 +705,7 @@ export function CombinationScreen() {
                 onToggleFavorite={() => toggleLibraryState('favorite')}
                 onTogglePurchased={() => toggleLibraryState('purchased')}
                 period={analysisState.period}
-                requiresAiLogin={!proPlanEnabled && authState.status !== 'authenticated'}
+                requiresAiLogin={!proPlanEnabled && !activeUid}
                 showAiExplanation={proPlanEnabled}
                 purchased={savedAnalysisCombination?.purchased}
               />

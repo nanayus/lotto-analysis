@@ -115,7 +115,20 @@ export async function getProviderCredential(provider: AuthProviderId) {
 
 export async function authenticate(auth: Auth, provider: AuthProviderId) {
   const result = await getProviderCredential(provider);
-  const signedIn = await signInWithCredential(auth, result.credential);
+  let signedIn;
+  if (auth.currentUser?.isAnonymous) {
+    try {
+      signedIn = await linkWithCredential(auth.currentUser, result.credential);
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error
+        ? String(error.code)
+        : '';
+      if (!code.includes('credential-already-in-use')) throw error;
+      signedIn = await signInWithCredential(auth, result.credential);
+    }
+  } else {
+    signedIn = await signInWithCredential(auth, result.credential);
+  }
   if (result.displayName && !signedIn.user.displayName) {
     await updateProfile(signedIn.user, { displayName: result.displayName });
   }

@@ -7,6 +7,7 @@ import { trackEvent } from '@/features/analytics/analyticsClient';
 import { useAuth } from '@/features/auth/AuthContext';
 import { functions } from '@/features/auth/firebaseClient';
 import { LoginModal } from '@/features/auth/LoginModal';
+import { authUid, hasLinkedAccount } from '@/features/auth/types';
 
 import { ProPaywallModal } from './ProPaywallModal';
 import { ReferralCodeOnboardingModal } from './ReferralCodeOnboardingModal';
@@ -17,6 +18,14 @@ import {
   type MonetizationAccessState,
 } from './types';
 import { accountTier, productAccessFor, type ProductAccess } from './policy';
+import {
+  initializeRevenueCat,
+  purchaseRevenueCatPackage,
+  restoreRevenueCatPurchases,
+  subscribeToRevenueCat,
+  type RevenueCatPackage,
+  type RevenueCatSnapshot,
+} from './revenueCatClient';
 
 export const REFERRAL_ONBOARDING_PENDING_KEY = 'lotto.referralOnboarding.pending.v1';
 
@@ -36,12 +45,19 @@ type MonetizationValue = {
   openPaywall: (source?: string) => void;
   openReferralCode: () => void;
   paywallSource: string | null;
+  purchaseError: string | null;
+  purchasePackage: (identifier: string) => Promise<boolean>;
+  purchasePackages: RevenueCatPackage[];
+  purchasesConfigured: boolean;
+  isPurchaseWorking: boolean;
   proPlanEnabled: boolean;
   productAccess: ProductAccess;
   refresh: () => Promise<void>;
+  restorePurchases: () => Promise<boolean>;
   rewardedAdsAvailable: boolean;
   showRewardedAd: () => Promise<boolean>;
   state: MonetizationState;
+  subscriptionManagementUrl: string | null;
 };
 
 const rewardedAdTestFallbackAvailable = Platform.OS === 'web' || __DEV__;
@@ -51,6 +67,14 @@ const EMPTY_ACCESS_STATE: MonetizationAccessState = {
   inviteCode: '',
   isPro: false,
   proExpiresAt: null,
+};
+
+const EMPTY_PURCHASE_SNAPSHOT: RevenueCatSnapshot = {
+  configured: false,
+  expiresAt: null,
+  isPro: false,
+  managementUrl: null,
+  packages: [],
 };
 
 const fallbackValue: MonetizationValue = {
@@ -67,12 +91,19 @@ const fallbackValue: MonetizationValue = {
   openPaywall: () => undefined,
   openReferralCode: () => undefined,
   paywallSource: null,
+  purchaseError: null,
+  purchasePackage: async () => false,
+  purchasePackages: [],
+  purchasesConfigured: false,
+  isPurchaseWorking: false,
   proPlanEnabled: PRO_PLAN_ENABLED,
   productAccess: productAccessFor('guest', { unlockAllFeatures: ALL_FEATURES_UNLOCKED }),
   refresh: async () => undefined,
+  restorePurchases: async () => false,
   rewardedAdsAvailable: false,
   showRewardedAd: async () => false,
   state: { status: 'guest' },
+  subscriptionManagementUrl: null,
 };
 
 const MonetizationContext = createContext<MonetizationValue>(fallbackValue);
@@ -95,6 +126,9 @@ function messageForError(error: unknown) {
 export function MonetizationProvider({ children }: PropsWithChildren) {
   const { openLogin, state: authState } = useAuth();
   const [state, setState] = useState<MonetizationState>({ status: 'guest' });
+  const [purchaseSnapshot, setPurchaseSnapshot] = useState(EMPTY_PURCHASE_SNAPSHOT);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [isPurchaseWorking, setPurchaseWorking] = useState(false);
   const [isPaywallVisible, setPaywallVisible] = useState(false);
   const [paywallSource, setPaywallSource] = useState<string | null>(null);
   const [isReferralCodeVisible, setReferralCodeVisible] = useState(false);
@@ -102,31 +136,79 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   const [referralPromptError, setReferralPromptError] = useState<string | null>(null);
   const [isApplyingReferral, setApplyingReferral] = useState(false);
   const referralApplicationInFlight = useRef(false);
+  const activeUid = authUid(authState);
+
+  const applyPurchaseSnapshot = useCallback((snapshot: RevenueCatSnapshot) => {
+    setPurchaseSnapshot(snapshot);
+    setState((current) => {
+      if (current.status !== 'ready') return current;
+      return {
+        access: {
+          ...current.access,
+          isPro: snapshot.configured ? snapshot.isPro : current.access.isPro,
+          proExpiresAt: snapshot.configured ? snapshot.expiresAt : current.access.proExpiresAt,
+        },
+        status: 'ready',
+      };
+    });
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (authState.status !== 'authenticated') {
+    if (!activeUid) {
       setState({ status: authState.status === 'loading' ? 'loading' : 'guest' });
       return;
     }
-    if (!functions) {
-      setState({ error: 'Firebase Functions 연결 정보가 필요해요.', status: 'error' });
-      return;
-    }
     setState((current) => current.status === 'ready' ? current : { status: 'loading' });
-    try {
+    const serverAccessPromise = functions ? (async () => {
       const getAccessState = httpsCallable<Record<string, never>, MonetizationAccessState>(
         functions,
         'getMonetizationAccessState',
       );
       const result = await getAccessState({});
-      setState({ access: normalizeMonetizationAccessState(result.data), status: 'ready' });
-    } catch (error) {
-      setState({ error: messageForError(error), status: 'error' });
+      return normalizeMonetizationAccessState(result.data);
+    })() : Promise.resolve(EMPTY_ACCESS_STATE);
+    const purchasePromise = PRO_PLAN_ENABLED
+      ? initializeRevenueCat(activeUid)
+      : Promise.resolve(EMPTY_PURCHASE_SNAPSHOT);
+    const [serverResult, purchaseResult] = await Promise.allSettled([
+      serverAccessPromise,
+      purchasePromise,
+    ]);
+    if (serverResult.status === 'rejected' && purchaseResult.status === 'rejected') {
+      setState({ error: messageForError(serverResult.reason), status: 'error' });
+      setPurchaseError(messageForError(purchaseResult.reason));
+      return;
     }
-  }, [authState.status]);
+    const serverAccess = serverResult.status === 'fulfilled'
+      ? serverResult.value
+      : EMPTY_ACCESS_STATE;
+    const purchases = purchaseResult.status === 'fulfilled'
+      ? purchaseResult.value
+      : EMPTY_PURCHASE_SNAPSHOT;
+    setPurchaseSnapshot(purchases);
+    if (purchaseResult.status === 'rejected') {
+      setPurchaseError(messageForError(purchaseResult.reason));
+    } else {
+      setPurchaseError(null);
+    }
+    setState({
+      access: {
+        ...serverAccess,
+        isPro: purchases.configured ? purchases.isPro : serverAccess.isPro,
+        proExpiresAt: purchases.configured ? purchases.expiresAt : serverAccess.proExpiresAt,
+      },
+      status: 'ready',
+    });
+  }, [activeUid, authState.status]);
 
   useEffect(() => {
     queueMicrotask(() => void refresh());
   }, [refresh]);
+
+  useEffect(() => {
+    if (!purchaseSnapshot.configured) return;
+    return subscribeToRevenueCat(applyPurchaseSnapshot);
+  }, [applyPurchaseSnapshot, purchaseSnapshot.configured]);
 
   const authorizeAnalysis = useCallback(async (
     numbers: readonly number[],
@@ -144,8 +226,8 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   }, [state]);
 
   const applyReferral = useCallback(async (code: string) => {
-    if (authState.status !== 'authenticated' || !functions) {
-      throw new Error('로그인과 Firebase Functions 연결이 필요해요.');
+    if (!activeUid || !functions) {
+      throw new Error('Firebase 연결을 확인한 뒤 다시 시도해 주세요.');
     }
     const apply = httpsCallable<{ code: string }, { applied: boolean }>(functions, 'applyReferralCode');
     try {
@@ -154,7 +236,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     } catch (error) {
       throw new Error(messageForError(error));
     }
-  }, [authState.status, refresh]);
+  }, [activeUid, refresh]);
 
   const finishReferralCode = useCallback(async () => {
     setPendingReferralCode('');
@@ -185,13 +267,13 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setPendingReferralCode(normalizedCode);
     setReferralPromptError(null);
     void AsyncStorage.setItem(REFERRAL_ONBOARDING_PENDING_KEY, normalizedCode).catch(() => undefined);
-    if (authState.status !== 'authenticated') {
+    if (!activeUid) {
       setReferralCodeVisible(false);
       openLogin('referral-code');
       return;
     }
     void applyOnboardingReferral(normalizedCode);
-  }, [applyOnboardingReferral, authState.status, openLogin]);
+  }, [activeUid, applyOnboardingReferral, openLogin]);
 
   useEffect(() => {
     let active = true;
@@ -206,7 +288,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (
       !pendingReferralCode
-      || authState.status !== 'authenticated'
+      || !activeUid
       || state.status !== 'ready'
     ) return;
     if (!state.access.canApplyReferralCode) {
@@ -216,7 +298,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     queueMicrotask(() => void applyOnboardingReferral(pendingReferralCode));
   }, [
     applyOnboardingReferral,
-    authState.status,
+    activeUid,
     finishReferralCode,
     pendingReferralCode,
     state,
@@ -247,12 +329,60 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     await new Promise((resolve) => setTimeout(resolve, 650));
     return true;
   }, []);
+
+  const purchasePackage = useCallback(async (identifier: string) => {
+    if (!purchaseSnapshot.configured || isPurchaseWorking) return false;
+    setPurchaseWorking(true);
+    setPurchaseError(null);
+    trackEvent('purchase_started', { package_id: identifier, source: paywallSource ?? 'unspecified' });
+    try {
+      const next = await purchaseRevenueCatPackage(identifier);
+      applyPurchaseSnapshot(next);
+      trackEvent('purchase_completed', { package_id: identifier, source: paywallSource ?? 'unspecified' });
+      if (next.isPro) setPaywallVisible(false);
+      return next.isPro;
+    } catch (error) {
+      const cancelled = Boolean(
+        error
+        && typeof error === 'object'
+        && 'userCancelled' in error
+        && error.userCancelled,
+      );
+      if (!cancelled) {
+        setPurchaseError(messageForError(error));
+        trackEvent('purchase_failed', { package_id: identifier, source: paywallSource ?? 'unspecified' });
+      }
+      return false;
+    } finally {
+      setPurchaseWorking(false);
+    }
+  }, [applyPurchaseSnapshot, isPurchaseWorking, paywallSource, purchaseSnapshot.configured]);
+
+  const restorePurchases = useCallback(async () => {
+    if (!purchaseSnapshot.configured || isPurchaseWorking) return false;
+    setPurchaseWorking(true);
+    setPurchaseError(null);
+    try {
+      const next = await restoreRevenueCatPurchases();
+      applyPurchaseSnapshot(next);
+      trackEvent('purchase_restored', { result: next.isPro ? 'pro' : 'no_active_purchase' });
+      if (!next.isPro) setPurchaseError('복원할 수 있는 활성 Pro 구독이 없어요.');
+      if (next.isPro) setPaywallVisible(false);
+      return next.isPro;
+    } catch (error) {
+      setPurchaseError(messageForError(error));
+      trackEvent('purchase_restore_failed');
+      return false;
+    } finally {
+      setPurchaseWorking(false);
+    }
+  }, [applyPurchaseSnapshot, isPurchaseWorking, purchaseSnapshot.configured]);
+
   const tier = accountTier({
-    authenticated: authState.status === 'authenticated',
     isPro: state.status === 'ready' && state.access.isPro,
   });
   const productAccess = productAccessFor(tier, {
-    authenticated: authState.status === 'authenticated',
+    linkedAccount: hasLinkedAccount(authState),
     unlockAllFeatures: ALL_FEATURES_UNLOCKED,
   });
 
@@ -266,12 +396,19 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     openPaywall,
     openReferralCode,
     paywallSource,
+    purchaseError,
+    purchasePackage,
+    purchasePackages: purchaseSnapshot.packages,
+    purchasesConfigured: purchaseSnapshot.configured,
+    isPurchaseWorking,
     proPlanEnabled: PRO_PLAN_ENABLED,
     productAccess,
     refresh,
+    restorePurchases,
     rewardedAdsAvailable: PRO_PLAN_ENABLED && rewardedAdTestFallbackAvailable,
     showRewardedAd,
     state,
+    subscriptionManagementUrl: purchaseSnapshot.managementUrl,
   }), [
     applyReferral,
     authorizeAnalysis,
@@ -282,8 +419,13 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     openPaywall,
     openReferralCode,
     paywallSource,
+    purchaseError,
+    purchasePackage,
+    purchaseSnapshot,
+    isPurchaseWorking,
     productAccess,
     refresh,
+    restorePurchases,
     showRewardedAd,
     state,
   ]);
@@ -294,7 +436,13 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
       <LoginModal />
       {PRO_PLAN_ENABLED ? (
         <ProPaywallModal
+          error={purchaseError}
+          isConfigured={purchaseSnapshot.configured}
+          isWorking={isPurchaseWorking}
           onClose={closePaywall}
+          onPurchase={purchasePackage}
+          onRestore={restorePurchases}
+          packages={purchaseSnapshot.packages}
           source={paywallSource}
           visible={isPaywallVisible}
         />
@@ -304,7 +452,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
         isApplying={isApplyingReferral}
         onApply={submitOnboardingReferral}
         onClose={closeReferralCode}
-        requiresLogin={authState.status !== 'authenticated'}
+        requiresLogin={!activeUid}
         visible={isReferralCodeVisible}
       />
     </MonetizationContext.Provider>

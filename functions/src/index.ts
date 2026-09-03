@@ -12,6 +12,23 @@ const appleNativeClientId = defineSecret('APPLE_NATIVE_CLIENT_ID');
 const applePrivateKey = defineSecret('APPLE_PRIVATE_KEY');
 const appleServiceClientId = defineSecret('APPLE_SERVICE_CLIENT_ID');
 const appleTeamId = defineSecret('APPLE_TEAM_ID');
+const revenueCatSecretApiKey = defineSecret('REVENUECAT_SECRET_API_KEY');
+
+async function deleteRevenueCatCustomer(uid: string) {
+  const apiKey = revenueCatSecretApiKey.value().trim();
+  if (!apiKey) return;
+  const response = await fetch(
+    `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`,
+    {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      method: 'DELETE',
+      signal: AbortSignal.timeout(8_000),
+    },
+  );
+  if (!response.ok && response.status !== 404) {
+    throw new HttpsError('unavailable', 'Purchase data could not be deleted.');
+  }
+}
 
 async function buildAppleClientSecret(clientId: string) {
   const key = await importPKCS8(applePrivateKey.value().replace(/\\n/g, '\n'), 'ES256');
@@ -57,13 +74,22 @@ async function revokeAppleAuthorization(authorizationCode: string, clientId: str
 export const deleteAccount = onCall({
   enforceAppCheck: false,
   region: 'asia-northeast3',
-  secrets: [appleKeyId, appleNativeClientId, applePrivateKey, appleServiceClientId, appleTeamId],
+  secrets: [
+    appleKeyId,
+    appleNativeClientId,
+    applePrivateKey,
+    appleServiceClientId,
+    appleTeamId,
+    revenueCatSecretApiKey,
+  ],
 }, async (request) => {
   const authentication = request.auth;
   if (!authentication) throw new HttpsError('unauthenticated', 'Authentication is required.');
   const uid = authentication.uid;
   const authenticatedAt = Number(authentication.token.auth_time ?? 0);
-  if (!authenticatedAt || Date.now() / 1000 - authenticatedAt > 5 * 60) {
+  const signInProvider = authentication.token.firebase?.sign_in_provider;
+  const isAnonymous = signInProvider === 'anonymous';
+  if (!isAnonymous && (!authenticatedAt || Date.now() / 1000 - authenticatedAt > 5 * 60)) {
     throw new HttpsError('failed-precondition', 'Recent authentication is required.');
   }
 
@@ -79,6 +105,8 @@ export const deleteAccount = onCall({
       console.error('Apple authorization revocation failed', { uid, error });
     });
   }
+
+  await deleteRevenueCatCustomer(uid);
 
   const database = getFirestore();
   const monetization = await database.doc(`users/${uid}/monetization/access`).get();

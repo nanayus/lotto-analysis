@@ -1,10 +1,12 @@
-# Firebase 소셜 로그인 운영 설정
+# Firebase 익명 인증·계정 연결 운영 설정
 
-앱 코드는 Firebase 설정이 없어도 guest 모드로 실행됩니다. 실제 로그인을 켜려면 아래 콘솔 설정과 배포가 필요합니다.
+앱 코드는 Firebase 설정이 없어도 guest 모드로 실행됩니다. 설정된 빌드에서는 첫 실행 시 익명 UID를 만들고, Apple·Google 로그인은 이 UID에 선택적으로 연결합니다.
 
 ## 1. Firebase 프로젝트
 
-개발용과 운영용 프로젝트를 분리하고 Authentication에서 Google과 Apple을 활성화합니다. Authentication 설정은 **이메일 주소당 계정 1개**를 유지합니다.
+개발용과 운영용 프로젝트를 분리하고 Authentication에서 **Anonymous**, Google, Apple을 활성화합니다. Authentication 설정은 **이메일 주소당 계정 1개**를 유지합니다.
+
+익명 계정 자동 삭제는 장기간 사용한 게스트 UID까지 바꿀 수 있으므로 구매 복원·이용 기록 정책을 검증하기 전에는 활성화하지 않습니다.
 
 다음 앱을 등록합니다.
 
@@ -55,12 +57,13 @@ firebase functions:secrets:set APPLE_SERVICE_CLIENT_ID
 firebase functions:secrets:set APPLE_KEY_ID
 firebase functions:secrets:set APPLE_TEAM_ID
 firebase functions:secrets:set APPLE_PRIVATE_KEY
+firebase functions:secrets:set REVENUECAT_SECRET_API_KEY
 npm --prefix functions install
 npm --prefix functions run build
 firebase deploy --only firestore:rules,functions
 ```
 
-`APPLE_NATIVE_CLIENT_ID`는 iOS App ID인 `net.wondly.lottoinsight`, `APPLE_SERVICE_CLIENT_ID`는 Android·Web 인증용 Services ID입니다. 함수가 authorization code를 발급한 플랫폼에 맞는 client ID로 Apple 토큰을 철회합니다.
+`APPLE_NATIVE_CLIENT_ID`는 iOS App ID인 `net.wondly.lottoinsight`, `APPLE_SERVICE_CLIENT_ID`는 Android·Web 인증용 Services ID입니다. 함수가 authorization code를 발급한 플랫폼에 맞는 client ID로 Apple 토큰을 철회합니다. `REVENUECAT_SECRET_API_KEY`는 계정 삭제 시 해당 Firebase UID의 RevenueCat 고객 데이터를 함께 정리하는 데 사용하며, 스토어 구독 자체는 별도로 취소해야 합니다.
 
 ## 5. 계정 삭제 URL
 
@@ -75,6 +78,9 @@ https://lotto.wondly.net/account-deletion
 ## 6. 검증
 
 - Expo Go가 아니라 EAS development build에서 iOS·Android를 확인합니다.
+- 첫 실행에서 로그인 화면 없이 익명 UID가 생성되고 재실행 후에도 같은 UID인지 확인합니다.
+- 익명 상태에서 Apple·Google 연결 후 UID가 유지되는지 확인합니다.
+- 이미 존재하는 Apple·Google 계정으로 연결할 때 해당 기존 계정으로 안전하게 전환되는지 확인합니다.
 - Apple 이메일 공개/비공개, Google 동일 이메일 자동 연결, private relay 계정의 명시적 연결을 각각 확인합니다.
 - Firestore Emulator에서 다른 UID의 `users/{uid}` 하위 접근이 거부되는지 확인합니다.
 - 실제 계정 삭제 후 Authentication 사용자, Firestore 문서, 기기별 캐시가 남지 않는지 확인합니다.

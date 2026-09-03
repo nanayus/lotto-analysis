@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { type ReactNode, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
@@ -15,7 +15,7 @@ const webStickyHeader = Platform.select({
 
 function accountLabel(state: ReturnType<typeof useAuth>['state']) {
   if (state.status === 'loading') return '계정 확인 중';
-  if (state.status !== 'authenticated') return '로그인';
+  if (state.status !== 'authenticated') return '설정';
   const preferred = state.user.displayName?.trim() || state.user.email?.split('@')[0]?.trim();
   return preferred || '내 계정';
 }
@@ -28,7 +28,7 @@ type MainTabHeaderProps = {
 export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainTabHeaderProps) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { openLogin, state: authState } = useAuth();
+  const { state: authState } = useAuth();
   const monetization = useMonetization();
   const [proStatusVisible, setProStatusVisible] = useState(false);
   const authenticated = authState.status === 'authenticated';
@@ -37,12 +37,9 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   const proExpiresAt = monetization.state?.status === 'ready'
     ? monetization.state.access.proExpiresAt
     : null;
+  const subscriptionManagementUrl = monetization.subscriptionManagementUrl ?? null;
 
   const openAccount = () => {
-    if (!authenticated) {
-      openLogin('main-header');
-      return;
-    }
     if (onAuthenticatedAccountPress) onAuthenticatedAccountPress();
     else router.navigate('/(tabs)/settings');
   };
@@ -59,15 +56,15 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   return (
     <View style={[styles.mainBar, webStickyHeader]} testID="main-tab-header">
       <Pressable
-        accessibilityHint={authenticated ? '환경설정의 계정 영역으로 이동합니다' : '로그인 화면을 엽니다'}
-        accessibilityLabel={authenticated ? `${accountLabel(authState)} 계정` : '로그인'}
+        accessibilityHint="환경설정으로 이동합니다"
+        accessibilityLabel={authenticated ? `${accountLabel(authState)} 계정` : '설정'}
         accessibilityRole="button"
         onPress={openAccount}
         style={({ pressed }) => [styles.accountButton, pressed && styles.pressed]}>
         <View style={styles.accountIcon}>
           <Ionicons
             color={authenticated ? colors.accentPrimary : colors.textSecondary}
-            name={authenticated ? 'person' : 'person-outline'}
+            name={authenticated ? 'person' : 'settings-outline'}
             size={17}
           />
         </View>
@@ -94,6 +91,9 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
           <ProStatusModal
             expiresAt={proExpiresAt}
             onClose={() => setProStatusVisible(false)}
+            onManage={subscriptionManagementUrl
+              ? () => void Linking.openURL(subscriptionManagementUrl)
+              : undefined}
             visible={proStatusVisible}
           />
         </>

@@ -33,23 +33,58 @@ export function AccountSettingsSection() {
     );
   }
 
-  if (state.status === 'guest') {
+  if (state.status === 'guest' || state.status === 'anonymous') {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>계정</Text>
         <View style={styles.card}>
           <Pressable
-            accessibilityHint="Apple 또는 Google 계정으로 로그인합니다"
+            accessibilityHint="Apple 또는 Google 계정을 선택적으로 연결합니다"
             accessibilityRole="button"
             onPress={() => openLogin()}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <View style={styles.loginCopy}>
-              <Text style={styles.rowLabel}>계정 연결</Text>
-              <Text style={styles.rowDescription}>기기간 동기화와 계정 복원에 사용해요.</Text>
+              <Text style={styles.rowLabel}>계정 연결 · 선택</Text>
+              <Text style={styles.rowDescription}>번호를 다른 기기에서도 이어볼 때만 필요해요.</Text>
             </View>
             <Ionicons color="#2997FF" name="person-circle-outline" size={25} />
           </Pressable>
+          {state.status === 'anonymous' ? (
+            <>
+              <View style={styles.separator} />
+              <Pressable
+                accessibilityRole="button"
+                disabled={isWorking}
+                onPress={() => setDeleteVisible(true)}
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                <Text style={styles.dangerText}>익명 이용 정보 삭제</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
+        {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+        <Modal animationType="fade" onRequestClose={() => setDeleteVisible(false)} transparent visible={deleteVisible}>
+          <View style={styles.modalRoot}>
+            <Pressable accessibilityLabel="익명 이용 정보 삭제 취소" onPress={() => setDeleteVisible(false)} style={styles.backdrop} />
+            <View accessibilityRole="alert" style={styles.dialog}>
+              <Text style={styles.dialogTitle}>익명 이용 정보를 삭제할까요?</Text>
+              <Text style={styles.dialogDescription}>
+                서버의 익명 식별 정보가 삭제됩니다. 스토어 구독은 해지되지 않으며 이 기기에 저장된 번호는 남아 있어요.
+              </Text>
+              <View style={styles.dialogActions}>
+                <Pressable disabled={isWorking} onPress={() => setDeleteVisible(false)} style={styles.dialogButton}>
+                  <Text style={styles.cancelText}>취소</Text>
+                </Pressable>
+                <Pressable
+                  disabled={isWorking}
+                  onPress={() => void deleteAccount().then(() => setDeleteVisible(false)).catch(() => undefined)}
+                  style={[styles.dialogButton, styles.deleteButton]}>
+                  {isWorking ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.deleteText}>삭제</Text>}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -122,7 +157,7 @@ export function AccountSettingsSection() {
           <View accessibilityRole="alert" style={styles.dialog}>
             <Text style={styles.dialogTitle}>계정을 삭제할까요?</Text>
             <Text style={styles.dialogDescription}>
-              계정과 클라우드 저장 데이터가 삭제됩니다. 이 기기에 저장된 번호는 남아 있어요.
+              계정과 클라우드 저장 데이터가 삭제됩니다. 스토어 구독은 별도로 해지해야 하며 이 기기에 저장된 번호는 남아 있어요.
             </Text>
             <View style={styles.dialogActions}>
               <Pressable disabled={isWorking} onPress={() => setDeleteVisible(false)} style={styles.dialogButton}>

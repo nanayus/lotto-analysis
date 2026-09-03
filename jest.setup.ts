@@ -50,6 +50,7 @@ jest.mock('firebase/auth', () => ({
   reauthenticateWithCredential: jest.fn(),
   revokeAccessToken: jest.fn(),
   setPersistence: jest.fn(() => Promise.resolve()),
+  signInAnonymously: jest.fn(() => Promise.resolve()),
   signInWithCredential: jest.fn(),
   signOut: jest.fn(() => Promise.resolve()),
   updateProfile: jest.fn(() => Promise.resolve()),
@@ -77,6 +78,24 @@ jest.mock('@react-native-firebase/analytics', () => ({
   logEvent: jest.fn(),
   logScreenView: jest.fn(() => Promise.resolve()),
   setAnalyticsCollectionEnabled: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('react-native-purchases', () => ({
+  __esModule: true,
+  default: {
+    addCustomerInfoUpdateListener: jest.fn(),
+    configure: jest.fn(),
+    getCustomerInfo: jest.fn(),
+    getOfferings: jest.fn(),
+    logIn: jest.fn(),
+    purchasePackage: jest.fn(),
+    removeCustomerInfoUpdateListener: jest.fn(),
+    restorePurchases: jest.fn(),
+  },
+  PACKAGE_TYPE: {
+    ANNUAL: 'ANNUAL',
+    MONTHLY: 'MONTHLY',
+  },
 }));
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
