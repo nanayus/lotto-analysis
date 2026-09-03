@@ -1,16 +1,113 @@
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NumberFlow from 'rn-number-flow';
 
 import { MainTabHeader } from '@/components/ui/AppTopBar';
+import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
+import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
+import {
+  formatDrawDate,
+  formatLottoCountdown,
+  getLottoCountdownParts,
+  padTime,
+} from './drawSchedule';
+
 type GameCount = 1 | 2 | 3 | 5;
 const GUEST_GAME_COUNTS: readonly GameCount[] = [1, 2];
 const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
+
+type HomeDraw = {
+  bonus: number;
+  date?: string;
+  numbers: number[];
+  round: number;
+};
+
+const latestDraw = (lottoHistoryJson as HomeDraw[]).reduce((latest, draw) =>
+  draw.round > latest.round ? draw : latest,
+);
+
+function LatestDrawInfo() {
+  const styles = useThemedStyles(createStyles);
+  const [now, setNow] = useState(() => new Date());
+  const drawDate = formatDrawDate(latestDraw.date);
+  const countdown = formatLottoCountdown(now);
+  const countdownParts = getLottoCountdownParts(now);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View
+      accessibilityLabel={`최근 당첨번호, 제 ${latestDraw.round}회, ${latestDraw.numbers.join(', ')}, 보너스 ${latestDraw.bonus}. 다음 추첨까지 ${countdown}`}
+      accessible
+      style={styles.drawInfo}>
+      <View style={styles.drawInfoHeader}>
+        <Text style={styles.drawInfoMeta}>
+          제 {latestDraw.round}회{drawDate ? ` · ${drawDate}` : ''}
+        </Text>
+        <View style={styles.drawCountdownHeader}>
+          <View style={styles.drawCountdownDot} />
+          <Text style={styles.drawCountdownLabel}>다음 추첨까지</Text>
+        </View>
+      </View>
+      <View style={styles.drawInfoContent}>
+        <LottoDrawBalls
+          bonus={latestDraw.bonus}
+          highlightedNumbers={[]}
+          numbers={latestDraw.numbers}
+          size={22}
+        />
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.drawCountdownValue}>
+          <NumberFlow
+            animationConfig={{
+              animateOnMount: true,
+              damping: 18,
+              digitDelay: 28,
+              mass: 0.5,
+              stiffness: 210,
+            }}
+            style={styles.countdownNumber}
+            value={String(countdownParts.days)}
+          />
+          <Text style={styles.countdownUnit}>일</Text>
+          <NumberFlow
+            animationConfig={{
+              animateOnMount: true,
+              damping: 18,
+              digitDelay: 28,
+              mass: 0.5,
+              stiffness: 210,
+            }}
+            separatorStyle={styles.countdownSeparator}
+            style={styles.countdownNumber}
+            value={`${padTime(countdownParts.hours)}:${padTime(countdownParts.minutes)}`}
+          />
+          <Text style={styles.countdownSecondsColon}>:</Text>
+          <NumberFlow
+            animationConfig={{
+              animateOnMount: true,
+              damping: 18,
+              digitDelay: 34,
+              mass: 0.5,
+              stiffness: 225,
+            }}
+            style={styles.countdownSeconds}
+            value={padTime(countdownParts.seconds)}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
@@ -76,6 +173,8 @@ export function DrawHomeScreen() {
               <Text style={styles.aiActionArrow}>→</Text>
             </View>
           </Pressable>
+
+          <LatestDrawInfo />
 
           <View style={styles.randomCard}>
             <View style={styles.randomHeader}>
@@ -154,22 +253,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   countChipSelected: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   countChipText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.regular },
   countChipTextSelected: { color: colors.accentPrimary, fontWeight: typography.weights.semibold },
-  aiCard: { minHeight: 310, padding: spacing.xxl, overflow: 'hidden', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.accentActive, boxShadow: '0 18px 40px rgba(0, 102, 204, 0.20)', elevation: 7 },
+  aiCard: { minHeight: 268, padding: spacing.xl, overflow: 'hidden', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.accentActive, boxShadow: '0 14px 32px rgba(0, 102, 204, 0.18)', elevation: 6 },
   aiGlowLarge: { position: 'absolute', width: 230, height: 230, right: -82, top: -92, borderRadius: 115, backgroundColor: '#FFFFFF12' },
   aiGlowSmall: { position: 'absolute', width: 190, height: 190, left: -118, bottom: -124, borderRadius: 95, backgroundColor: '#00000012' },
   aiTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  aiIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF1A' },
-  aiIconText: { color: '#FFFFFF', fontSize: 27, lineHeight: 30 },
+  aiIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF1A' },
+  aiIconText: { color: '#FFFFFF', fontSize: 23, lineHeight: 26 },
   primaryBadge: { minHeight: 32, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, borderRadius: radius.round, backgroundColor: '#FFFFFF1A' },
   primaryBadgeText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
   ticketBadge: { backgroundColor: '#FFFFFF59' },
   ticketBadgeText: { fontSize: typography.sizes.small },
-  aiCopy: { flex: 1, justifyContent: 'center', paddingVertical: spacing.xxl },
+  aiCopy: { flex: 1, justifyContent: 'center', paddingVertical: 10 },
   aiEyebrow: { color: '#FFFFFFB8', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 1.2 },
-  aiTitle: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: typography.weights.semibold, letterSpacing: -0.28, marginTop: spacing.sm },
-  aiDescription: { color: '#FFFFFFD9', fontSize: typography.sizes.body, lineHeight: 25, letterSpacing: -0.37, marginTop: spacing.md },
-  aiPolicy: { color: '#FFFFFFA8', fontSize: 10, lineHeight: 16, marginTop: spacing.sm },
-  aiAction: { minHeight: 50, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF18' },
+  aiTitle: { color: '#FFFFFF', fontSize: 34, lineHeight: 38, fontWeight: typography.weights.semibold, letterSpacing: -0.28, marginTop: 6 },
+  aiDescription: { color: '#FFFFFFD9', fontSize: typography.sizes.small, lineHeight: 21, letterSpacing: -0.25, marginTop: spacing.sm },
+  aiPolicy: { color: '#FFFFFFA8', fontSize: 10, lineHeight: 14, marginTop: spacing.xs },
+  aiAction: { minHeight: 46, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF18' },
   aiActionText: { color: '#FFFFFF', fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   aiActionArrow: { color: '#FFFFFF', fontSize: 22, lineHeight: 24 },
   randomCard: { marginTop: spacing.xl, padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, boxShadow: 'none', elevation: 0 },
@@ -188,6 +287,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   randomActionPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
   randomActionText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   randomActionArrow: { color: colors.accentPrimary, fontSize: 21, lineHeight: 23 },
+  drawInfo: { marginTop: spacing.xl, padding: spacing.lg, overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surfaceElevated },
+  drawInfoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  drawInfoMeta: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
+  drawInfoContent: { marginTop: spacing.md, minHeight: 24, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: spacing.sm, rowGap: spacing.md },
+  drawCountdownHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  drawCountdownDot: { width: 5, height: 5, borderRadius: radius.round, backgroundColor: colors.accentPrimary },
+  drawCountdownLabel: { color: colors.textTertiary, fontSize: typography.sizes.caption },
+  drawCountdownValue: { minWidth: 120, marginLeft: 'auto', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 2 },
+  countdownNumber: { color: colors.textPrimary, fontSize: typography.sizes.body, lineHeight: 22, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
+  countdownSeparator: { color: colors.textTertiary },
+  countdownUnit: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18, marginRight: 2 },
+  countdownSecondsColon: { color: colors.accentPrimary, fontSize: typography.sizes.body, lineHeight: 22, fontWeight: typography.weights.semibold },
+  countdownSeconds: { color: colors.accentPrimary, fontSize: typography.sizes.body, lineHeight: 22, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
   disclaimer: { color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'center', marginTop: spacing.xxxl },
   pressed: { opacity: 0.72 },
   cardPressed: { opacity: 0.94, transform: [{ scale: 0.985 }] },

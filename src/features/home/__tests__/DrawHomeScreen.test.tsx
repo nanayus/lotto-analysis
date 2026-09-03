@@ -25,6 +25,14 @@ jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
 }));
 
+jest.mock('rn-number-flow', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  const MockNumberFlow = ({ value }: { value: string }) => React.createElement(Text, null, value);
+  MockNumberFlow.displayName = 'MockNumberFlow';
+  return MockNumberFlow;
+});
+
 jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     openPaywall: jest.fn(),
@@ -122,5 +130,14 @@ describe('DrawHomeScreen', () => {
       },
     });
     expect(screen.queryByText('방금 뽑은 번호')).toBeNull();
+  });
+
+  test('shows the latest draw and countdown as non-interactive information', async () => {
+    const screen = await render(<DrawHomeScreen />);
+
+    expect(screen.queryByText('최근 당첨번호')).toBeNull();
+    expect(screen.getByText('제 1239회 · 8월 29일')).toBeTruthy();
+    expect(screen.getByText('다음 추첨까지')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /최근 당첨번호/ })).toBeNull();
   });
 });
