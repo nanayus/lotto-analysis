@@ -96,27 +96,6 @@ function formatNumber(number: number) {
   return String(number).padStart(2, '0');
 }
 
-function headlineEvidenceLabel(
-  analysis: CombinationAnalysis,
-  headline: ReturnType<typeof describeCombinationHeadline>,
-) {
-  const sizeByMetric: Partial<Record<typeof headline.metric, CombinationSize>> = {
-    'pair-concentration': 2,
-    'three-number': 3,
-    'four-number': 4,
-    'five-number': 5,
-    'same-six': 6,
-  };
-  const size = sizeByMetric[headline.metric];
-  if (!size) return headline.sourceLabel;
-  const appearanceCount = size === 6
-    ? analysis.sameSixCount
-    : Math.max(0, ...analysis.subCombinations[size].map((item) => item.appearanceCount));
-  return appearanceCount > 0
-    ? `선택 번호 ${size}개 동시 출현 · ${appearanceCount}회`
-    : headline.sourceLabel;
-}
-
 function SectionCard({ children, testID, title }: {
   children: React.ReactNode;
   testID?: string;
@@ -905,7 +884,7 @@ export function CombinationResult({
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
   const headline = describeCombinationHeadline(analysis);
-  const headlineEvidence = headlineEvidenceLabel(analysis, headline);
+  const headlineEvidence = headline.sourceLabel;
   const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
   const [stickyNumbersVisible, setStickyNumbersVisible] = useState(false);
   const [favoriteSelection, setFavoriteSelection] = useState<{ key: string; value: boolean } | null>(null);

@@ -31,34 +31,66 @@ function analysisWith(overrides: Partial<CombinationAnalysis>): CombinationAnaly
 }
 
 describe('describeCombinationHeadline', () => {
-  it('prioritizes an identical six-number history over other observations', () => {
+  it('describes an exact first-prize match with its latest round', () => {
     const headline = describeCombinationHeadline(analysisWith({
-      sameSixCount: 1,
-      subCombinations: {
-        ...baseAnalysis.subCombinations,
-        5: [{ appearanceCount: 2, latestRound: 51, numbers: [1, 7, 12, 19, 20] }],
-      },
+      qualifyingHistory: [{
+        bonus: 30,
+        bonusMatched: false,
+        mainMatchCount: 6,
+        matchedMainNumbers: [...baseAnalysis.numbers],
+        numbers: [...baseAnalysis.numbers],
+        prizeRank: 1,
+        round: 1098,
+      }],
     }));
 
     expect(headline).toMatchObject({
-      metric: 'same-six',
-      score: 100,
-      sourceLabel: '6번호 조합 출현',
+      metric: 'prize-one',
+      sourceLabel: '본번호 6개 일치',
+      text: '1098회 1등 당첨번호와 정확히 같아요.',
     });
   });
 
-  it('uses a repeated trio when no higher-order combination appeared', () => {
+  it('explains a second-prize comparison in user-facing language', () => {
     const headline = describeCombinationHeadline(analysisWith({
-      subCombinations: {
-        ...baseAnalysis.subCombinations,
-        3: [{ appearanceCount: 3, latestRound: 50, numbers: [1, 7, 12] }],
-      },
+      filters: { includeBonus: true, period: { kind: 'preset', label: '전체' } },
+      qualifyingHistory: [{
+        bonus: 20,
+        bonusMatched: true,
+        mainMatchCount: 5,
+        matchedMainNumbers: [1, 7, 12, 19, 26],
+        numbers: [1, 7, 12, 19, 26, 33],
+        prizeRank: 2,
+        round: 1215,
+      }],
+      sameSixCount: 1,
     }));
 
     expect(headline).toMatchObject({
-      metric: 'three-number',
-      sourceLabel: '3번호 조합 출현',
-      text: '1·7·12 세 번호가 함께 나온 과거 기록이 반복됐어요.',
+      metric: 'prize-two',
+      sourceLabel: '본번호 5개 + 보너스 일치',
+      text: '1215회 당첨번호와 비교하면 2등에 해당해요.',
+    });
+  });
+
+  it('uses the latest round when the best prize rank appeared more than once', () => {
+    const match = (round: number) => ({
+      bonus: 30,
+      bonusMatched: false,
+      mainMatchCount: 5 as const,
+      matchedMainNumbers: [1, 7, 12, 19, 20],
+      numbers: [1, 7, 12, 19, 20, 33],
+      prizeRank: 3 as const,
+      round,
+    });
+    const headline = describeCombinationHeadline(analysisWith({
+      qualifyingHistory: [match(1000), match(1113)],
+    }));
+
+    expect(headline).toMatchObject({
+      metric: 'prize-three',
+      sourceLabel: '본번호 5개 일치',
+      text: '1113회 당첨번호와 비교하면 3등에 해당해요.',
     });
   });
 
@@ -69,8 +101,57 @@ describe('describeCombinationHeadline', () => {
       shape: { consecutiveGroups: [], evenCount: 3, oddCount: 3, sum: 120 },
     }));
 
-    expect(headline.metric).toBe('group-frequency');
-    expect(headline.text).toContain('전체 평균보다 자주');
+    expect(headline).toMatchObject({
+      metric: 'group-frequency',
+      sourceLabel: '선택 번호 평균 9.4회 · 전체 평균 8회',
+      text: '선택한 번호들은 전체 번호보다 평균 18% 더 자주 나왔어요.',
+    });
+  });
+
+  it('does not promote common fourth- or fifth-prize histories', () => {
+    const headline = describeCombinationHeadline(analysisWith({
+      highestMainMatch: 4,
+      qualifyingHistory: [{
+        bonus: 30,
+        bonusMatched: false,
+        mainMatchCount: 4,
+        matchedMainNumbers: [1, 7, 12, 19],
+        numbers: [1, 7, 12, 19, 33, 40],
+        prizeRank: 4,
+        round: 1215,
+      }],
+      shape: { consecutiveGroups: [[19, 20]], evenCount: 3, oddCount: 3, sum: 85 },
+    }));
+
+    expect(headline).toMatchObject({
+      metric: 'neutral',
+      sourceLabel: '조합 형태',
+      text: '홀짝 3:3, 합계 85인 조합이에요.',
+    });
+  });
+
+  it('calls out three or more consecutive numbers directly', () => {
+    const headline = describeCombinationHeadline(analysisWith({
+      shape: { consecutiveGroups: [[18, 19, 20]], evenCount: 3, oddCount: 3, sum: 135 },
+    }));
+
+    expect(headline).toMatchObject({
+      metric: 'consecutive',
+      sourceLabel: '연속 번호 3개',
+      text: '18·19·20, 세 번호가 연속으로 이어져 있어요.',
+    });
+  });
+
+  it('calls out a combination made entirely of odd numbers', () => {
+    const headline = describeCombinationHeadline(analysisWith({
+      shape: { consecutiveGroups: [], evenCount: 0, oddCount: 6, sum: 126 },
+    }));
+
+    expect(headline).toMatchObject({
+      metric: 'single-parity',
+      sourceLabel: '홀짝 6:0',
+      text: '여섯 번호가 모두 홀수예요.',
+    });
   });
 
   it('does not amplify group-frequency differences in a very short period', () => {
@@ -81,8 +162,8 @@ describe('describeCombinationHeadline', () => {
     }));
 
     expect(headline).toMatchObject({
-      metric: 'odd-even',
-      text: '홀수와 짝수가 3 대 3으로 고르게 구성됐어요.',
+      metric: 'neutral',
+      text: '홀짝 3:3, 합계 120인 조합이에요.',
     });
   });
 

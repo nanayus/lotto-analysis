@@ -168,10 +168,10 @@ describe('CombinationResult', () => {
     expect(getByText('조합 분석')).toBeTruthy();
     expect(getByTestId('combination-headline-card')).toBeTruthy();
     expect(queryByText('한줄평')).toBeNull();
-    expect(getByText('과거 기록에서 선택 번호 4개가 함께 나온 회차가 있어요.')).toBeTruthy();
-    expect(getByText('선택 번호 4개 동시 출현 · 1회')).toBeTruthy();
+    expect(getByText('홀짝 3:3, 합계 85인 조합이에요.')).toBeTruthy();
+    expect(getByText('조합 형태')).toBeTruthy();
     expect(getByTestId('combination-headline').props.accessibilityLabel)
-      .toBe('조합 요약, 과거 기록에서 선택 번호 4개가 함께 나온 회차가 있어요., 근거 지표 선택 번호 4개 동시 출현 · 1회');
+      .toBe('조합 요약, 홀짝 3:3, 합계 85인 조합이에요., 근거 지표 조합 형태');
     expect(getByText(/최근 5등/)).toBeTruthy();
     expect(getByText(/홀짝 3:3 · 합계 85/)).toBeTruthy();
     expect(getByRole('button', { name: '분석 기간 전체' })).toBeTruthy();
