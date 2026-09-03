@@ -7,7 +7,7 @@ type LottoDrawBallsProps = {
   bonus: number;
   highlightedNumbers: readonly number[];
   numbers: readonly number[];
-  size?: 22 | 24;
+  size?: 22 | 24 | 28;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -25,6 +25,7 @@ export function LottoDrawBalls({
   const styles = useThemedStyles(createStyles);
   const highlighted = new Set(highlightedNumbers);
   const compact = size === 22;
+  const large = size === 28;
 
   return (
     <View style={[styles.row, style]}>
@@ -41,7 +42,7 @@ export function LottoDrawBalls({
                 { height: size, width: size },
                 active && styles.ballActive,
               ]}>
-              <Text style={[styles.ballText, active && styles.ballTextActive]}>
+              <Text style={[styles.ballText, large && styles.ballTextLarge, active && styles.ballTextActive]}>
                 {formatNumber(number)}
               </Text>
             </View>
@@ -57,7 +58,7 @@ export function LottoDrawBalls({
           { height: size, width: size },
           highlighted.has(bonus) && styles.ballActive,
         ]}>
-        <Text style={[styles.ballText, highlighted.has(bonus) && styles.ballTextActive]}>
+        <Text style={[styles.ballText, large && styles.ballTextLarge, highlighted.has(bonus) && styles.ballTextActive]}>
           {formatNumber(bonus)}
         </Text>
       </View>
@@ -93,6 +94,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     fontWeight: typography.weights.medium,
+  },
+  ballTextLarge: {
+    fontSize: 13,
+    fontWeight: typography.weights.semibold,
   },
   ballTextActive: {
     color: colors.accentPrimary,

@@ -86,6 +86,12 @@ const settingsMetadata = {
   path: '/settings',
 };
 
+const releaseNotesMetadata = {
+  title: '변경 내역 | Lotto Insight',
+  description: 'Lotto Insight의 버전별 화면 변경 내역입니다.',
+  path: '/release-notes',
+};
+
 const accountDeletionMetadata = {
   title: '계정 및 데이터 삭제 | Lotto Insight',
   description: 'Lotto Insight 계정과 계정에 저장된 데이터를 삭제합니다.',
@@ -130,14 +136,18 @@ function AppMetadata() {
                   ? authCallbackMetadata
                 : pathname === settingsMetadata.path
                   ? settingsMetadata
-                  : exploreMetadata;
+                  : pathname === releaseNotesMetadata.path
+                    ? releaseNotesMetadata
+                    : exploreMetadata;
   const canonicalUrl = `${SITE_URL}${metadata.path}`;
 
   return (
     <Head>
       <title>{metadata.title}</title>
       <meta name="description" content={metadata.description} />
-      {metadata === authCallbackMetadata ? <meta name="robots" content="noindex,nofollow" /> : null}
+      {metadata === authCallbackMetadata || metadata === releaseNotesMetadata
+        ? <meta name="robots" content="noindex,nofollow" />
+        : null}
       <link rel="canonical" href={canonicalUrl} />
 
       <meta property="og:type" content="website" />

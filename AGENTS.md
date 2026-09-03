@@ -1909,3 +1909,28 @@ For all analytics:
 > historical data should be presented as historical data.
 
 Do not turn descriptive statistics into claims about future winning probability.
+
+---
+
+# 69. Release Versioning and Change History
+
+The app version starts at `0.0.1` and uses patch increments for each remote push that contains new product changes:
+
+```text
+0.0.1
+0.0.2
+0.0.3
+...
+```
+
+Before pushing new changes to the remote Git repository:
+
+1. increment the patch version exactly once
+2. keep `app.json`, `package.json`, and the root package entries in `package-lock.json` synchronized
+3. add the new version at the beginning of `src/features/settings/releaseNotes.ts`
+4. summarize every user-visible change as `screen` plus a specific Korean `summary`
+5. include all changes from that push in the release note
+
+Do not push new product changes without both the version bump and matching release-note entry.
+
+The in-app release-note list must remain visible only when the authenticated email is `ynleesss@gmail.com`. The version itself may remain visible to every user, but only that account may open the release-note screen. Keep direct-route access guarded as well.

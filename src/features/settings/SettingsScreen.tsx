@@ -1,11 +1,14 @@
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { AccountSettingsSection } from './AccountSettingsSection';
+import { canViewReleaseNotes } from './releaseNotes';
 import { MainTabHeader } from '@/components/ui/AppTopBar';
+import { useAuth } from '@/features/auth/AuthContext';
 import { MonetizationSettingsSection } from '@/features/monetization/MonetizationSettingsSection';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 
@@ -33,12 +36,14 @@ function openExternalUrl(url: string) {
 }
 
 export function SettingsScreen() {
+  const { state } = useAuth();
   const { mode, setMode } = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
   const [displaySheetVisible, setDisplaySheetVisible] = useState(false);
   const activeDisplayLabel = DISPLAY_OPTIONS.find((option) => option.value === mode)?.label;
   const version = Constants.expoConfig?.version ?? '정보 없음';
+  const releaseNotesVisible = state.status === 'authenticated' && canViewReleaseNotes(state.user.email);
 
   const selectDisplayMode = (nextMode: ThemeMode) => {
     setMode(nextMode);
@@ -96,10 +101,25 @@ export function SettingsScreen() {
                 <Text aria-hidden style={styles.externalMark}>↗</Text>
               </Pressable>
               <View style={styles.separator} />
-              <View accessibilityLabel={`버전 ${version}`} style={styles.row}>
-                <Text style={styles.rowLabel}>버전</Text>
-                <Text style={styles.rowValue}>{version}</Text>
-              </View>
+              {releaseNotesVisible ? (
+                <Pressable
+                  accessibilityHint="버전별 변경 내역을 확인합니다"
+                  accessibilityLabel={`버전 ${version}, 변경 내역 보기`}
+                  accessibilityRole="button"
+                  onPress={() => router.push('/release-notes')}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+                  <Text style={styles.rowLabel}>버전</Text>
+                  <View style={styles.rowTrailing}>
+                    <Text style={styles.rowValue}>{version}</Text>
+                    <Text aria-hidden style={styles.chevron}>›</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <View accessibilityLabel={`버전 ${version}`} style={styles.row}>
+                  <Text style={styles.rowLabel}>버전</Text>
+                  <Text style={styles.rowValue}>{version}</Text>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>

@@ -64,7 +64,7 @@ function LatestDrawInfo() {
           bonus={latestDraw.bonus}
           highlightedNumbers={[]}
           numbers={latestDraw.numbers}
-          size={22}
+          size={28}
         />
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.drawCountdownValue}>
           <NumberFlow
