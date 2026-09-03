@@ -14,6 +14,7 @@ import { describeGeneratorConditions } from '@/domain/generator/describeGenerato
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { useAuth } from '@/features/auth/AuthContext';
+import { ACCOUNT_LINKING_ENABLED } from '@/features/auth/featureFlags';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -134,7 +135,7 @@ export function MyNumbersScreen() {
                 ? '클라우드에 저장되어 다른 기기와 동기화돼요.'
                 : '이 기기에만 저장돼요.'}
             </Text>
-            {storageMode === 'device' ? (
+            {storageMode === 'device' && (proPlanEnabled || ACCOUNT_LINKING_ENABLED) ? (
               <Pressable onPress={() => {
                 if (proPlanEnabled) openPaywall('library-cloud');
                 else openLogin('library-cloud');

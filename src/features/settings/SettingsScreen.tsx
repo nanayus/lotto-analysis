@@ -9,6 +9,7 @@ import { AccountSettingsSection } from './AccountSettingsSection';
 import { canViewReleaseNotes } from './releaseNotes';
 import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { useAuth } from '@/features/auth/AuthContext';
+import { ACCOUNT_LINKING_ENABLED } from '@/features/auth/featureFlags';
 import { MonetizationSettingsSection } from '@/features/monetization/MonetizationSettingsSection';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 
@@ -59,7 +60,9 @@ export function SettingsScreen() {
           {...tabBarScrollProps}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <AccountSettingsSection />
+          {ACCOUNT_LINKING_ENABLED || state.status === 'authenticated'
+            ? <AccountSettingsSection />
+            : null}
 
           <MonetizationSettingsSection />
 

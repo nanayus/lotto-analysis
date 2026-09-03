@@ -46,6 +46,7 @@ describe('SettingsScreen', () => {
   it('shows the app information and all display choices', async () => {
     const view = await render(<SettingsScreen />);
 
+    expect(view.queryByText('계정 연결 · 선택')).toBeNull();
     expect(view.getByText('0.0.1')).toBeTruthy();
     fireEvent.press(view.getByText('디스플레이'));
     await waitFor(() => expect(view.getByText('밝은 UI')).toBeTruthy());
