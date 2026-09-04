@@ -176,7 +176,11 @@ export function MyNumbersScreen() {
                       <View style={styles.metaRow}>
                         <View style={[styles.sourceBadge, item.source === 'ai' && styles.sourceBadgeAi]}>
                           <Text style={[styles.sourceText, item.source === 'ai' && styles.sourceTextAi]}>
-                            {item.source === 'ai' ? '조건 뽑기' : '랜덤조합'}
+                            {item.source === 'ai'
+                              ? '조건 뽑기'
+                              : item.source === 'manual'
+                                ? '직접 선택'
+                                : '랜덤조합'}
                           </Text>
                         </View>
                         <Text style={styles.dateText}>{formatSavedDate(item.createdAt)}</Text>

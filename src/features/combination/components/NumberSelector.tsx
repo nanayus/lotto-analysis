@@ -12,7 +12,7 @@ type NumberSelectorProps = {
   isAnalyzing?: boolean;
   onAnalyze: () => void;
   onBack?: () => void;
-  onRandomFill: () => void;
+  onRandomFill?: () => void;
   onToggleNumber: (number: number) => void;
   selectedNumbers: number[];
 };
@@ -60,14 +60,14 @@ export function NumberSelector({
       <AppCard style={styles.ticketCard}>
         <View style={styles.instructionRow}>
           <Text style={styles.instruction}>1–45 번호판</Text>
-          {!ready ? (
+          {!ready && onRandomFill ? (
             <Pressable
               accessibilityRole="button"
               onPress={onRandomFill}
               style={({ pressed }) => [styles.randomButton, pressed && styles.numberButtonPressed]}>
               <Text style={styles.randomText}>랜덤 채우기</Text>
             </Pressable>
-          ) : <Text style={styles.readyLabel}>선택 완료</Text>}
+          ) : ready ? <Text style={styles.readyLabel}>선택 완료</Text> : null}
         </View>
 
         <View accessibilityRole="list" style={styles.numberGrid} testID="combination-number-grid">
@@ -111,23 +111,21 @@ export function NumberSelector({
           ))}
         </View>
 
-        {!ready ? (
-          <View style={styles.selectionSection}>
-            <Text style={styles.sectionLabel}>선택한 번호</Text>
-            <View style={styles.selectionRow}>
-              {Array.from({ length: 6 }, (_, index) => {
-                const number = selectedNumbers[index];
-                return (
-                  <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
-                    <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
-                      {number ? formatNumber(number) : ''}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+        <View style={styles.selectionSection} testID="combination-selection-summary">
+          <Text style={styles.sectionLabel}>선택한 번호</Text>
+          <View style={styles.selectionRow}>
+            {Array.from({ length: 6 }, (_, index) => {
+              const number = selectedNumbers[index];
+              return (
+                <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
+                  <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
+                    {number ? formatNumber(number) : ''}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
-        ) : null}
+        </View>
       </AppCard>
 
       {analysisAvailabilityLabel ? (

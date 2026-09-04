@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lotto Insight",
     "slug": "lotto",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "lotto",
@@ -11,7 +11,7 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "icon": "./assets/images/ios-app-icon.png",
       "bundleIdentifier": "net.wondly.lottoinsight",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "usesAppleSignIn": true,
       "supportsTablet": true,
       "config": {
@@ -54,7 +54,15 @@
         }
       ],
       "expo-font",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

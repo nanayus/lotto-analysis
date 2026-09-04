@@ -116,6 +116,7 @@ export function CombinationScreen() {
   }>();
   const analyzeToken = latestParam(analyze);
   const analysisSource = analysisSourceFor(analyzeToken);
+  const isStatisticsManualEntry = latestParam(returnTo) === 'statistics';
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const {
     addCombination,
@@ -163,6 +164,7 @@ export function CombinationScreen() {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
     if (selectedNumbers.includes(number)) {
       toggleNumber(number);
+      if (isStatisticsManualEntry) return;
       setExcludedNumbers((current) => current.includes(number)
         ? current
         : [...current, number].sort((left, right) => left - right));
@@ -173,7 +175,7 @@ export function CombinationScreen() {
       return;
     }
     toggleNumber(number);
-  }, [activeExcludedNumbers, selectedNumbers, toggleNumber]);
+  }, [activeExcludedNumbers, isStatisticsManualEntry, selectedNumbers, toggleNumber]);
 
   const executeAnalysis = useCallback(() => {
     if (selectedNumbers.length !== 6) return;
@@ -201,7 +203,9 @@ export function CombinationScreen() {
       const savedCombination = combinations.find((item) => item.id === requestedSavedId)
         ?? combinations.find((item) => item.numbers.join('-') === numberKey);
       setAnalysisLibraryId(
-        savedCombination?.id ?? addCombination(selectedNumbers, 'random') ?? null,
+        savedCombination?.id
+          ?? addCombination(selectedNumbers, analysisSource === 'manual_selection' ? 'manual' : 'random')
+          ?? null,
       );
       setMode({ kind: 'result' });
     }
@@ -351,8 +355,12 @@ export function CombinationScreen() {
     clear();
     setExcludedNumbers([]);
     setComparisonA(null); setComparisonB(null);
-    router.replace('/(tabs)/draw');
-  }, [clear]);
+    setMode({ kind: 'select' });
+    router.replace({
+      pathname: COMBINATION_ANALYSIS_ROUTE,
+      params: returnTarget ? { returnTo: returnTarget } : undefined,
+    });
+  }, [clear, returnTarget]);
 
   const analysisAvailabilityLabel = proPlanEnabled
     ? productAccess.tier === 'pro'
@@ -666,7 +674,9 @@ export function CombinationScreen() {
                 : leaveCombination}
               excludedNumbers={activeExcludedNumbers}
               isAnalyzing={isAuthorizing}
-              onRandomFill={() => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
+              onRandomFill={isStatisticsManualEntry
+                ? undefined
+                : () => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
               onToggleNumber={handleToggleNumber}
               selectedNumbers={selectedNumbers}
             />

@@ -754,26 +754,16 @@ function RecentStatistics({ statistics }: { statistics: OverallStatistics }) {
 }
 
 function BandStatistics({ statistics }: { statistics: OverallStatistics }) {
-  const styles = useThemedStyles(createStyles);
   const [band, setBand] = useState<NumberBandKey>('1-9');
   return (
-    <>
-      <StatCard>
-        <ChoiceRow accessibilityLabel="번호대 선택" onChange={setBand} options={[
-          { label: '1–9', value: '1-9' }, { label: '10–19', value: '10-19' }, { label: '20–29', value: '20-29' },
-          { label: '30–39', value: '30-39' }, { label: '40–45', value: '40-45' },
-        ]} value={band} />
-        <ChartHeading description="한 회차의 6개 번호에 포함된 개수" items={statistics.bandDistributions[band]} title={`${band} 번호대`} />
-        <VerticalChart items={statistics.bandDistributions[band]} key={band} />
-      </StatCard>
-      <View style={styles.ruleCard}>
-        <Ionicons color={styles.ruleIcon.color} name="information-circle-outline" size={20} />
-        <View style={styles.ruleCopy}>
-          <Text style={styles.ruleTitle}>과거 등수 조합 제외</Text>
-          <Text style={styles.ruleText}>분포 통계가 아니라 조합 생성 시 과거 1–3등 상당 기록과 대조하는 제외 규칙이에요.</Text>
-        </View>
-      </View>
-    </>
+    <StatCard>
+      <ChoiceRow accessibilityLabel="번호대 선택" onChange={setBand} options={[
+        { label: '1–9', value: '1-9' }, { label: '10–19', value: '10-19' }, { label: '20–29', value: '20-29' },
+        { label: '30–39', value: '30-39' }, { label: '40–45', value: '40-45' },
+      ]} value={band} />
+      <ChartHeading description="한 회차의 6개 번호에 포함된 개수" items={statistics.bandDistributions[band]} title={`${band} 번호대`} />
+      <VerticalChart items={statistics.bandDistributions[band]} key={band} />
+    </StatCard>
   );
 }
 

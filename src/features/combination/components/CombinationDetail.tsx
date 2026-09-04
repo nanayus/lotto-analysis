@@ -50,7 +50,11 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
         )) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>해당 기록이 없습니다.</Text>
-            <Text style={styles.emptyDescription}>선택한 기간에 해당하는 회차가 없습니다.</Text>
+            <Text style={styles.emptyDescription}>
+              {mode.kind === 'history'
+                ? '선택한 기간에 3개 이상 일치한 기록이 없습니다.'
+                : `선택한 기간에 ${mode.rank}등 상당 기록이 없습니다.`}
+            </Text>
           </View>
         )}
       </ScrollView>

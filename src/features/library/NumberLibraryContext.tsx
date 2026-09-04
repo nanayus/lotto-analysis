@@ -30,7 +30,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { db } from '@/features/auth/firebaseClient';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 
-export type CombinationSource = 'ai' | 'random';
+export type CombinationSource = 'ai' | 'manual' | 'random';
 
 export type SavedCombination = {
   createdAt: string;
@@ -86,7 +86,7 @@ function isSavedCombination(value: unknown): value is SavedCombination {
     && typeof item.createdAt === 'string'
     && typeof item.favorite === 'boolean'
     && typeof item.purchased === 'boolean'
-    && (item.source === 'ai' || item.source === 'random')
+    && (item.source === 'ai' || item.source === 'manual' || item.source === 'random')
     && Array.isArray(item.numbers)
     && normalizeDraftNumbers(item.numbers).length === 6;
 }

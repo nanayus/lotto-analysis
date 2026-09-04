@@ -178,6 +178,27 @@ describe('CombinationScreen', () => {
     jest.restoreAllMocks();
   });
 
+  test('keeps the statistics manual selector free of random fill and exclusion cycling', async () => {
+    mockSearchParams.mockReturnValue({ returnTo: 'statistics' });
+    const screen = await render(
+      <CombinationDraftProvider>
+        <CombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: '랜덤 채우기' })).toBeNull();
+    const number = screen.getByTestId('combination-number-12');
+    await act(async () => { await fireEvent.press(number); });
+    expect(screen.getByTestId('combination-number-12').props.accessibilityState.checked).toBe(true);
+
+    await act(async () => { await fireEvent.press(screen.getByTestId('combination-number-12')); });
+    expect(screen.getByTestId('combination-number-12').props.accessibilityState.checked).toBe(false);
+    expect(screen.getByTestId('combination-number-12').props.accessibilityLabel).toBe('12번');
+
+    await act(async () => { await fireEvent.press(screen.getByTestId('combination-number-12')); });
+    expect(screen.getByTestId('combination-number-12').props.accessibilityState.checked).toBe(true);
+  });
+
   test('lets a guest continue to the rewarded-ad result gate', async () => {
     mockAuthStatus = 'guest';
     mockIsPro = false;
@@ -223,6 +244,33 @@ describe('CombinationScreen', () => {
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
   });
 
+  test('stores a directly selected combination with a manual source', async () => {
+    mockSearchParams.mockReturnValue({ returnTo: 'draw' });
+    mockUseNumberLibrary.mockReturnValue({
+      addCombination: mockAddCombination,
+      canSave: true,
+      combinations: [],
+      isReady: true,
+      storageMode: 'cloud',
+      toggleFavorite: jest.fn(),
+      togglePurchased: jest.fn(),
+    });
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: '분석하기' }));
+    });
+
+    await waitFor(() => expect(mockAddCombination).toHaveBeenCalledWith(
+      [1, 7, 12, 19, 34, 45],
+      'manual',
+    ));
+  });
+
   test('keeps manual analysis unlocked while the Pro plan is paused', async () => {
     mockSearchParams.mockReturnValue({ returnTo: 'draw' });
     mockIsPro = false;
@@ -258,7 +306,7 @@ describe('CombinationScreen', () => {
     });
   });
 
-  test('returns New analysis from a result to the Number Draw home', async () => {
+  test('returns New analysis from a result to a fresh selection screen', async () => {
     mockReplace.mockClear();
     const screen = await render(
       <CombinationDraftProvider>
@@ -272,7 +320,10 @@ describe('CombinationScreen', () => {
       await fireEvent.press(screen.getByRole('button', { name: '새 조합 분석' }));
     });
 
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/draw');
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/combination-analysis',
+      params: { returnTo: 'random-draw' },
+    });
   });
 
   test('offers an active rewarded-ad path without calculating early', async () => {

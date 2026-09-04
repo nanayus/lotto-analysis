@@ -36,6 +36,7 @@ describe('NumberSelector', () => {
     const onAnalyze = jest.fn();
     const { getByTestId } = await render(<Harness onAnalyze={onAnalyze} />);
 
+    expect(getByTestId('combination-selection-summary')).toBeTruthy();
     expect(getByTestId('analyze-combination-button').props.accessibilityState.disabled).toBe(true);
     for (const number of [1, 2, 3, 4, 5, 6]) {
       await act(async () => {
@@ -43,6 +44,7 @@ describe('NumberSelector', () => {
       });
     }
 
+    expect(getByTestId('combination-selection-summary')).toBeTruthy();
     expect(getByTestId('analyze-combination-button').props.accessibilityState.disabled).toBe(false);
     expect(getByTestId('combination-number-7').props.accessibilityState.disabled).toBe(true);
     await act(async () => {

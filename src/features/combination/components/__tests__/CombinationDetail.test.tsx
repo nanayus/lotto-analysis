@@ -43,4 +43,21 @@ describe('CombinationDetail', () => {
     expect(getByText('+')).toBeTruthy();
     expect(getByLabelText('보너스 26번, 선택 번호와 일치')).toBeTruthy();
   });
+
+  test('explains that no matching history was found without claiming the period has no draws', async () => {
+    const emptyAnalysis = {
+      ...analysis,
+      qualifyingHistory: [],
+    } as CombinationAnalysis;
+    const { getByText, queryByText } = await render(
+      <CombinationDetail
+        analysis={emptyAnalysis}
+        mode={{ kind: 'history' }}
+        onBack={() => undefined}
+      />,
+    );
+
+    expect(getByText('선택한 기간에 3개 이상 일치한 기록이 없습니다.')).toBeTruthy();
+    expect(queryByText('선택한 기간에 해당하는 회차가 없습니다.')).toBeNull();
+  });
 });

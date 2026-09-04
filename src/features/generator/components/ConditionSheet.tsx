@@ -61,7 +61,7 @@ const PRIME_NUMBERS = NUMBERS.filter((number) => {
 const SQUARE_NUMBERS = [4, 9, 16, 25, 36];
 const COMPOSITE_NUMBERS = NUMBERS.filter((number) => number > 1 && !PRIME_NUMBERS.includes(number));
 const NUMBER_GRID_PLACEHOLDERS = Array.from({ length: 4 }, (_, index) => index);
-const PAGE_LABELS = ['번호', '분포', '수 성격', '직전·연번', '번호대·과거'];
+const PAGE_LABELS = ['기본', '고급', '직전 회차', '과거 당첨'];
 const SAME_ENDING_PATTERNS: SameEndingPattern[] = [
   'none', '2', '2+2', '2+2+2', '3', '3+2', '3+3', '4', '4+2', '5',
 ];
@@ -877,60 +877,6 @@ export function ConditionSheet({
                   </View>
                 </View>
               </Section>
-            </View>
-
-            <View
-              onLayout={(event) => { pageOffsetsRef.current[1] = event.nativeEvent.layout.y; }}
-              style={styles.conditionGroup}
-              testID="condition-group-1">
-              <ConditionGroupHeader label={PAGE_LABELS[1]} />
-              <Section
-                {...sectionAccessProps('sameEnding')}
-                enabled={sectionEnabled('sameEnding')}
-                onEnabledChange={(enabled) => setSectionEnabled('sameEnding', enabled)}
-                onHelpPress={() => setActiveHelp('sameEnding')}
-                title="동끝수 형태">
-                <PatternSelector
-                  accessibilityLabel="동끝수 형태"
-                  historicalValue={historicalSameEnding}
-                  kind="sameEnding"
-                  onChange={(sameEndingPatterns) => update({ sameEndingPatterns })}
-                  options={SAME_ENDING_OPTIONS.map(([value, label]) => ({ value, label }))}
-                  selected={draft.sameEndingPatterns}
-                />
-              </Section>
-              <RangeControl
-                activationLocked={conditionLimitReached && !draft.standardDeviation.enabled}
-                decimals={1}
-                historicalPreset={rangePresets.standardDeviation}
-                limits={GENERATOR_METRIC_LIMITS.standardDeviation}
-                onChange={(standardDeviation) => update({ standardDeviation })}
-                onHelpPress={() => setActiveHelp('standardDeviation')}
-                onLockedPress={() => setConditionLimitPromptVisible(true)}
-                step={0.1}
-                title="표준편차"
-                value={draft.standardDeviation}
-              />
-              <RangeControl
-                activationLocked={conditionLimitReached && !draft.sum.enabled}
-                historicalPreset={rangePresets.sum}
-                limits={GENERATOR_METRIC_LIMITS.sum}
-                onChange={(sum) => update({ sum })}
-                onHelpPress={() => setActiveHelp('sum')}
-                onLockedPress={() => setConditionLimitPromptVisible(true)}
-                title="번호 총합"
-                value={draft.sum}
-              />
-              <RangeControl
-                activationLocked={conditionLimitReached && !draft.lastDigitSum.enabled}
-                historicalPreset={rangePresets.lastDigitSum}
-                limits={GENERATOR_METRIC_LIMITS.lastDigitSum}
-                onChange={(lastDigitSum) => update({ lastDigitSum })}
-                onHelpPress={() => setActiveHelp('lastDigitSum')}
-                onLockedPress={() => setConditionLimitPromptVisible(true)}
-                title="끝수 총합"
-                value={draft.lastDigitSum}
-              />
               <Section
                 {...sectionAccessProps('oddEven')}
                 enabled={sectionEnabled('oddEven')}
@@ -959,13 +905,51 @@ export function ConditionSheet({
                   selected={draft.highLowCounts}
                 />
               </Section>
+              <RangeControl
+                activationLocked={conditionLimitReached && !draft.sum.enabled}
+                historicalPreset={rangePresets.sum}
+                limits={GENERATOR_METRIC_LIMITS.sum}
+                onChange={(sum) => update({ sum })}
+                onHelpPress={() => setActiveHelp('sum')}
+                onLockedPress={() => setConditionLimitPromptVisible(true)}
+                title="번호 총합"
+                value={draft.sum}
+              />
+              {GENERATOR_BAND_KEYS.map((band) => (
+                <Section
+                  {...sectionAccessProps(BAND_SECTION_KEYS[band])}
+                  enabled={sectionEnabled(BAND_SECTION_KEYS[band])}
+                  key={band}
+                  onEnabledChange={(enabled) => setSectionEnabled(BAND_SECTION_KEYS[band], enabled)}
+                  onHelpPress={() => setActiveHelp(BAND_HELP_KEYS[band])}
+                  title={`${band} 번호대`}>
+                  <BandGuide activeBand={band} />
+                  <CountSelector
+                    label={`${band} 번호대 개수`}
+                    onChange={(values) => update({ bandCounts: { ...draft.bandCounts, [band]: values } })}
+                    selected={draft.bandCounts[band]}
+                  />
+                </Section>
+              ))}
             </View>
 
             <View
-              onLayout={(event) => { pageOffsetsRef.current[2] = event.nativeEvent.layout.y; }}
+              onLayout={(event) => { pageOffsetsRef.current[1] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
-              testID="condition-group-2">
-              <ConditionGroupHeader label={PAGE_LABELS[2]} />
+              testID="condition-group-1">
+              <ConditionGroupHeader label={PAGE_LABELS[1]} />
+              <RangeControl
+                activationLocked={conditionLimitReached && !draft.standardDeviation.enabled}
+                decimals={1}
+                historicalPreset={rangePresets.standardDeviation}
+                limits={GENERATOR_METRIC_LIMITS.standardDeviation}
+                onChange={(standardDeviation) => update({ standardDeviation })}
+                onHelpPress={() => setActiveHelp('standardDeviation')}
+                onLockedPress={() => setConditionLimitPromptVisible(true)}
+                step={0.1}
+                title="표준편차"
+                value={draft.standardDeviation}
+              />
               <Section
                 {...sectionAccessProps('acValue')}
                 enabled={sectionEnabled('acValue')}
@@ -980,6 +964,31 @@ export function ConditionSheet({
                   selected={draft.acValues}
                 />
               </Section>
+              <Section
+                {...sectionAccessProps('sameEnding')}
+                enabled={sectionEnabled('sameEnding')}
+                onEnabledChange={(enabled) => setSectionEnabled('sameEnding', enabled)}
+                onHelpPress={() => setActiveHelp('sameEnding')}
+                title="동끝수 형태">
+                <PatternSelector
+                  accessibilityLabel="동끝수 형태"
+                  historicalValue={historicalSameEnding}
+                  kind="sameEnding"
+                  onChange={(sameEndingPatterns) => update({ sameEndingPatterns })}
+                  options={SAME_ENDING_OPTIONS.map(([value, label]) => ({ value, label }))}
+                  selected={draft.sameEndingPatterns}
+                />
+              </Section>
+              <RangeControl
+                activationLocked={conditionLimitReached && !draft.lastDigitSum.enabled}
+                historicalPreset={rangePresets.lastDigitSum}
+                limits={GENERATOR_METRIC_LIMITS.lastDigitSum}
+                onChange={(lastDigitSum) => update({ lastDigitSum })}
+                onHelpPress={() => setActiveHelp('lastDigitSum')}
+                onLockedPress={() => setConditionLimitPromptVisible(true)}
+                title="끝수 총합"
+                value={draft.lastDigitSum}
+              />
               <Section
                 {...sectionAccessProps('primeCount')}
                 enabled={sectionEnabled('primeCount')}
@@ -1025,13 +1034,29 @@ export function ConditionSheet({
                   />
                 </Section>
               ))}
+              <Section
+                {...sectionAccessProps('consecutivePattern')}
+                enabled={sectionEnabled('consecutivePattern')}
+                hint="가장 긴 연속그룹 기준"
+                onEnabledChange={(enabled) => setSectionEnabled('consecutivePattern', enabled)}
+                onHelpPress={() => setActiveHelp('consecutivePattern')}
+                title="연번 형태">
+                <PatternSelector
+                  accessibilityLabel="연번 형태"
+                  historicalValue={historicalConsecutive}
+                  kind="consecutive"
+                  onChange={(consecutivePatterns) => update({ consecutivePatterns })}
+                  options={CONSECUTIVE_OPTIONS.map(([value, label]) => ({ value, label }))}
+                  selected={draft.consecutivePatterns}
+                />
+              </Section>
             </View>
 
             <View
-              onLayout={(event) => { pageOffsetsRef.current[3] = event.nativeEvent.layout.y; }}
+              onLayout={(event) => { pageOffsetsRef.current[2] = event.nativeEvent.layout.y; }}
               style={styles.conditionGroup}
-              testID="condition-group-3">
-              <ConditionGroupHeader label={PAGE_LABELS[3]} />
+              testID="condition-group-2">
+              <ConditionGroupHeader label={PAGE_LABELS[2]} />
               <Section
                 {...sectionAccessProps('carryCount')}
                 enabled={sectionEnabled('carryCount')}
@@ -1066,45 +1091,13 @@ export function ConditionSheet({
                 <Text style={styles.selectorPrompt}>선택 후보 중 조합에 포함할 개수</Text>
                 <CountSelector label="이웃수 개수" onChange={(allowed) => update({ neighbor: { ...draft.neighbor, allowed } })} selected={draft.neighbor.allowed} visual />
               </Section>
-              <Section
-                {...sectionAccessProps('consecutivePattern')}
-                enabled={sectionEnabled('consecutivePattern')}
-                hint="가장 긴 연속그룹 기준"
-                onEnabledChange={(enabled) => setSectionEnabled('consecutivePattern', enabled)}
-                onHelpPress={() => setActiveHelp('consecutivePattern')}
-                title="연번 형태">
-                <PatternSelector
-                  accessibilityLabel="연번 형태"
-                  historicalValue={historicalConsecutive}
-                  kind="consecutive"
-                  onChange={(consecutivePatterns) => update({ consecutivePatterns })}
-                  options={CONSECUTIVE_OPTIONS.map(([value, label]) => ({ value, label }))}
-                  selected={draft.consecutivePatterns}
-                />
-              </Section>
             </View>
 
             <View
-              onLayout={(event) => { pageOffsetsRef.current[4] = event.nativeEvent.layout.y; }}
+              onLayout={(event) => { pageOffsetsRef.current[3] = event.nativeEvent.layout.y; }}
               style={[styles.conditionGroup, styles.conditionGroupLast]}
-              testID="condition-group-4">
-              <ConditionGroupHeader label={PAGE_LABELS[4]} />
-              {GENERATOR_BAND_KEYS.map((band) => (
-                <Section
-                  {...sectionAccessProps(BAND_SECTION_KEYS[band])}
-                  enabled={sectionEnabled(BAND_SECTION_KEYS[band])}
-                  key={band}
-                  onEnabledChange={(enabled) => setSectionEnabled(BAND_SECTION_KEYS[band], enabled)}
-                  onHelpPress={() => setActiveHelp(BAND_HELP_KEYS[band])}
-                  title={`${band} 번호대`}>
-                  <BandGuide activeBand={band} />
-                  <CountSelector
-                    label={`${band} 번호대 개수`}
-                    onChange={(values) => update({ bandCounts: { ...draft.bandCounts, [band]: values } })}
-                    selected={draft.bandCounts[band]}
-                  />
-                </Section>
-              ))}
+              testID="condition-group-3">
+              <ConditionGroupHeader label={PAGE_LABELS[3]} />
               <Section
                 {...sectionAccessProps('pastRanks')}
                 enabled={sectionEnabled('pastRanks')}
@@ -1127,11 +1120,11 @@ export function ConditionSheet({
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable
-              accessibilityLabel={`${activeConditionCount(draft)}개 조건 적용, ${applyAccessLabel}`}
+              accessibilityLabel={`이 조건으로 뽑기, ${activeConditionCount(draft)}개 조건, ${applyAccessLabel}`}
               accessibilityRole="button"
               onPress={handleApply}
               style={styles.applyButton}>
-              <Text style={styles.applyText}>{activeConditionCount(draft)}개 조건 적용</Text>
+              <Text style={styles.applyText}>이 조건으로 뽑기</Text>
               <View style={styles.applyAccessBadge}>
                 {applyAccess !== 'pro' ? (
                   <Ionicons color={styles.applyAccessText.color} name="play-circle-outline" size={14} />

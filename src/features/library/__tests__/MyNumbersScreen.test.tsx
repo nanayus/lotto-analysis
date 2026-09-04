@@ -194,4 +194,36 @@ describe('MyNumbersScreen', () => {
     expect(screen.getByRole('button', { name: '5, 18, 25, 27, 30, 32 광고 후 분석 결과 보기' })).toBeTruthy();
     expect(screen.getAllByText('광고 후 결과 보기')).toHaveLength(2);
   });
+
+  test('labels directly selected combinations separately from random combinations', async () => {
+    mockUseCombinationDraft.mockReturnValue({
+      addNumber: jest.fn(),
+      clear: jest.fn(),
+      removeNumber: jest.fn(),
+      selectedNumbers: [],
+      setNumbers: jest.fn(),
+      toggleNumber: jest.fn(),
+    });
+    mockUseNumberLibrary.mockReturnValue({
+      addCombination: jest.fn(() => undefined),
+      canSave: true,
+      combinations: [{
+        createdAt: '2026-09-04T10:00:00.000Z',
+        favorite: false,
+        id: 'manual-combination',
+        numbers: [1, 7, 12, 19, 34, 45],
+        purchased: false,
+        source: 'manual',
+      }],
+      isReady: true,
+      storageMode: 'device',
+      toggleFavorite: jest.fn(),
+      togglePurchased: jest.fn(),
+    });
+
+    const screen = await render(<MyNumbersScreen />);
+
+    expect(screen.getByText('직접 선택')).toBeTruthy();
+    expect(screen.queryByText('랜덤조합')).toBeNull();
+  });
 });

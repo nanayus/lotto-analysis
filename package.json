@@ -1,7 +1,7 @@
 {
   "name": "lotto",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@invertase/react-native-apple-authentication": "^2.5.1",
@@ -16,8 +16,9 @@
     "@tamagui/card": "^2.7.7",
     "@tamagui/config-default": "^2.7.7",
     "@tamagui/core": "^2.7.7",
-    "expo": "~57.0.19",
+    "expo": "~57.0.20",
     "expo-apple-authentication": "~57.0.1",
+    "expo-build-properties": "~57.0.17",
     "expo-constants": "~57.0.17",
     "expo-crypto": "~57.0.2",
     "expo-dev-client": "~57.0.18",
@@ -25,7 +26,7 @@
     "expo-haptics": "~57.0.2",
     "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.9",
-    "expo-router": "~57.0.18",
+    "expo-router": "~57.0.19",
     "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.18.0",

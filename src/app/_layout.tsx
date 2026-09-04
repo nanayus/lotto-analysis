@@ -205,7 +205,7 @@ function ThemedApp() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-      <AppMetadata />
+      {Platform.OS === 'web' ? <AppMetadata /> : null}
       <AnalyticsRouteTracker />
       <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme}>
         <AuthProvider>
