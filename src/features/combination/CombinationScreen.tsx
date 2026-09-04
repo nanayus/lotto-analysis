@@ -107,16 +107,19 @@ export function CombinationScreen() {
     returnSession,
     returnTo,
     returnToken,
+    selectionMode,
   } = useLocalSearchParams<{
     analyze?: string | string[];
     returnCount?: string | string[];
     returnSession?: string | string[];
     returnTo?: string | string[];
     returnToken?: string | string[];
+    selectionMode?: string | string[];
   }>();
   const analyzeToken = latestParam(analyze);
   const analysisSource = analysisSourceFor(analyzeToken);
-  const isStatisticsManualEntry = latestParam(returnTo) === 'statistics';
+  const isManualSelection = latestParam(returnTo) === 'statistics'
+    || latestParam(selectionMode) === 'manual';
   const { clear, selectedNumbers, setNumbers, toggleNumber } = useCombinationDraft();
   const {
     addCombination,
@@ -164,7 +167,7 @@ export function CombinationScreen() {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
     if (selectedNumbers.includes(number)) {
       toggleNumber(number);
-      if (isStatisticsManualEntry) return;
+      if (isManualSelection) return;
       setExcludedNumbers((current) => current.includes(number)
         ? current
         : [...current, number].sort((left, right) => left - right));
@@ -175,7 +178,7 @@ export function CombinationScreen() {
       return;
     }
     toggleNumber(number);
-  }, [activeExcludedNumbers, isStatisticsManualEntry, selectedNumbers, toggleNumber]);
+  }, [activeExcludedNumbers, isManualSelection, selectedNumbers, toggleNumber]);
 
   const executeAnalysis = useCallback(() => {
     if (selectedNumbers.length !== 6) return;
@@ -358,7 +361,10 @@ export function CombinationScreen() {
     setMode({ kind: 'select' });
     router.replace({
       pathname: COMBINATION_ANALYSIS_ROUTE,
-      params: returnTarget ? { returnTo: returnTarget } : undefined,
+      params: {
+        ...(returnTarget ? { returnTo: returnTarget } : {}),
+        selectionMode: 'manual',
+      },
     });
   }, [clear, returnTarget]);
 
@@ -417,7 +423,10 @@ export function CombinationScreen() {
     setExcludedNumbers([]);
     router.replace({
       pathname: COMBINATION_ANALYSIS_ROUTE,
-      params: returnTarget ? { returnTo: returnTarget } : undefined,
+      params: {
+        ...(returnTarget ? { returnTo: returnTarget } : {}),
+        selectionMode: 'manual',
+      },
     });
   }, [clear, returnTarget]);
 
@@ -674,7 +683,7 @@ export function CombinationScreen() {
                 : leaveCombination}
               excludedNumbers={activeExcludedNumbers}
               isAnalyzing={isAuthorizing}
-              onRandomFill={isStatisticsManualEntry
+              onRandomFill={isManualSelection
                 ? undefined
                 : () => setNumbers(fillCombinationRandomly(selectedNumbers, activeExcludedNumbers))}
               onToggleNumber={handleToggleNumber}

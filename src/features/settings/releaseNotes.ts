@@ -9,6 +9,16 @@ export type ReleaseNote = {
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: '1.0.2',
+    date: '2026.09.05',
+    changes: [
+      {
+        screen: '조합 분석',
+        summary: '새 조합 분석을 시작하면 이전 유입 화면과 관계없이 랜덤 채우기 없이 번호를 하나씩 선택하는 화면으로 이동하도록 수정했습니다.',
+      },
+    ],
+  },
+  {
     version: '1.0.1',
     date: '2026.09.05',
     changes: [

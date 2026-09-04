@@ -199,6 +199,23 @@ describe('CombinationScreen', () => {
     expect(screen.getByTestId('combination-number-12').props.accessibilityState.checked).toBe(true);
   });
 
+  test('keeps manual selection independent from the return destination', async () => {
+    mockSearchParams.mockReturnValue({
+      returnTo: 'random-draw',
+      selectionMode: 'manual',
+    });
+    const screen = await render(
+      <CombinationDraftProvider>
+        <CombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: '랜덤 채우기' })).toBeNull();
+    await act(async () => { await fireEvent.press(screen.getByTestId('combination-number-12')); });
+    await act(async () => { await fireEvent.press(screen.getByTestId('combination-number-12')); });
+    expect(screen.getByTestId('combination-number-12').props.accessibilityLabel).toBe('12번');
+  });
+
   test('lets a guest continue to the rewarded-ad result gate', async () => {
     mockAuthStatus = 'guest';
     mockIsPro = false;
@@ -302,7 +319,7 @@ describe('CombinationScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: '번호 다시 선택하기' }));
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/combination-analysis',
-      params: { returnTo: 'random-draw' },
+      params: { returnTo: 'random-draw', selectionMode: 'manual' },
     });
   });
 
@@ -322,7 +339,7 @@ describe('CombinationScreen', () => {
 
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/combination-analysis',
-      params: { returnTo: 'random-draw' },
+      params: { returnTo: 'random-draw', selectionMode: 'manual' },
     });
   });
 
