@@ -45,7 +45,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
       canUseCustomPeriod: mockTier === 'pro' || !mockProPlanEnabled,
       combinationSelectionLimit: mockTier === 'pro' || !mockProPlanEnabled ? 5 : 2,
       conditionSelectionLimit: mockTier === 'pro' || !mockProPlanEnabled ? null : 99,
-      requiresRewardedAdForResults: mockTier !== 'pro' && mockProPlanEnabled,
+      requiresAdForResults: mockTier !== 'pro' && mockProPlanEnabled,
       storageMode: mockTier === 'pro' ? 'cloud' : 'device',
       tier: mockTier,
     },

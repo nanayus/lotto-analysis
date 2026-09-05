@@ -17,7 +17,7 @@ jest.mock('../MonetizationContext', () => ({
       canUseCustomPeriod: mockIsPro,
       combinationSelectionLimit: mockIsPro ? 5 : 2,
       conditionSelectionLimit: mockIsPro ? null : 99,
-      requiresRewardedAdForResults: !mockIsPro,
+      requiresAdForResults: !mockIsPro,
       storageMode: mockIsPro ? 'cloud' : 'device',
       tier: mockIsPro ? 'pro' : 'guest',
     },

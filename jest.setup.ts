@@ -107,6 +107,29 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
   },
 }));
 
+jest.mock('react-native-google-mobile-ads', () => ({
+  __esModule: true,
+  default: () => ({
+    initialize: jest.fn(() => Promise.resolve([])),
+  }),
+  AdEventType: {
+    CLOSED: 'closed',
+    ERROR: 'error',
+    LOADED: 'loaded',
+  },
+  InterstitialAd: {
+    createForAdRequest: jest.fn(() => ({
+      addAdEventListener: jest.fn(() => jest.fn()),
+      load: jest.fn(),
+      loaded: false,
+      show: jest.fn(() => Promise.resolve()),
+    })),
+  },
+  TestIds: {
+    INTERSTITIAL: 'ca-app-pub-3940256099942544/1033173712',
+  },
+}));
+
 jest.mock('@invertase/react-native-apple-authentication', () => ({
   appleAuthAndroid: {
     Error: { SIGNIN_CANCELLED: 'cancelled' },

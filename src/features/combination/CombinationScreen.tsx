@@ -103,6 +103,7 @@ export function CombinationScreen() {
   const styles = useThemedStyles(createStyles);
   const {
     analyze,
+    accessMethod,
     returnCount,
     returnSession,
     returnTo,
@@ -110,6 +111,7 @@ export function CombinationScreen() {
     selectionMode,
   } = useLocalSearchParams<{
     analyze?: string | string[];
+    accessMethod?: string | string[];
     returnCount?: string | string[];
     returnSession?: string | string[];
     returnTo?: string | string[];
@@ -117,6 +119,7 @@ export function CombinationScreen() {
     selectionMode?: string | string[];
   }>();
   const analyzeToken = latestParam(analyze);
+  const hasInterstitialAccess = latestParam(accessMethod) === 'interstitial';
   const analysisSource = analysisSourceFor(analyzeToken);
   const isManualSelection = latestParam(returnTo) === 'statistics'
     || latestParam(selectionMode) === 'manual';
@@ -135,8 +138,8 @@ export function CombinationScreen() {
     proPlanEnabled = true,
     productAccess,
     refresh: refreshMonetization,
-    rewardedAdsAvailable,
-    showRewardedAd,
+    resultAdsAvailable,
+    showResultAd,
     state: monetizationState,
   } = useMonetization();
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
@@ -150,16 +153,16 @@ export function CombinationScreen() {
   const [analysisAccessRequired, setAnalysisAccessRequired] = useState(false);
   const [analysisLoginRequired, setAnalysisLoginRequired] = useState(false);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
-  const [rewardedAdMessage, setRewardedAdMessage] = useState<string | null>(null);
+  const [resultAdMessage, setResultAdMessage] = useState<string | null>(null);
   const [isAuthorizing, setAuthorizing] = useState(false);
-  const [isWatchingRewardedAd, setWatchingRewardedAd] = useState(false);
+  const [isShowingResultAd, setShowingResultAd] = useState(false);
   const [analysisLibraryId, setAnalysisLibraryId] = useState<string | null>(null);
   const [regenerationPhase, setRegenerationPhase] = useState<'error' | 'loading' | null>(null);
   const [regenerationError, setRegenerationError] = useState<string | null>(null);
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
   const regenerationTokenRef = useRef(0);
-  const analysisAccessMethodRef = useRef<'open_access' | 'pro' | 'reward_ad' | 'unknown'>('unknown');
+  const analysisAccessMethodRef = useRef<'interstitial_ad' | 'open_access' | 'pro' | 'unknown'>('unknown');
   const trackedGateKeyRef = useRef<string | null>(null);
   const viewedResultSectionsRef = useRef(new Set<CombinationResultSectionKey>());
 
@@ -235,8 +238,13 @@ export function CombinationScreen() {
     setAnalysisAccessRequired(false);
     setAnalysisLoginRequired(false);
     setAccessMessage(null);
-    setRewardedAdMessage(null);
+    setResultAdMessage(null);
     try {
+      if (hasInterstitialAccess) {
+        analysisAccessMethodRef.current = 'interstitial_ad';
+        executeAnalysis();
+        return;
+      }
       const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
       if (analyzeToken) await waitForGeneratedTransition(transitionStartedAt);
       if (!isAnalysisAuthorized(authorization.decision)) {
@@ -255,6 +263,7 @@ export function CombinationScreen() {
     analyzeToken,
     authorizeAnalysis,
     executeAnalysis,
+    hasInterstitialAccess,
     isAuthorizing,
     proPlanEnabled,
     productAccess.tier,
@@ -359,6 +368,10 @@ export function CombinationScreen() {
     setExcludedNumbers([]);
     setComparisonA(null); setComparisonB(null);
     setMode({ kind: 'select' });
+    if (returnTarget === 'combination-generator') {
+      leaveCombination();
+      return;
+    }
     router.replace({
       pathname: COMBINATION_ANALYSIS_ROUTE,
       params: {
@@ -366,7 +379,7 @@ export function CombinationScreen() {
         selectionMode: 'manual',
       },
     });
-  }, [clear, returnTarget]);
+  }, [clear, leaveCombination, returnTarget]);
 
   const analysisAvailabilityLabel = proPlanEnabled
     ? productAccess.tier === 'pro'
@@ -397,7 +410,7 @@ export function CombinationScreen() {
         : analysisLoginRequired
           ? 'login'
         : manualEntryPhase ?? (analyzeToken ? 'invalid' : null);
-  const transitionErrorMessage = rewardedAdMessage
+  const transitionErrorMessage = resultAdMessage
     ?? accessMessage
     ?? (monetizationState.status === 'error' ? monetizationState.error : null);
 
@@ -453,41 +466,41 @@ export function CombinationScreen() {
     restartInvalidAnalysis,
   ]);
 
-  const watchRewardedAd = useCallback(async () => {
-    if (isWatchingRewardedAd) return;
+  const showAdAndContinue = useCallback(async () => {
+    if (isShowingResultAd) return;
     const eventParams = combinationAnalyticsParams(selectedNumbers, {
       account_tier: productAccess.tier,
       source: analysisSource,
     });
-    trackEvent('reward_ad_started', eventParams);
-    setWatchingRewardedAd(true);
-    setRewardedAdMessage(null);
+    trackEvent('interstitial_ad_started', eventParams);
+    setShowingResultAd(true);
+    setResultAdMessage(null);
     try {
-      const completed = await showRewardedAd();
+      const completed = await showResultAd();
       if (!completed) {
-        trackEvent('reward_ad_failed', { ...eventParams, reason: 'not_completed' });
-        setRewardedAdMessage('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+        trackEvent('interstitial_ad_failed', { ...eventParams, reason: 'not_completed' });
+        setResultAdMessage('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
         return;
       }
-      trackEvent('reward_ad_completed', eventParams);
-      analysisAccessMethodRef.current = 'reward_ad';
+      trackEvent('interstitial_ad_completed', eventParams);
+      analysisAccessMethodRef.current = 'interstitial_ad';
       executeAnalysis();
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {
-      trackEvent('reward_ad_failed', { ...eventParams, reason: 'playback_error' });
-      setRewardedAdMessage('광고 재생을 완료하지 못했어요. 다시 시도해 주세요.');
+      trackEvent('interstitial_ad_failed', { ...eventParams, reason: 'playback_error' });
+      setResultAdMessage('광고를 표시하지 못했어요. 다시 시도해 주세요.');
     } finally {
-      setWatchingRewardedAd(false);
+      setShowingResultAd(false);
     }
   }, [
     analysisSource,
     executeAnalysis,
-    isWatchingRewardedAd,
+    isShowingResultAd,
     productAccess.tier,
     selectedNumbers,
-    showRewardedAd,
+    showResultAd,
   ]);
 
   const savedAnalysisCombination = analysisLibraryId
@@ -646,10 +659,10 @@ export function CombinationScreen() {
             onContinue={() => void regenerateWithSameConditions()}
             onLater={cancelRegeneration}
             onOpenPro={() => openPaywall('same-condition-regeneration')}
-            onWatchAd={() => undefined}
+            onShowAd={() => undefined}
             phase={regenerationPhase}
-            rewardedAdAvailable={false}
-            rewardedAdLoading={false}
+            resultAdAvailable={false}
+            resultAdLoading={false}
             titleOverride={regenerationPhase === 'loading'
               ? '같은 조건으로 다시 뽑는 중'
               : '다시 뽑지 못했어요'}
@@ -664,10 +677,10 @@ export function CombinationScreen() {
               onContinue={continueGeneratedAnalysis}
               onLater={leaveCombination}
               onOpenPro={() => openPaywall('analysis-limit')}
-              onWatchAd={() => void watchRewardedAd()}
+              onShowAd={() => void showAdAndContinue()}
               phase={analysisTransitionPhase}
-              rewardedAdAvailable={rewardedAdsAvailable}
-              rewardedAdLoading={isWatchingRewardedAd}
+              resultAdAvailable={resultAdsAvailable}
+              resultAdLoading={isShowingResultAd}
             />
           ) : (
             <NumberSelector

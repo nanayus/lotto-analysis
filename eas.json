@@ -11,6 +11,13 @@
     "preview": {
       "distribution": "internal"
     },
+    "testflight": {
+      "extends": "production",
+      "env": {
+        "EXPO_PUBLIC_ADMOB_TEST_MODE": "true",
+        "EXPO_PUBLIC_PRO_PLAN_ENABLED": "true"
+      }
+    },
     "production": {
       "autoIncrement": true
     }

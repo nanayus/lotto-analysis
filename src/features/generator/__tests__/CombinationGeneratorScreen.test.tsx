@@ -31,6 +31,7 @@ let mockIsPro = false;
 let mockIsGuest = false;
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
+const mockShowResultAd = jest.fn(async () => true);
 
 jest.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => ({
@@ -42,6 +43,7 @@ jest.mock('@/features/auth/AuthContext', () => ({
 jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
     openPaywall: mockOpenPaywall,
+    showResultAd: mockShowResultAd,
     productAccess: {
       canRegenerateWithSameConditions: mockIsPro,
       canSaveNumbers: true,
@@ -50,7 +52,7 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
       canUseCustomPeriod: mockIsPro,
       combinationSelectionLimit: mockIsPro ? 5 : 2,
       conditionSelectionLimit: mockIsPro ? null : 99,
-      requiresRewardedAdForResults: !mockIsPro,
+      requiresAdForResults: !mockIsPro,
       storageMode: mockIsPro ? 'cloud' : 'device',
       tier: mockIsPro ? 'pro' : 'guest',
     },
@@ -115,6 +117,7 @@ describe('CombinationGeneratorScreen', () => {
     mockIsGuest = false;
     mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
+    mockShowResultAd.mockClear();
   });
 
   test.each(PATTERN_CASES)('expands the %s visual pattern into six grouped numbers', (pattern, expected) => {
@@ -132,6 +135,34 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('button', { name: '이 조건으로 뽑기, 2개 조건, 광고 후 결과 보기' })).toBeTruthy();
     expect(screen.getByText('광고 후 결과 보기')).toBeTruthy();
   });
+
+  test('shows an interstitial on guest condition apply and opens the result without another gate', async () => {
+    mockIsPro = false;
+    mockPush.mockClear();
+    const screen = await renderScreen();
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' }));
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', {
+        name: '이 조건으로 뽑기, 2개 조건, 광고 후 결과 보기',
+      }));
+    });
+
+    expect(mockShowResultAd).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/combination-analysis',
+      params: {
+        accessMethod: 'interstitial',
+        analyze: expect.stringMatching(/^generator-conditions-/),
+        returnCount: '1',
+        returnSession: 'generator',
+        returnTo: 'draw',
+        returnToken: expect.any(String),
+      },
+    }), { timeout: 4500 });
+  }, 7000);
 
   test('keeps the header, access banner, and tabs outside the vertical condition scroller', async () => {
     mockIsPro = false;

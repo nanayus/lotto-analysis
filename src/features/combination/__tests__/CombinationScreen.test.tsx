@@ -20,7 +20,7 @@ import {
 
 const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
-const mockShowRewardedAd = jest.fn(async () => true);
+const mockShowResultAd = jest.fn(async () => true);
 const mockAddCombination = jest.fn(() => 'saved-condition-combination');
 let mockIsPro = true;
 let mockProPlanEnabled = true;
@@ -83,13 +83,13 @@ jest.mock('@/features/monetization/MonetizationContext', () => ({
       conditionSelectionLimit: mockAuthStatus === 'authenticated' && mockIsPro
         ? null
         : 2,
-      requiresRewardedAdForResults: mockAuthStatus !== 'authenticated' || !mockIsPro,
+      requiresAdForResults: mockAuthStatus !== 'authenticated' || !mockIsPro,
       storageMode: mockAuthStatus === 'authenticated' && mockIsPro ? 'cloud' : 'device',
       tier: mockAuthStatus === 'authenticated' && mockIsPro ? 'pro' : 'guest',
     },
     refresh: jest.fn(async () => undefined),
-    rewardedAdsAvailable: true,
-    showRewardedAd: mockShowRewardedAd,
+    resultAdsAvailable: true,
+    showResultAd: mockShowResultAd,
     state: {
       status: 'ready',
       access: {
@@ -141,7 +141,7 @@ describe('CombinationScreen', () => {
     mockAuthStatus = 'authenticated';
     mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
-    mockShowRewardedAd.mockClear();
+    mockShowResultAd.mockClear();
     mockAuthorizeAnalysis.mockClear();
     mockIsPro = true;
     mockProPlanEnabled = true;
@@ -216,7 +216,7 @@ describe('CombinationScreen', () => {
     expect(screen.getByTestId('combination-number-12').props.accessibilityLabel).toBe('12번');
   });
 
-  test('lets a guest continue to the rewarded-ad result gate', async () => {
+  test('lets a guest continue to the ad result gate', async () => {
     mockAuthStatus = 'guest';
     mockIsPro = false;
     mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
@@ -247,6 +247,26 @@ describe('CombinationScreen', () => {
     )).toHaveLength(6);
     expect(screen.queryByTestId('combination-number-grid')).toBeNull();
     await screen.unmount();
+  });
+
+  test('opens a condition-generated result immediately after its interstitial closes', async () => {
+    mockIsPro = false;
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
+    mockSearchParams.mockReturnValue({
+      accessMethod: 'interstitial',
+      analyze: 'generator-conditions-result',
+      returnTo: 'draw',
+    });
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('result-section-prize')).toBeTruthy());
+    expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
+    expect(mockShowResultAd).not.toHaveBeenCalled();
+    expect(screen.queryByText('결과를 여는 방법을 선택하세요')).toBeNull();
   });
 
   test('keeps the number selector for direct manual analysis', async () => {
@@ -343,7 +363,30 @@ describe('CombinationScreen', () => {
     });
   });
 
-  test('offers an active rewarded-ad path without calculating early', async () => {
+  test('returns New analysis from a condition result to the existing condition selector', async () => {
+    mockCanGoBack.mockReturnValue(true);
+    mockSearchParams.mockReturnValue({
+      analyze: 'condition-result',
+      returnTo: 'combination-generator',
+    });
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', {
+      name: '새 조합 분석하기',
+    })).toBeTruthy());
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: '새 조합 분석하기' }));
+    });
+
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  test('offers an active interstitial path without calculating early', async () => {
     mockIsPro = false;
     mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
     const screen = await render(
@@ -366,7 +409,7 @@ describe('CombinationScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Pro 살펴보기' }));
     expect(mockOpenPaywall).toHaveBeenCalledWith('analysis-limit');
 
-    expect(mockShowRewardedAd).not.toHaveBeenCalled();
+    expect(mockShowResultAd).not.toHaveBeenCalled();
   });
 
   test('uses the full access page when a direct manual analysis is denied', async () => {

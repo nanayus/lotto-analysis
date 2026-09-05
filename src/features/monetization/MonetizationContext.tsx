@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { Platform } from 'react-native';
 
 import { trackEvent } from '@/features/analytics/analyticsClient';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -26,6 +25,11 @@ import {
   type RevenueCatPackage,
   type RevenueCatSnapshot,
 } from './revenueCatClient';
+import {
+  isInterstitialAdConfigured,
+  prepareInterstitialAd,
+  showInterstitialAd,
+} from './interstitialAdClient';
 
 export const REFERRAL_ONBOARDING_PENDING_KEY = 'lotto.referralOnboarding.pending.v1';
 
@@ -54,13 +58,11 @@ type MonetizationValue = {
   productAccess: ProductAccess;
   refresh: () => Promise<void>;
   restorePurchases: () => Promise<boolean>;
-  rewardedAdsAvailable: boolean;
-  showRewardedAd: () => Promise<boolean>;
+  resultAdsAvailable: boolean;
+  showResultAd: () => Promise<boolean>;
   state: MonetizationState;
   subscriptionManagementUrl: string | null;
 };
-
-const rewardedAdTestFallbackAvailable = Platform.OS === 'web' || __DEV__;
 
 const EMPTY_ACCESS_STATE: MonetizationAccessState = {
   canApplyReferralCode: false,
@@ -100,8 +102,8 @@ const fallbackValue: MonetizationValue = {
   productAccess: productAccessFor('guest', { unlockAllFeatures: ALL_FEATURES_UNLOCKED }),
   refresh: async () => undefined,
   restorePurchases: async () => false,
-  rewardedAdsAvailable: false,
-  showRewardedAd: async () => false,
+  resultAdsAvailable: false,
+  showResultAd: async () => false,
   state: { status: 'guest' },
   subscriptionManagementUrl: null,
 };
@@ -209,6 +211,11 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     if (!purchaseSnapshot.configured) return;
     return subscribeToRevenueCat(applyPurchaseSnapshot);
   }, [applyPurchaseSnapshot, purchaseSnapshot.configured]);
+
+  useEffect(() => {
+    if (!PRO_PLAN_ENABLED || !isInterstitialAdConfigured()) return;
+    void prepareInterstitialAd();
+  }, []);
 
   const authorizeAnalysis = useCallback(async (
     numbers: readonly number[],
@@ -323,11 +330,9 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setReferralPromptError(null);
     setReferralCodeVisible(false);
   }, [isApplyingReferral]);
-  const showRewardedAd = useCallback(async () => {
-    if (!rewardedAdTestFallbackAvailable) return false;
-    // Native AdMob 연결 전에도 웹과 개발 빌드에서 결과 공개 흐름을 끝까지 검증한다.
-    await new Promise((resolve) => setTimeout(resolve, 650));
-    return true;
+  const showResultAd = useCallback(async () => {
+    if (!PRO_PLAN_ENABLED || !isInterstitialAdConfigured()) return false;
+    return showInterstitialAd();
   }, []);
 
   const purchasePackage = useCallback(async (identifier: string) => {
@@ -405,8 +410,8 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     productAccess,
     refresh,
     restorePurchases,
-    rewardedAdsAvailable: PRO_PLAN_ENABLED && rewardedAdTestFallbackAvailable,
-    showRewardedAd,
+    resultAdsAvailable: PRO_PLAN_ENABLED && isInterstitialAdConfigured(),
+    showResultAd,
     state,
     subscriptionManagementUrl: purchaseSnapshot.managementUrl,
   }), [
@@ -426,7 +431,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     productAccess,
     refresh,
     restorePurchases,
-    showRewardedAd,
+    showResultAd,
     state,
   ]);
 

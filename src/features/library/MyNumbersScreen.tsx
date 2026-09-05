@@ -272,7 +272,7 @@ export function MyNumbersScreen() {
                       </>
                     ) : null}
                     <Pressable
-                      accessibilityLabel={`${item.numbers.join(', ')} ${productAccess.requiresRewardedAdForResults ? '광고 후 분석 결과 보기' : '분석 결과 보기'}`}
+                      accessibilityLabel={`${item.numbers.join(', ')} ${productAccess.requiresAdForResults ? '광고 후 분석 결과 보기' : '분석 결과 보기'}`}
                       accessibilityRole="button"
                       onPress={() => analyze(item)}
                       style={({ pressed }) => [
@@ -286,7 +286,7 @@ export function MyNumbersScreen() {
                         useStackedAnalysisAction && styles.analysisLinkStacked,
                       ]}>
                         <Text style={styles.analysisLinkText}>
-                          {productAccess.requiresRewardedAdForResults ? '광고 후 결과 보기' : '결과 보기'}
+                          {productAccess.requiresAdForResults ? '광고 후 결과 보기' : '결과 보기'}
                         </Text>
                         <Ionicons color={colors.accentPrimary} name="chevron-forward" size={15} />
                       </View>

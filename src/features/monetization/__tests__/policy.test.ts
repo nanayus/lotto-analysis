@@ -9,7 +9,7 @@ describe('membership tier policy', () => {
       canUseBalancedPreset: false,
       combinationSelectionLimit: 2,
       conditionSelectionLimit: 99,
-      requiresRewardedAdForResults: true,
+      requiresAdForResults: true,
       storageMode: 'device',
     });
   });
@@ -23,7 +23,7 @@ describe('membership tier policy', () => {
       canUseCustomPeriod: true,
       combinationSelectionLimit: 5,
       conditionSelectionLimit: null,
-      requiresRewardedAdForResults: false,
+      requiresAdForResults: false,
       storageMode: 'cloud',
     });
   });
@@ -41,7 +41,7 @@ describe('membership tier policy', () => {
       canUseCustomPeriod: true,
       combinationSelectionLimit: 5,
       conditionSelectionLimit: null,
-      requiresRewardedAdForResults: false,
+      requiresAdForResults: false,
       storageMode: 'device',
       tier: 'guest',
     });

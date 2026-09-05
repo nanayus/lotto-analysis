@@ -7,7 +7,6 @@ import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TamaguiProvider } from '@tamagui/core';
 
-import { BrandSplash } from '@/components/BrandSplash';
 import { trackScreen } from '@/features/analytics/analyticsClient';
 import { CombinationDraftProvider } from '@/features/combination/CombinationDraftContext';
 import { getArticleBySlug } from '@/features/content/articles';
@@ -223,7 +222,6 @@ function ThemedApp() {
                         headerShown: false,
                       }}
                     />
-                    <BrandSplash />
                   </ThemeProvider>
                 </CombinationDraftProvider>
               </GeneratorDraftProvider>

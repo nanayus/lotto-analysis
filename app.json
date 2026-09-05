@@ -47,10 +47,13 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#080A12",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain"
+          "backgroundColor": "#000000",
+          "ios": {
+            "backgroundColor": "#000000",
+            "image": "./assets/images/brand-splash.png",
+            "imageWidth": 340,
+            "resizeMode": "contain"
+          }
         }
       ],
       "expo-font",

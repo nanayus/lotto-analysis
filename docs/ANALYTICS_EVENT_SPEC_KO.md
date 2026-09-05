@@ -24,18 +24,18 @@ screen_view (조합 생성/선택 화면)
 → combination_generated (자동 생성인 경우)
 → analysis_requested
 → analysis_gate_viewed (무료 사용자)
-→ reward_ad_started
-→ reward_ad_completed
+→ interstitial_ad_started
+→ interstitial_ad_completed
 → analysis_result_viewed
 ```
 
 주요 전환율:
 
 - 분석 시작률: `analysis_requested / 조합 생성·선택 화면 사용자`
-- 광고 수락률: `reward_ad_started / analysis_gate_viewed`
-- 광고 완료율: `reward_ad_completed / reward_ad_started`
+- 광고 시작률: `interstitial_ad_started / analysis_requested`
+- 광고 완료율: `interstitial_ad_completed / interstitial_ad_started`
 - 결과 도달률: `analysis_result_viewed / analysis_requested`
-- 광고 후 결과 도달률: `analysis_result_viewed(access_method=reward_ad) / reward_ad_completed`
+- 광고 후 결과 도달률: `analysis_result_viewed(access_method=interstitial_ad) / interstitial_ad_completed`
 
 ### 로그인 퍼널
 
@@ -65,9 +65,9 @@ paywall_viewed
 | `generator_condition_used` | 조건이 적용된 조합 생성 완료. 한 생성 요청에서 활성 조건별 1회 | `condition_key`, `condition_count`, `source` |
 | `analysis_requested` | 6개 번호 분석을 확정 | `source`, `account_tier`, 조합 지표 |
 | `analysis_gate_viewed` | 광고 또는 Pro 선택 화면 노출 | `source`, `account_tier`, 조합 지표 |
-| `reward_ad_started` | 광고 보기 버튼 선택 | `source`, `account_tier`, 조합 지표 |
-| `reward_ad_completed` | 보상형 광고 완료 확인 | `source`, `account_tier`, 조합 지표 |
-| `reward_ad_failed` | 광고 미완료·재생 오류 | 위 항목 + `reason` |
+| `interstitial_ad_started` | 결과 진입 전 전면광고 요청 | `source`, `account_tier`, 조합 지표 |
+| `interstitial_ad_completed` | 전면광고 닫힘 확인 | `source`, `account_tier`, 조합 지표 |
+| `interstitial_ad_failed` | 광고 로드·표시 오류 | 위 항목 + `reason` |
 | `analysis_result_viewed` | 분석 결과 화면 진입 | `access_method`, `period`, `bonus_included`, `headline_metric`, 조합 지표 |
 | `analysis_section_viewed` | 결과 영역이 50% 이상 0.8초 동안 표시 | `section_key`, `headline_metric`, 분석 조건, 조합 지표 |
 | `analysis_result_interaction` | 결과 영역의 탭·더보기·상세 버튼 등 선택 | `section_key`, `action`, `item_key`, `headline_metric`, 분석 조건, 조합 지표 |

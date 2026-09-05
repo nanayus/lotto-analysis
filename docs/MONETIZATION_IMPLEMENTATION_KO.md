@@ -12,7 +12,7 @@ type AccountTier = 'guest' | 'pro';
 |---|---:|---:|
 | `combinationSelectionLimit` | 2 | 5 |
 | `conditionSelectionLimit` | 2 | `null` |
-| `requiresRewardedAdForResults` | `true` | `false` |
+| `requiresAdForResults` | `true` | `false` |
 | `canUseBalancedPreset` | `false` | `true` |
 | `canUseAiExplanation` | `false` | `true` |
 | `canRegenerateWithSameConditions` | `false` | `true` |
@@ -24,7 +24,7 @@ type AccountTier = 'guest' | 'pro';
 ```text
 분석 요청
 ├─ Pro → 바로 결과 계산·표시
-└─ Guest → 리워드 광고 완료 → 결과 계산·표시
+└─ Guest → 전면광고 닫힘 → 결과 계산·표시
 ```
 
 동일 조합을 내 번호에서 다시 열어도 같은 접근 검사를 실행한다. 결과를 본 적이 있다는 이유로 게스트 광고를 생략하지 않는다.
@@ -59,7 +59,7 @@ type AccountTier = 'guest' | 'pro';
 
 - 조건 상단: `Pro · 조건 무제한 · 균형 프리셋`
 - 조건 제한: `조건은 2개까지 선택할 수 있어요`
-- 게스트 결과: `광고 보고 이번 결과 보기`
+- 게스트 조건 적용: 전면광고 후 결과 바로 보기
 - Pro 결과: 즉시 결과 보기
 - 기기 저장: `이 기기에만 저장돼요`
 

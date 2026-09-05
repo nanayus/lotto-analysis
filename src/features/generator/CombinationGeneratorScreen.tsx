@@ -91,7 +91,7 @@ export function CombinationGeneratorScreen({
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
-  const { openPaywall, productAccess } = useMonetization();
+  const { openPaywall, productAccess, showResultAd } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
   const [conditions, setConditions] = useState(
     () => restoreConditions(sessionToken) ?? buildGeneratorConditionDefaults(lottoHistory),
@@ -108,7 +108,7 @@ export function CombinationGeneratorScreen({
   const recommendationPromptShown = useRef(false);
   const summary = useMemo(() => conditionSummary(conditions), [conditions]);
   const conditionCount = activeConditionCount(conditions);
-  const conditionApplyAccess = productAccess.requiresRewardedAdForResults ? 'guest' : 'pro';
+  const conditionApplyAccess = productAccess.requiresAdForResults ? 'guest' : 'pro';
 
   useEffect(() => () => { generationToken.current += 1; }, []);
 
@@ -221,9 +221,36 @@ export function CombinationGeneratorScreen({
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
     await waitFor(0);
     if (generationToken.current !== token) return;
-    const minimumLoading = waitFor(CONDITION_APPLY_MINIMUM_LOADING_MS);
+    const requiresResultAd = productAccess.requiresAdForResults;
+    const adEventParams = {
+      account_tier: productAccess.tier,
+      condition_count: activeConditionCount(next),
+      source: 'condition_generator_apply',
+    } as const;
+    const resultAd = requiresResultAd
+      ? (async () => {
+          trackEvent('interstitial_ad_started', adEventParams);
+          try {
+            const shown = await showResultAd();
+            trackEvent(shown ? 'interstitial_ad_completed' : 'interstitial_ad_failed', {
+              ...adEventParams,
+              ...(!shown ? { reason: 'not_completed' } : {}),
+            });
+            return shown;
+          } catch {
+            trackEvent('interstitial_ad_failed', { ...adEventParams, reason: 'playback_error' });
+            return false;
+          }
+        })()
+      : Promise.resolve(true);
+    const minimumLoading = requiresResultAd
+      ? Promise.resolve()
+      : waitFor(CONDITION_APPLY_MINIMUM_LOADING_MS);
     try {
-      const nextOutcomes = await generateOutcomes(next, token);
+      const [nextOutcomes] = await Promise.all([
+        generateOutcomes(next, token),
+        resultAd,
+      ]);
       if (generationToken.current !== token) return;
       await minimumLoading;
       if (generationToken.current !== token) return;
@@ -263,6 +290,7 @@ export function CombinationGeneratorScreen({
         pathname: COMBINATION_ANALYSIS_ROUTE,
         params: {
           analyze: `generator-conditions-${Date.now()}`,
+          ...(requiresResultAd ? { accessMethod: 'interstitial' } : {}),
           returnCount: String(gameCount),
           returnSession: sessionToken ?? 'generator',
           returnTo: conditionOnly ? 'combination-generator' : 'draw',
@@ -284,7 +312,18 @@ export function CombinationGeneratorScreen({
         setSearchedCandidates(0);
       }
     }
-  }, [addCombination, conditionOnly, gameCount, generateOutcomes, saveConditions, sessionToken, setNumbers]);
+  }, [
+    addCombination,
+    conditionOnly,
+    gameCount,
+    generateOutcomes,
+    productAccess.requiresAdForResults,
+    productAccess.tier,
+    saveConditions,
+    sessionToken,
+    setNumbers,
+    showResultAd,
+  ]);
 
   const analyzeOutcome = useCallback((selectedOutcome: GenerationOutcome | null) => {
     if (!selectedOutcome) return;

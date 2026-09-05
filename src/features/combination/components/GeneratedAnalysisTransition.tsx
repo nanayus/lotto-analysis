@@ -18,10 +18,10 @@ type GeneratedAnalysisTransitionProps = {
   onContinue: () => void;
   onLater: () => void;
   onOpenPro: () => void;
-  onWatchAd: () => void;
+  onShowAd: () => void;
   phase: GeneratedAnalysisPhase;
-  rewardedAdAvailable: boolean;
-  rewardedAdLoading: boolean;
+  resultAdAvailable: boolean;
+  resultAdLoading: boolean;
   descriptionOverride?: string;
   titleOverride?: string;
 };
@@ -56,10 +56,10 @@ export function GeneratedAnalysisTransition({
   onContinue,
   onLater,
   onOpenPro,
-  onWatchAd,
+  onShowAd,
   phase,
-  rewardedAdAvailable,
-  rewardedAdLoading,
+  resultAdAvailable,
+  resultAdLoading,
   descriptionOverride,
   titleOverride,
 }: GeneratedAnalysisTransitionProps) {
@@ -110,25 +110,25 @@ export function GeneratedAnalysisTransition({
           <View style={styles.accessActions}>
             <AppButton label="Pro 살펴보기" onPress={onOpenPro} />
             <Pressable
-              accessibilityLabel={rewardedAdLoading
+              accessibilityLabel={resultAdLoading
                 ? '광고 확인 중'
-                : rewardedAdAvailable ? '광고 보고 이번 결과 보기' : '광고를 불러올 수 없음'}
+                : resultAdAvailable ? '광고 보고 이번 결과 보기' : '광고를 불러올 수 없음'}
               accessibilityRole="button"
-              accessibilityState={{ disabled: rewardedAdLoading || !rewardedAdAvailable }}
-              disabled={rewardedAdLoading || !rewardedAdAvailable}
-              onPress={onWatchAd}
+              accessibilityState={{ disabled: resultAdLoading || !resultAdAvailable }}
+              disabled={resultAdLoading || !resultAdAvailable}
+              onPress={onShowAd}
               style={({ pressed }) => [
                 styles.rewardButton,
-                (!rewardedAdAvailable || rewardedAdLoading) && styles.rewardButtonDisabled,
+                (!resultAdAvailable || resultAdLoading) && styles.rewardButtonDisabled,
                 pressed && styles.pressed,
               ]}>
-              {rewardedAdLoading ? (
+              {resultAdLoading ? (
                 <ActivityIndicator color={styles.rewardIcon.color} size="small" />
               ) : (
                 <Ionicons color={styles.rewardIcon.color} name="play-circle-outline" size={20} />
               )}
               <Text style={styles.rewardButtonText}>
-                {rewardedAdLoading ? '광고 확인 중' : '광고 보고 이번 결과 보기'}
+                {resultAdLoading ? '광고 확인 중' : '광고 보고 이번 결과 보기'}
               </Text>
             </Pressable>
             <Pressable

@@ -8,7 +8,7 @@ export type ProductAccess = {
   canUseCustomPeriod: boolean;
   combinationSelectionLimit: number;
   conditionSelectionLimit: number | null;
-  requiresRewardedAdForResults: boolean;
+  requiresAdForResults: boolean;
   storageMode: 'cloud' | 'device' | 'unavailable';
   tier: AccountTier;
 };
@@ -45,7 +45,7 @@ export function productAccessFor(
       ? PRO_COMBINATION_SELECTION_LIMIT
       : GUEST_COMBINATION_SELECTION_LIMIT,
     conditionSelectionLimit: hasFullAccess ? null : GUEST_CONDITION_SELECTION_LIMIT,
-    requiresRewardedAdForResults: !hasFullAccess,
+    requiresAdForResults: !hasFullAccess,
     storageMode: linkedAccount && hasFullAccess ? 'cloud' : 'device',
     tier,
   };

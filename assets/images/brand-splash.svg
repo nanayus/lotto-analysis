@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#000000" />
+
+  <g
+    fill="#FFFFFF"
+    font-family="Apple SD Gothic Neo, Helvetica Neue, sans-serif"
+    font-size="102"
+    font-weight="600"
+    letter-spacing="-2.4"
+    text-anchor="middle"
+  >
+    <text x="512" y="358">번호는 무작위.</text>
+    <text x="512" y="478">
+      <tspan>보는 방식은 </tspan><tspan fill="#2997FF">다르게.</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(512 660)">
+    <rect x="-31" y="16" width="6" height="39" rx="3" fill="#2997FF" />
+    <rect x="-3" y="-11" width="6" height="66" rx="3" fill="#FFFFFF" />
+    <rect x="25" y="16" width="6" height="39" rx="3" fill="#2997FF" />
+  </g>
+
+  <text
+    x="512"
+    y="790"
+    fill="#CCCCCC"
+    font-family="Helvetica Neue, sans-serif"
+    font-size="27"
+    font-weight="400"
+    letter-spacing="15"
+    text-anchor="middle"
+  >LOTTO INSIGHT</text>
+</svg>

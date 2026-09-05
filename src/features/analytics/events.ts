@@ -10,6 +10,9 @@ export type AnalyticsEventName =
   | 'analysis_section_viewed'
   | 'combination_generated'
   | 'generator_condition_used'
+  | 'interstitial_ad_completed'
+  | 'interstitial_ad_failed'
+  | 'interstitial_ad_started'
   | 'login_completed'
   | 'login_prompt_closed'
   | 'login_prompt_viewed'
@@ -20,10 +23,7 @@ export type AnalyticsEventName =
   | 'purchase_failed'
   | 'purchase_restore_failed'
   | 'purchase_restored'
-  | 'purchase_started'
-  | 'reward_ad_completed'
-  | 'reward_ad_failed'
-  | 'reward_ad_started';
+  | 'purchase_started';
 
 const SCREEN_NAMES: Record<string, string> = {
   '/': 'home',
