@@ -1,10 +1,5 @@
 import { useEffect } from 'react';
-import {
-  type LayoutChangeEvent,
-  type StyleProp,
-  StyleSheet,
-  type ViewStyle,
-} from 'react-native';
+import { type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -14,8 +9,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const OPEN_DURATION_MS = 220;
-const CLOSE_DURATION_MS = 170;
-
 export function CollapsibleConditionContent({
   children,
   expanded,
@@ -25,48 +18,29 @@ export function CollapsibleConditionContent({
   expanded: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const contentHeight = useSharedValue(0);
   const progress = useSharedValue(expanded ? 1 : 0);
 
   useEffect(() => {
     progress.value = withTiming(expanded ? 1 : 0, {
-      duration: expanded ? OPEN_DURATION_MS : CLOSE_DURATION_MS,
-      easing: expanded ? Easing.out(Easing.cubic) : Easing.inOut(Easing.quad),
+      duration: OPEN_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
       reduceMotion: ReduceMotion.System,
     });
   }, [expanded, progress]);
 
-  const clipStyle = useAnimatedStyle(() => ({
-    height: contentHeight.value > 0
-      ? contentHeight.value * progress.value
-      : expanded ? undefined : 0,
-    opacity: progress.value,
-  }), [expanded]);
-
   const contentStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
     transform: [{ translateY: -4 * (1 - progress.value) }],
   }));
 
-  const measureContent = (event: LayoutChangeEvent) => {
-    const nextHeight = event.nativeEvent.layout.height;
-    if (nextHeight > 0 && nextHeight !== contentHeight.value) {
-      contentHeight.value = nextHeight;
-    }
-  };
+  // Measuring children while their parent is height: 0 is unreliable in optimized
+  // iOS builds. Mount enabled controls at their natural height so a condition can
+  // never remain visually collapsed after its switch has been turned on.
+  if (!expanded) return null;
 
   return (
-    <Animated.View
-      accessibilityElementsHidden={!expanded}
-      importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}
-      pointerEvents={expanded ? 'auto' : 'none'}
-      style={[styles.clip, clipStyle]}>
-      <Animated.View onLayout={measureContent} style={[style, contentStyle]}>
-        {children}
-      </Animated.View>
+    <Animated.View style={[style, contentStyle]}>
+      {children}
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  clip: { overflow: 'hidden' },
-});

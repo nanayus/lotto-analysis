@@ -1,5 +1,6 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
@@ -24,10 +25,17 @@ const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 type ComparisonMetric = 'appearanceCount' | 'currentGap';
+type ComparisonOrder = 'number' | 'appearanceRank' | 'currentGap';
 
 const comparisonMetrics: readonly { key: ComparisonMetric; label: string }[] = [
   { key: 'appearanceCount', label: '출현 횟수' },
   { key: 'currentGap', label: '현재 미출현 횟수' },
+];
+
+const comparisonOrders: readonly { key: ComparisonOrder; label: string }[] = [
+  { key: 'number', label: '번호순' },
+  { key: 'appearanceRank', label: '출현 순위순' },
+  { key: 'currentGap', label: '미출현 많은 순' },
 ];
 
 type AllNumberComparisonProps = {
@@ -107,10 +115,21 @@ export function AllNumberComparison({
   const styles = useThemedStyles(createStyles);
   const { width } = useWindowDimensions();
   const [metric, setMetric] = useState<ComparisonMetric>('appearanceCount');
+  const [order, setOrder] = useState<ComparisonOrder>('number');
+  const [orderSelectorVisible, setOrderSelectorVisible] = useState(false);
+  const selectedOrder = comparisonOrders.find((option) => option.key === order) ?? comparisonOrders[0];
   const columnCount = width >= WIDE_GRID_BREAKPOINT
     ? WIDE_COLUMN_COUNT
     : MOBILE_COLUMN_COUNT;
-  const numbers = Object.values(snapshot.numbers).sort((a, b) => a.number - b.number);
+  const numbers = useMemo(() => Object.values(snapshot.numbers).sort((left, right) => {
+    if (order === 'appearanceRank') {
+      return left.appearanceRank - right.appearanceRank || left.number - right.number;
+    }
+    if (order === 'currentGap') {
+      return right.currentGap - left.currentGap || left.number - right.number;
+    }
+    return left.number - right.number;
+  }), [order, snapshot.numbers]);
   const maxMetricValue = useMemo(
     () => Math.max(...numbers.map((item) => item[metric]), 1),
     [metric, numbers],
@@ -141,17 +160,30 @@ export function AllNumberComparison({
         </View>
 
         <View style={styles.filterBar}>
-          <Text style={styles.filterTitle}>분석 조건</Text>
-          <AnalysisControls
-            bonusIncluded={bonusIncluded}
-            compact
-            firstRound={firstRound}
-            latestRound={latestRound}
-            onBonusChange={onBonusChange}
-            onPeriodChange={onPeriodChange}
-            period={period}
-            variant="plain"
-          />
+          <Text style={styles.filterTitle}>보기 설정</Text>
+          <View style={styles.viewControls}>
+            <AnalysisControls
+              bonusIncluded={bonusIncluded}
+              compact
+              firstRound={firstRound}
+              latestRound={latestRound}
+              onBonusChange={onBonusChange}
+              onPeriodChange={onPeriodChange}
+              period={period}
+              variant="plain"
+            />
+            <View style={styles.controlDivider} />
+            <Pressable
+              accessibilityLabel={`정렬 ${selectedOrder.label}`}
+              accessibilityRole="button"
+              onPress={() => setOrderSelectorVisible(true)}
+              style={({ pressed }) => [styles.filterOrderButton, pressed && styles.pressed]}
+              testID="all-number-order-button">
+              <Ionicons color={styles.filterOrderButtonText.color} name="swap-vertical-outline" size={14} />
+              <Text style={styles.filterOrderButtonText}>{selectedOrder.label}</Text>
+              <Text style={styles.orderChevron}>⌄</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.metricFilters}>
@@ -175,11 +207,6 @@ export function AllNumberComparison({
               </Pressable>
             );
           })}
-        </View>
-
-        <View style={styles.gridHeading}>
-          <Text style={styles.gridTitle}>{metric === 'appearanceCount' ? '번호별 출현 횟수' : '번호별 미출현 간격'}</Text>
-          <Text style={styles.gridHint}>테두리가 길수록 값이 큽니다 · 번호를 누르면 상세 분석으로 이동합니다</Text>
         </View>
 
         <View style={styles.grid} testID={`all-number-grid-${columnCount}-columns`}>
@@ -222,6 +249,43 @@ export function AllNumberComparison({
           ))}
         </View>
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setOrderSelectorVisible(false)}
+        transparent
+        visible={orderSelectorVisible}>
+        <Pressable onPress={() => setOrderSelectorVisible(false)} style={styles.backdrop}>
+          <Pressable onPress={() => undefined} style={styles.orderSheet}>
+            <Text style={styles.orderSheetTitle}>정렬</Text>
+            {comparisonOrders.map((option) => {
+              const selected = order === option.key;
+              return (
+                <Pressable
+                  accessibilityLabel={`${option.label}으로 정렬`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  key={option.key}
+                  onPress={() => {
+                    setOrder(option.key);
+                    setOrderSelectorVisible(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.orderSheetOption,
+                    selected && styles.orderSheetOptionSelected,
+                    pressed && styles.pressed,
+                  ]}
+                  testID={`all-number-order-${option.key}`}>
+                  <Text style={[styles.orderSheetOptionText, selected && styles.orderSheetOptionTextSelected]}>
+                    {option.label}
+                  </Text>
+                  {selected ? <Text style={styles.orderCheck}>✓</Text> : null}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -299,6 +363,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.caption,
     fontWeight: typography.weights.semibold,
   },
+  viewControls: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+  },
+  controlDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 20,
+    marginHorizontal: spacing.xs,
+    backgroundColor: colors.borderStrong,
+  },
+  filterOrderButton: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  filterOrderButtonText: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.medium,
+  },
   metricFilters: {
     minHeight: 44,
     flexDirection: 'row',
@@ -326,23 +416,59 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.accentPrimary,
     fontWeight: typography.weights.semibold,
   },
-  gridHeading: {
-    marginTop: spacing.xxl,
-    marginBottom: spacing.md,
+  orderChevron: {
+    color: colors.textTertiary,
+    fontSize: 12,
+    marginTop: -2,
   },
-  gridTitle: {
+  backdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xxl,
+    backgroundColor: colors.backdrop,
+  },
+  orderSheet: {
+    width: '100%',
+    maxWidth: 280,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.background,
+  },
+  orderSheetTitle: {
     color: colors.textPrimary,
     fontSize: typography.sizes.body,
     fontWeight: typography.weights.semibold,
-    letterSpacing: -0.3,
+    marginBottom: spacing.sm,
   },
-  gridHint: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    marginTop: spacing.xs,
+  orderSheetOption: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  orderSheetOptionSelected: {
+    backgroundColor: colors.surfaceAccent,
+  },
+  orderSheetOptionText: {
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+  },
+  orderSheetOptionTextSelected: {
+    color: colors.accentPrimary,
+    fontWeight: typography.weights.semibold,
+  },
+  orderCheck: {
+    color: colors.accentPrimary,
+    fontSize: typography.sizes.small,
   },
   grid: {
     width: '100%',
+    marginTop: spacing.lg,
     overflow: 'hidden',
     borderRadius: radius.lg,
     borderWidth: 1,

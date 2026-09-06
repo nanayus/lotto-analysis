@@ -12,12 +12,12 @@ npx eas build --platform ios --profile testflight
 
 ## 확인 절차
 
-1. TestFlight 앱에서 비 Pro 계정으로 조건 선택 화면을 연다.
+1. TestFlight 앱에서 조건 선택 화면을 연다.
 2. 조건을 선택한 뒤 `이 조건으로 뽑기`를 누른다.
 3. 광고에 `Test mode` 또는 `Test Ad` 표시가 있는지 확인한다.
 4. 전면광고를 닫으면 별도의 광고 선택 화면 없이 분석 결과가 열린다.
 
-`testflight` 프로필은 `EXPO_PUBLIC_PRO_PLAN_ENABLED=true`와 `EXPO_PUBLIC_ADMOB_TEST_MODE=true`를 빌드에 주입한다. 기존 `production` 프로필에는 테스트 광고 설정이 들어가지 않는다.
+`testflight` 프로필은 EAS `preview` 환경을 사용한다. 이 환경에는 `EXPO_PUBLIC_RESULT_ADS_ENABLED=true`, `EXPO_PUBLIC_PRO_PLAN_ENABLED=false`, `EXPO_PUBLIC_ADMOB_TEST_MODE=true`가 등록되어 있다. 따라서 빌드와 OTA가 같은 설정을 사용하며, 전체 기능은 열리고 Pro 결제 화면 없이 Google 테스트 광고만 표시된다.
 
 ## 실제 광고 전환
 

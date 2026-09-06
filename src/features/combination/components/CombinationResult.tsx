@@ -47,6 +47,9 @@ type CombinationResultProps = {
   analysis: CombinationAnalysis;
   bonusIncluded: boolean;
   firstRound: number;
+  headerActionAccessibilityLabel?: string;
+  headerTitle?: string;
+  heroContext?: React.ReactNode;
   latestRound: number;
   onBonusChange: (included: boolean) => void;
   onBack?: () => void;
@@ -65,6 +68,9 @@ type CombinationResultProps = {
   ) => void;
   onSectionViewed?: (sectionKey: CombinationResultSectionKey) => void;
   period: AnalysisPeriod;
+  showLibraryActions?: boolean;
+  startOverAccessibilityLabel?: string;
+  startOverLabel?: string;
   canRegenerate?: boolean;
   canUseAiExplanation?: boolean;
   favorite?: boolean;
@@ -874,6 +880,9 @@ export function CombinationResult({
   analysis,
   bonusIncluded,
   firstRound,
+  headerActionAccessibilityLabel = '새 조합 분석',
+  headerTitle = '조합 분석',
+  heroContext,
   latestRound,
   onBonusChange,
   onBack = NOOP,
@@ -888,6 +897,9 @@ export function CombinationResult({
   onResultInteraction = NOOP,
   onSectionViewed,
   period,
+  showLibraryActions = true,
+  startOverAccessibilityLabel = '새 조합 분석하기',
+  startOverLabel = '새 조합 분석하기',
   canRegenerate = false,
   favorite = false,
   isPro = false,
@@ -1028,7 +1040,7 @@ export function CombinationResult({
         onBack={onBack}
         right={(
           <Pressable
-            accessibilityLabel="새 조합 분석"
+            accessibilityLabel={headerActionAccessibilityLabel}
             accessibilityRole="button"
             onPress={() => {
               onResultInteraction('headline', 'start_over');
@@ -1038,7 +1050,7 @@ export function CombinationResult({
             <Ionicons color={styles.startOverIcon.color} name="refresh-outline" size={20} />
           </Pressable>
         )}
-        title="조합 분석"
+        title={headerTitle}
       />
       {stickyNumbersVisible ? (
         <Animated.View
@@ -1068,16 +1080,19 @@ export function CombinationResult({
           sectionLayoutHandler('headline')(event);
         }}
         testID="result-selected-profile">
-      <AppCard style={styles.selectedProfile}>
-        <View style={styles.profileLibraryActions}>
-          <LibraryStatusActions
-            favorite={favoriteSelected}
-            onToggleFavorite={handleToggleFavorite}
-            onTogglePurchased={handleTogglePurchased}
-            purchased={purchasedSelected}
-            testID="result-card-actions"
-          />
-        </View>
+      <AppCard style={[styles.selectedProfile, !showLibraryActions && styles.selectedProfileWithoutActions]}>
+        {heroContext ? <View style={styles.heroContext}>{heroContext}</View> : null}
+        {showLibraryActions ? (
+          <View style={styles.profileLibraryActions}>
+            <LibraryStatusActions
+              favorite={favoriteSelected}
+              onToggleFavorite={handleToggleFavorite}
+              onTogglePurchased={handleTogglePurchased}
+              purchased={purchasedSelected}
+              testID="result-card-actions"
+            />
+          </View>
+        ) : null}
         <View
           accessibilityElementsHidden={stickyNumbersVisible}
           importantForAccessibility={stickyNumbersVisible ? 'no-hide-descendants' : 'auto'}
@@ -1381,7 +1396,7 @@ export function CombinationResult({
           앞으로의 추첨 결과를 예측하거나 보장하지 않아요.
         </Text>
         <Pressable
-          accessibilityLabel="새 조합 분석하기"
+          accessibilityLabel={startOverAccessibilityLabel}
           accessibilityRole="button"
           onPress={() => {
             onResultInteraction('headline', 'start_over');
@@ -1392,7 +1407,7 @@ export function CombinationResult({
             webPointerStyle,
             pressed && styles.pressed,
           ]}>
-          <Text style={styles.newAnalysisText}>새 조합 분석하기</Text>
+          <Text style={styles.newAnalysisText}>{startOverLabel}</Text>
         </Pressable>
         {canRegenerate ? (
           <Pressable
@@ -1475,6 +1490,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'stretch',
     padding: spacing.lg,
     paddingTop: spacing.huge + spacing.sm,
+  },
+  selectedProfileWithoutActions: {
+    paddingTop: spacing.lg,
+  },
+  heroContext: {
+    alignSelf: 'stretch',
+    marginBottom: spacing.lg,
   },
   profileLibraryActions: {
     position: 'absolute',

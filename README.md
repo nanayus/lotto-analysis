@@ -20,13 +20,13 @@ npm run web
 - Firebase 익명 인증과 선택적 Apple·Google 계정 연결: [Firebase 인증 설정](./docs/FIREBASE_AUTH_SETUP_KO.md)
 - RevenueCat 구독·구매 복원: [RevenueCat 설정](./docs/REVENUECAT_SETUP_KO.md)
 
-Firebase 설정이 없으면 인증·클라우드 기능 없이 기기 저장 방식으로 동작합니다. 계정 연결 UI와 Pro 결제는 각각 `EXPO_PUBLIC_ACCOUNT_LINKING_ENABLED`, `EXPO_PUBLIC_PRO_PLAN_ENABLED`가 `true`일 때만 노출됩니다.
+Firebase 설정이 없으면 인증·클라우드 기능 없이 기기 저장 방식으로 동작합니다. 결과 광고는 `EXPO_PUBLIC_RESULT_ADS_ENABLED`, 계정 연결 UI와 Pro 결제는 각각 `EXPO_PUBLIC_ACCOUNT_LINKING_ENABLED`, `EXPO_PUBLIC_PRO_PLAN_ENABLED`로 독립 제어합니다.
 
 ## 현재 구현 범위
 
 - 번호뽑기: 무작위 뽑기와 조건 기반 조합 생성
 - 내번호보기: 생성·선택한 조합의 기기 저장, 즐겨찾기·구매 표시, 재생성 및 분석 이동
-- 통계보기: 번호별 탐색, 전체 번호 통계, 여섯 번호 조합 분석
+- 통계보기: 번호별 탐색, 전체 번호 통계, 회차별 당첨번호 분석, 여섯 번호 조합 분석
 - 조합 분석: 과거 회차의 일치 분포·등위 상당 기록, 개별 번호·형태·부분 조합·그룹 빈도 분석
 - 콘텐츠: 로또 통계를 확률과 무작위성의 관점에서 설명하는 읽을거리
 - 환경설정: 화면 모드, 개인정보처리방침, 익명 이용정보/계정 삭제, 조건부 Pro 상태
@@ -34,7 +34,7 @@ Firebase 설정이 없으면 인증·클라우드 기능 없이 기기 저장 �
 - RevenueCat 구매·복원 및 서버 권한 확인 코드
 - Firebase Analytics 이벤트와 AI 해설 연동 코드
 
-기본 배포에서는 모든 핵심 기능을 열어 두고 Pro 결제와 계정 연결 UI를 비활성화합니다. 실제 스토어 상품, RevenueCat 운영 키와 Current Offering, 서버 Secret, 샌드박스 구매 검증이 끝난 뒤에만 Pro를 활성화해야 합니다.
+현재 배포 정책은 모든 핵심 기능을 무료로 열고, 지원되는 네이티브 환경에서 분석 결과 진입 전 전면광고만 운영합니다. Pro 결제·잠금 UI와 계정 연결 UI는 비활성화하지만 관련 코드는 이후 재사용할 수 있도록 유지합니다.
 
 ## 데이터
 

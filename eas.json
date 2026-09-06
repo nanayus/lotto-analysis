@@ -9,17 +9,21 @@
       "distribution": "internal"
     },
     "preview": {
+      "channel": "preview",
       "distribution": "internal"
     },
     "testflight": {
-      "extends": "production",
-      "env": {
-        "EXPO_PUBLIC_ADMOB_TEST_MODE": "true",
-        "EXPO_PUBLIC_PRO_PLAN_ENABLED": "true"
-      }
+      "channel": "testflight",
+      "environment": "preview",
+      "autoIncrement": true
     },
     "production": {
-      "autoIncrement": true
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_PRO_PLAN_ENABLED": "false",
+        "EXPO_PUBLIC_RESULT_ADS_ENABLED": "true"
+      }
     }
   },
   "submit": {

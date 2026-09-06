@@ -34,16 +34,25 @@ describe('membership tier policy', () => {
   });
 
   test('unlocks every product feature while preserving guest device storage', () => {
-    expect(productAccessFor('guest', { unlockAllFeatures: true })).toMatchObject({
+    expect(productAccessFor('guest', {
+      requireAdsForResults: true,
+      unlockAllFeatures: true,
+    })).toMatchObject({
       canRegenerateWithSameConditions: true,
       canUseAiExplanation: true,
       canUseBalancedPreset: true,
       canUseCustomPeriod: true,
       combinationSelectionLimit: 5,
       conditionSelectionLimit: null,
-      requiresAdForResults: false,
+      requiresAdForResults: true,
       storageMode: 'device',
       tier: 'guest',
+    });
+  });
+
+  test('keeps Pro ad-free when result ads are enabled', () => {
+    expect(productAccessFor('pro', { requireAdsForResults: true })).toMatchObject({
+      requiresAdForResults: false,
     });
   });
 

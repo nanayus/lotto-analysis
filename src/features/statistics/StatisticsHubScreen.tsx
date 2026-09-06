@@ -56,13 +56,41 @@ export function StatisticsHubScreen() {
 
           <Pressable
             accessibilityRole="button"
+            onPress={() => router.push('/statistics/winning-number-analysis')}
+            style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}>
+            <View style={styles.listIcon}>
+              <Ionicons color={colors.accentPrimary} name="calendar-outline" size={22} />
+            </View>
+            <View style={styles.listCopy}>
+              <Text style={styles.listTitle}>당첨번호 분석</Text>
+              <Text style={styles.listDescription}>회차를 골라 당첨번호 조합의 과거 기록을 분석</Text>
+            </View>
+            <Ionicons color={colors.textSecondary} name="chevron-forward" size={20} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/statistics/combination-comparison')}
+            style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}>
+            <View style={styles.listIcon}>
+              <Ionicons color={colors.accentPrimary} name="git-compare-outline" size={22} />
+            </View>
+            <View style={styles.listCopy}>
+              <Text style={styles.listTitle}>조합 비교</Text>
+              <Text style={styles.listDescription}>저장 조합과 당첨 회차 두 개를 같은 기준으로 비교</Text>
+            </View>
+            <Ionicons color={colors.textSecondary} name="chevron-forward" size={20} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             onPress={() => router.push({
               pathname: COMBINATION_ANALYSIS_ROUTE,
               params: { returnTo: 'statistics' },
             })}
             style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}>
             <View style={styles.listIcon}>
-              <Ionicons color={colors.accentPrimary} name="git-compare" size={22} />
+              <Ionicons color={colors.accentPrimary} name="grid-outline" size={22} />
             </View>
             <View style={styles.listCopy}>
               <Text style={styles.listTitle}>조합 분석</Text>

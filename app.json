@@ -3,6 +3,12 @@
     "name": "Lotto Insight",
     "slug": "lotto",
     "version": "1.0.2",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4c4a3751-a6d1-4efa-b5ac-6cfda28a53e4"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "lotto",

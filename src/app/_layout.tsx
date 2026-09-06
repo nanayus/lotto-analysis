@@ -66,6 +66,18 @@ const combinationMetadata = {
   path: '/combination-analysis',
 };
 
+const winningNumberAnalysisMetadata = {
+  title: '로또 당첨번호 분석 | Lotto Insight',
+  description: '회차별 로또 6/45 당첨번호 조합의 과거 일치 기록, 출현 빈도와 조합 형태를 분석합니다.',
+  path: '/statistics/winning-number-analysis',
+};
+
+const combinationComparisonMetadata = {
+  title: '로또 조합 비교 | Lotto Insight',
+  description: '저장한 로또 조합과 과거 당첨번호 두 개를 같은 기간과 분석 조건으로 비교합니다.',
+  path: '/statistics/combination-comparison',
+};
+
 const generatorMetadata = {
   title: '로또 조합 선택하기 | Lotto Insight',
   description:
@@ -123,6 +135,10 @@ function AppMetadata() {
         ? statisticsMetadata
         : pathname === contentMetadata.path || pathname.startsWith('/content/')
           ? activeContentMetadata
+        : pathname === winningNumberAnalysisMetadata.path
+          ? winningNumberAnalysisMetadata
+        : pathname === combinationComparisonMetadata.path
+          ? combinationComparisonMetadata
         : pathname === combinationMetadata.path
           ? combinationMetadata
           : pathname === generatorMetadata.path

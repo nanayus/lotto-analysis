@@ -2,9 +2,12 @@
 
 ## Project Overview
 
-This repository is a mobile-first Lotto 6/45 data exploration app.
+This repository is a mobile-first Lotto 6/45 number-generation, library, and
+historical-data exploration app.
 
-The product is **not a prediction service**. It is a playful, premium data-exploration experience based on historical draw data.
+The product is **not a prediction service**. Random and condition-based
+generation are selection tools, not recommendations or claims of probability
+advantage.
 
 Primary product copy:
 
@@ -44,6 +47,10 @@ Current primary stack:
 - React Native Gesture Handler
 - Expo Haptics
 - React Native Skia where already used for custom Scrubber visuals
+- AsyncStorage for device persistence
+- Firebase Auth, Firestore, Functions, and Analytics where configured
+- RevenueCat and AdMob behind feature flags
+- Tamagui where already used
 
 Do not:
 
@@ -124,9 +131,9 @@ Preferred existing flow:
 ```text
 UI
 ↓
-Domain
+Feature state / Context
 ↓
-Repository
+Pure Domain
 ↓
 Generated Static Data
 ```
@@ -136,6 +143,10 @@ Rules:
 - UI must not contain analytics/scoring logic.
 - Domain functions should be pure and have no React imports.
 - Static generated data is the runtime source for analytics where currently applicable.
+- Device storage is the default persistence path for saved combinations and
+  theme preferences.
+- Firebase, RevenueCat, AdMob, and AI Functions are optional operating services;
+  core generation and historical analytics must not depend on them.
 - Do not calculate global analytics at app startup if they can be precomputed.
 - Keep components focused.
 - Avoid unnecessary abstraction layers.
@@ -147,20 +158,38 @@ Rules:
 
 Current main navigation:
 
-- 탐색
-- 조합 만들기
+- 번호뽑기
+- 내번호보기
+- 통계보기
+- 콘텐츠
 
-These are two different product experiences.
+These are four visible tabs. Environment settings is a utility screen reached
+from the shared top-bar settings/account action, not a visible tab.
 
 ```text
-탐색
-└─ individual-number exploration and analytics
+번호뽑기
+├─ random draw
+└─ condition-based generation
 
-조합 만들기
-└─ user-selected six-number combination analysis
+내번호보기
+└─ saved, purchased, and favorite combinations
+
+통계보기
+├─ individual-number exploration
+├─ overall draw statistics
+├─ historical winning-number analysis
+└─ six-number combination analysis
+
+콘텐츠
+└─ educational articles about randomness and statistics
+
+shared top-bar action
+└─ 환경설정
+   └─ display, privacy, account, release, and conditional Pro settings
 ```
 
-Do not merge these concepts.
+Do not merge these concepts or move an existing experience to another tab
+without an explicit product decision.
 
 Do not add a new top-level tab unless explicitly requested.
 
@@ -172,7 +201,8 @@ Bottom navigation should remain visually subtle.
 
 # 6. Explore Feature Scope
 
-The `탐색` tab is the existing individual-number analysis experience.
+Explore is the existing individual-number analysis experience reached from
+`통계보기 → 번호별 통계`.
 
 Its purpose is to explore one Lotto number at a time.
 
@@ -190,7 +220,8 @@ It currently includes concepts such as:
 
 The Explore feature is already implemented.
 
-When developing `조합 만들기`, do not redesign or rewrite Explore.
+When developing Combination Analysis, generation, or library features, do not
+redesign or rewrite Explore.
 
 Do not modify existing Explore analytics definitions merely to support Combination Analysis.
 
@@ -698,7 +729,8 @@ Web has no haptic.
 
 # 24. Color System
 
-Use the existing palette.
+Use the active theme tokens. The following values are the representative dark
+palette, not permission to bypass the light theme:
 
 ```text
 background       #080A12
@@ -749,11 +781,17 @@ The motion should support understanding and delight, not distract.
 
 ---
 
-# 26. Dark Theme
+# 26. Theme
 
-MVP uses dark theme only.
+The current product supports:
 
-Do not add light theme unless explicitly requested.
+- light
+- dark
+- system
+
+Dark remains the representative visual direction, but new UI must use the
+existing theme tokens and remain legible in all three modes. Do not remove or
+bypass the current theme preference and persistence behavior.
 
 Use system fonts.
 
@@ -835,20 +873,48 @@ Do not alter pair/trio logic unless explicitly requested.
 
 ---
 
+# 30A. Winning Number Analysis
+
+`통계보기 → 당첨번호 분석` lets the user select one historical draw and
+analyze that draw's six main numbers with the existing Combination Analysis
+domain rules.
+
+Preserve these semantics:
+
+- the latest draw is the default
+- the user can enter a round, choose a recent round, or step previous/next
+- the draw bonus is displayed as draw context but is not one of the six
+  selected analysis numbers
+- period and Bonus analytics filters keep the same meanings as Combination
+  Analysis
+- prize history and main-number distribution remain independent of the Bonus
+  analytics toggle
+- AI explanation and library actions are not shown in this flow
+- `다른 회차 보기` changes the selected round without turning the result into
+  a predicted or recommended combination
+
+Reuse the existing Combination Analysis domain and result components where
+that preserves these semantics. Do not fork the analytics definitions.
+
+---
+
 # 31. Combination Analysis — Product Definition
 
-The `조합 만들기` tab is the six-number combination analysis feature.
+Combination Analysis is the six-number historical analysis feature reached
+from `통계보기`, generated-number results, saved combinations, and Explore
+drafts. It is not a top-level tab.
 
-The previous placeholder screen should be replaced by this feature.
+The feature is implemented and must be preserved.
 
-There is currently no implemented HOT/COLD/RECENT/PAIR/TRIO combination-generator feature that must be preserved.
+Do not implement prediction, probability-advantage scoring, or AI number
+recommendation logic as part of v1.
 
-Do not implement prediction or automatic recommendation logic as part of this MVP.
-
-Core product flow:
+Direct-selection flow:
 
 ```text
-조합 만들기
+통계보기
+↓
+조합 분석
 ↓
 select exactly 6 numbers
 ↓
@@ -878,9 +944,9 @@ Describe historical statistics only.
 
 ---
 
-# 32. Combination Analysis — MVP Scope
+# 32. Combination Analysis — v1 Scope
 
-MVP includes:
+The implemented v1 scope includes:
 
 - manual selection of six numbers
 - Lotto-ticket-inspired 1–45 selection UI
@@ -894,32 +960,34 @@ MVP includes:
 - existing period filter
 - existing Bonus filter for eligible analytics
 - `새로하기`
+- detailed qualifying-draw history
+- A/B comparison
+- AI explanation behind product access and server verification
 
-MVP does not include:
+Saved combinations, favorites, device persistence, random generation, and
+condition-based generation are implemented product features outside the
+Combination Analysis screen. Do not remove or duplicate them when changing
+Combination Analysis.
 
-- editing a combination after analysis
-- saved combinations
-- analysis history
-- favorites
-- login
-- persistence
-- recommendation algorithms
-- Monte Carlo
-- automatic combination generation
-- prediction
-- AI-generated Lotto numbers
+The current product does not include:
 
-These may be considered later.
-
-Do not implement them during MVP work.
+- in-place editing of an analyzed combination
+- a separate analysis-result history system
+- Monte Carlo prediction
+- probability-advantage scoring
+- AI-generated or AI-recommended Lotto numbers
+- real ticket purchase or issuance
+- notifications
 
 ---
 
 # 33. Combination Analysis — Number Selection UX
 
-Entering the `조합 만들기` tab should immediately show the number-selection experience.
+Entering Combination Analysis directly from `통계보기` should show the
+number-selection experience. Entries from generated results, saved numbers, or
+an Explore draft may carry an existing combination into the analysis flow.
 
-Do not add a feature-selection menu for MVP.
+Do not add a feature-selection menu to the direct Combination Analysis entry.
 
 Use numbers 1–45.
 
@@ -976,7 +1044,7 @@ The result experience must provide:
 
 `새로하기`
 
-MVP behavior:
+Current behavior:
 
 ```text
 새로하기
@@ -988,7 +1056,7 @@ return to the number-selection state
 
 Do not preserve the old selection when starting a new analysis.
 
-`수정하기` is not part of MVP.
+`수정하기` is not part of the current result flow.
 
 Do not implement in-place editing of the analyzed six numbers yet.
 
@@ -1154,14 +1222,15 @@ Do not show every matching draw directly on the primary result screen.
 
 For each of the six selected numbers, provide useful period-dependent statistics.
 
-MVP should include at minimum:
+The current result must include at minimum:
 
 - appearance count
 - appearance rank within 1–45
 
 Use the active period and Bonus analytics filter.
 
-If existing domain functions can safely provide additional already-defined statistics without complicating the MVP, they may be reused only when explicitly required by the task.
+Preserve additional already-defined statistics that are present in the current
+result. Add new statistics only when explicitly required by the task.
 
 Do not modify the existing Explore screen just to support this summary.
 
@@ -1169,7 +1238,8 @@ Do not modify the existing Explore screen just to support this summary.
 
 # 43. Combination Analysis — Combination Shape
 
-MVP includes simple structural analysis of the six selected numbers.
+The result includes structural analysis of the six selected numbers and
+condition-oriented statistics already present in the implementation.
 
 Show:
 
@@ -1196,14 +1266,9 @@ Examples:
 
 Multiple consecutive groups may be shown separately.
 
-Do not add additional shape metrics such as:
-
-- low/high split
-- decade bands
-- ending-digit patterns
-- custom scoring
-
-unless explicitly requested later.
+Do not remove existing condition-oriented statistics merely because the
+original MVP described only odd/even, sum, and consecutive groups. Do not add
+predictive scoring.
 
 ---
 
@@ -1264,7 +1329,7 @@ Maximum list sizes are small:
 6 numbers → 1
 ```
 
-No pagination is needed for these MVP lists.
+No pagination is needed for these v1 lists.
 
 ---
 
@@ -1287,7 +1352,7 @@ Example:
 
 For 2-number and 3-number analysis, low-frequency / least-frequent information may be considered later.
 
-It is not required for MVP unless explicitly requested.
+It is not required for v1 unless explicitly requested.
 
 ---
 
@@ -1295,7 +1360,7 @@ It is not required for MVP unless explicitly requested.
 
 Provide a simple comparison between the six selected numbers and the overall number population within the active analysis conditions.
 
-MVP concept:
+Current v1 concept:
 
 - average appearance count of the selected six numbers
 - average appearance count across all 45 numbers
@@ -1377,7 +1442,7 @@ The Combination Analysis feature must feel like part of the same product as Expl
 
 Use the existing:
 
-- dark background
+- active theme background and surfaces
 - surface colors
 - accent colors
 - typography hierarchy
@@ -1388,7 +1453,9 @@ Use the existing:
 
 Do not create a separate design system.
 
-The number-selection screen may visually reference a Lotto paper selection grid, but must be reinterpreted through the current premium dark UI.
+The number-selection screen may visually reference a Lotto paper selection
+grid, but must be reinterpreted through the current premium theme and verified
+in light, dark, and system modes.
 
 Avoid:
 
@@ -1477,7 +1544,7 @@ Show a calm empty state rather than an empty card or broken list.
 
 # 52. Data
 
-MVP uses static bundled data.
+Core generation and analytics use static bundled data.
 
 No runtime network request is required for core features.
 
@@ -1487,27 +1554,23 @@ official Korean Lotto / 동행복권 historical draw data.
 
 Generated runtime data should remain separate from raw input data.
 
-Existing suggested structure:
+Current generated sources:
 
 ```text
-data/raw/lotto-draws.json
-src/data/generated/metadata.json
-src/data/generated/number-stats.json
-src/data/generated/pair-counts.json
-src/data/generated/trio-counts.json
+src/data/generated/lotto_history.json
+src/data/generated/number-analytics.json
 ```
 
-Before implementing Combination Analysis:
+Before changing analytics:
 
 1. inspect the actual repository
-2. identify the real current raw and generated files
+2. inspect the current generated files and types
 3. confirm whether historical main numbers and bonus numbers are available
 4. confirm whether date/draw-range information is available
-5. determine which new analytics can be calculated safely from existing data
+5. preserve the current definitions unless the user explicitly requests a
+   product-level change
 
-Do not assume these exact paths exist.
-
-Do not introduce SQLite for MVP.
+Do not introduce SQLite for v1.
 
 Do not add a server just for Combination Analysis.
 
@@ -1537,21 +1600,23 @@ Do not redesign the entire data pipeline unless required.
 
 # 54. State Management
 
-For MVP, prefer the existing state-management approach.
+Prefer the existing state-management approach.
 
 Use local React state where reasonable if that matches the current project.
 
 Do not add Zustand, Redux, or another state library just for Combination Analysis.
 
-Only consider broader persisted/global state if the product later adds features such as:
+The repository already uses providers and persistence for:
 
-- saved combinations
-- user settings
-- history
-- login
-- persisted user state
+- combination drafts
+- generator drafts
+- saved-number library
+- theme preferences
+- authentication
+- product access and monetization
 
-These are not part of this MVP.
+Extend these only when the requested behavior belongs to the same ownership
+boundary. Do not introduce another global state library.
 
 ---
 
@@ -1625,7 +1690,7 @@ For Combination Analysis work specifically:
 - do not change HOT/COLD definitions
 - do not change Pair/Trio definitions
 - do not introduce prediction
-- do not implement deferred features
+- do not duplicate generation, library, authentication, or monetization state
 
 ---
 
@@ -1642,18 +1707,18 @@ When receiving a task:
 7. do not continue into unrelated improvements
 8. stop once the requested scope is complete
 
-For a larger new feature such as Combination Analysis:
+For a larger product change:
 
-1. inspect navigation and current `조합 만들기` placeholder
-2. inspect theme/design-system usage
-3. inspect the existing period filter
-4. inspect the existing Bonus filter
-5. inspect Lotto raw/generated data
-6. inspect existing analytics/domain functions
-7. identify reusable pieces
-8. design the smallest architecture extension
-9. implement the feature without rewriting Explore
-10. validate the affected paths
+1. inspect the current four-tab navigation, shared settings entry, and feature
+   entry points
+2. inspect theme/design-system usage in light and dark modes
+3. inspect the relevant feature providers and persisted state
+4. inspect the existing filters and analytics definitions
+5. inspect generated Lotto data and pure domain functions
+6. identify reusable pieces
+7. design the smallest architecture extension
+8. preserve unrelated feature flows
+9. validate the affected paths
 
 Do not perform broad repository refactors unless explicitly requested.
 
@@ -1818,11 +1883,11 @@ Do not continue developing additional features.
 
 ---
 
-# 66. Definition of Done for Combination Analysis MVP
+# 66. Combination Analysis Regression Contract
 
-Combination Analysis MVP is complete when:
+Combination Analysis changes are complete only when:
 
-- `조합 만들기` no longer shows the placeholder
+- the entry from `통계보기` opens direct six-number selection
 - users can select exactly six numbers from 1–45
 - the selection UI is polished and consistent with the existing app
 - Analysis starts only after pressing `분석하기`
@@ -1841,8 +1906,11 @@ Combination Analysis MVP is complete when:
 - zero-occurrence states are handled cleanly
 - selected-six average vs overall average works
 - `새로하기` clears the combination and returns to selection
+- entries from generated and saved combinations preserve their intended return
+  navigation
+- A/B comparison and detailed records remain reachable
 - Explore remains functionally unchanged
-- no prediction/recommendation feature was added
+- no prediction or probability-advantage feature was added
 - no unnecessary dependency was added
 - relevant TypeScript and analytics validation passes
 
@@ -1850,41 +1918,21 @@ Combination Analysis MVP is complete when:
 
 # 67. Current Product Priority
 
-The existing Explore / NumberScrubber experience should remain stable.
+The current product is a four-tab v1 application with a shared settings screen,
+rather than an unfinished two-feature MVP.
 
-The current new-feature priority is:
+Current priorities are:
 
-**Combination Analysis in `조합 만들기`.**
+1. stabilize the implemented generation, library, statistics, content, and
+   settings flows
+2. preserve offline/device behavior when external services are unavailable
+3. keep product documentation and access policy aligned with the repository
+4. validate store builds before enabling ads, Pro, AI, account linking, or
+   cloud sync
+5. keep every generated and analyzed result framed as non-predictive
 
-This does not mean Explore should be redesigned.
-
-The intended Combination Analysis experience is:
-
-```text
-open 조합 만들기
-↓
-see a polished Lotto-inspired 1–45 selector
-↓
-select six numbers
-↓
-press 분석하기
-↓
-immediately understand the strongest historical result
-↓
-explore deeper statistics progressively
-↓
-start over cleanly with 새로하기
-```
-
-The user should feel that analyzing a six-number combination is:
-
-- intuitive
-- beautiful
-- responsive
-- informative
-- enjoyable to explore
-
-not that the app is trying to predict Lotto results.
+Do not treat Combination Analysis as the only product surface or use work in
+that feature to regress the other tabs or shared settings flow.
 
 ---
 

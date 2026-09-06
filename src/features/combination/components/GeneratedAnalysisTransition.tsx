@@ -22,6 +22,7 @@ type GeneratedAnalysisTransitionProps = {
   phase: GeneratedAnalysisPhase;
   resultAdAvailable: boolean;
   resultAdLoading: boolean;
+  showProOption?: boolean;
   descriptionOverride?: string;
   titleOverride?: string;
 };
@@ -60,6 +61,7 @@ export function GeneratedAnalysisTransition({
   phase,
   resultAdAvailable,
   resultAdLoading,
+  showProOption = true,
   descriptionOverride,
   titleOverride,
 }: GeneratedAnalysisTransitionProps) {
@@ -90,8 +92,16 @@ export function GeneratedAnalysisTransition({
           )}
         </View>
         <Text style={styles.eyebrow}>HISTORICAL ANALYSIS</Text>
-        <Text style={styles.title}>{titleOverride || copy.title}</Text>
-        <Text style={styles.description}>{errorMessage || descriptionOverride || copy.description}</Text>
+        <Text style={styles.title}>
+          {titleOverride || (phase === 'access' && !showProOption ? '광고 후 결과를 확인하세요' : copy.title)}
+        </Text>
+        <Text style={styles.description}>
+          {errorMessage
+            || descriptionOverride
+            || (phase === 'access' && !showProOption
+              ? '광고 한 편을 본 뒤 전체 분석 결과를 볼 수 있어요.'
+              : copy.description)}
+        </Text>
 
         {phase === 'access' || phase === 'loading' ? (
           <AppCard style={styles.numberCard}>
@@ -108,7 +118,7 @@ export function GeneratedAnalysisTransition({
 
         {phase === 'access' ? (
           <View style={styles.accessActions}>
-            <AppButton label="Pro 살펴보기" onPress={onOpenPro} />
+            {showProOption ? <AppButton label="Pro 살펴보기" onPress={onOpenPro} /> : null}
             <Pressable
               accessibilityLabel={resultAdLoading
                 ? '광고 확인 중'

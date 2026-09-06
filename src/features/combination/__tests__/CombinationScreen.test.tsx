@@ -308,7 +308,7 @@ describe('CombinationScreen', () => {
     ));
   });
 
-  test('keeps manual analysis unlocked while the Pro plan is paused', async () => {
+  test('keeps every feature unlocked while showing the ad-supported result label', async () => {
     mockSearchParams.mockReturnValue({ returnTo: 'draw' });
     mockIsPro = false;
     mockProPlanEnabled = false;
@@ -319,7 +319,7 @@ describe('CombinationScreen', () => {
     );
 
     expect(screen.getByTestId('combination-number-grid')).toBeTruthy();
-    expect(screen.getByText('광고 없이 결과 보기')).toBeTruthy();
+    expect(screen.getByText('광고 후 결과 공개')).toBeTruthy();
     expect(screen.queryByTestId('generated-analysis-transition')).toBeNull();
     expect(mockAuthorizeAnalysis).not.toHaveBeenCalled();
   });
@@ -410,6 +410,40 @@ describe('CombinationScreen', () => {
     expect(mockOpenPaywall).toHaveBeenCalledWith('analysis-limit');
 
     expect(mockShowResultAd).not.toHaveBeenCalled();
+  });
+
+  test('shows only the ad action while Pro sales are paused', async () => {
+    mockIsPro = false;
+    mockProPlanEnabled = false;
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('광고 후 결과를 확인하세요')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: 'Pro 살펴보기' })).toBeNull();
+    expect(screen.getByRole('button', { name: '광고 보고 이번 결과 보기' })).toBeEnabled();
+  });
+
+  test('opens the result when an enabled ad cannot be loaded', async () => {
+    mockIsPro = false;
+    mockProPlanEnabled = false;
+    mockAuthorizationDecision = 'REWARD_OR_PRO_REQUIRED';
+    mockShowResultAd.mockImplementationOnce(async () => false);
+    const screen = await render(
+      <CombinationDraftProvider>
+        <SeededCombinationScreen />
+      </CombinationDraftProvider>,
+    );
+
+    const adButton = await screen.findByRole('button', { name: '광고 보고 이번 결과 보기' });
+    await act(async () => {
+      await fireEvent.press(adButton);
+    });
+
+    await waitFor(() => expect(screen.getByTestId('result-section-prize')).toBeTruthy());
   });
 
   test('uses the full access page when a direct manual analysis is denied', async () => {

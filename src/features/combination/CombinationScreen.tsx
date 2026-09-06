@@ -162,7 +162,7 @@ export function CombinationScreen() {
   const analysisStateRef = useRef<AnalysisState | null>(null);
   const handledAnalyzeTokenRef = useRef<string | null>(null);
   const regenerationTokenRef = useRef(0);
-  const analysisAccessMethodRef = useRef<'interstitial_ad' | 'open_access' | 'pro' | 'unknown'>('unknown');
+  const analysisAccessMethodRef = useRef<'ad_unavailable' | 'interstitial_ad' | 'open_access' | 'pro' | 'unknown'>('unknown');
   const trackedGateKeyRef = useRef<string | null>(null);
   const viewedResultSectionsRef = useRef(new Set<CombinationResultSectionKey>());
 
@@ -381,10 +381,8 @@ export function CombinationScreen() {
     });
   }, [clear, leaveCombination, returnTarget]);
 
-  const analysisAvailabilityLabel = proPlanEnabled
-    ? productAccess.tier === 'pro'
-      ? 'Pro · 광고 없이 결과 보기'
-      : '게스트 · 광고 후 결과 공개'
+  const analysisAvailabilityLabel = productAccess.requiresAdForResults
+    ? '광고 후 결과 공개'
     : '광고 없이 결과 보기';
   const requestedAnalysisHasNumbers = Boolean(analyzeToken && selectedNumbers.length === 6);
   const authorizationPhase: GeneratedAnalysisPhase = accessMessage
@@ -479,7 +477,8 @@ export function CombinationScreen() {
       const completed = await showResultAd();
       if (!completed) {
         trackEvent('interstitial_ad_failed', { ...eventParams, reason: 'not_completed' });
-        setResultAdMessage('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+        analysisAccessMethodRef.current = 'ad_unavailable';
+        executeAnalysis();
         return;
       }
       trackEvent('interstitial_ad_completed', eventParams);
@@ -490,7 +489,8 @@ export function CombinationScreen() {
       }
     } catch {
       trackEvent('interstitial_ad_failed', { ...eventParams, reason: 'playback_error' });
-      setResultAdMessage('광고를 표시하지 못했어요. 다시 시도해 주세요.');
+      analysisAccessMethodRef.current = 'ad_unavailable';
+      executeAnalysis();
     } finally {
       setShowingResultAd(false);
     }
@@ -526,6 +526,22 @@ export function CombinationScreen() {
     setRegenerationError(null);
     setRegenerationPhase('loading');
     try {
+      if (productAccess.requiresAdForResults) {
+        const adEventParams = combinationAnalyticsParams(
+          savedAnalysisCombination.numbers,
+          { account_tier: productAccess.tier, source: 'same_condition_regeneration' },
+        );
+        trackEvent('interstitial_ad_started', adEventParams);
+        try {
+          const shown = await showResultAd();
+          trackEvent(shown ? 'interstitial_ad_completed' : 'interstitial_ad_failed', {
+            ...adEventParams,
+            ...(!shown ? { reason: 'not_completed' } : {}),
+          });
+        } catch {
+          trackEvent('interstitial_ad_failed', { ...adEventParams, reason: 'playback_error' });
+        }
+      }
       const outcome = await generateCombination(generatorConditions, {
         history: lottoHistory,
         isCancelled: () => regenerationTokenRef.current !== token,
@@ -594,10 +610,12 @@ export function CombinationScreen() {
     addCombination,
     openPaywall,
     productAccess.canRegenerateWithSameConditions,
+    productAccess.requiresAdForResults,
     productAccess.tier,
     regenerationPhase,
-    savedAnalysisCombination?.generatorConditions,
+    savedAnalysisCombination,
     setNumbers,
+    showResultAd,
   ]);
   const toggleLibraryState = useCallback((kind: 'favorite' | 'purchased') => {
     if (!analysisLibraryId) return;
@@ -681,6 +699,7 @@ export function CombinationScreen() {
               phase={analysisTransitionPhase}
               resultAdAvailable={resultAdsAvailable}
               resultAdLoading={isShowingResultAd}
+              showProOption={proPlanEnabled}
             />
           ) : (
             <NumberSelector

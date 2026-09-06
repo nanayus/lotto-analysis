@@ -13,7 +13,7 @@ const TAB_TRANSITION_DURATION_MS = 180;
 type TabIconProps = {
   color: ColorValue;
   focused: boolean;
-  kind: 'content' | 'draw' | 'library' | 'statistics' | 'settings';
+  kind: 'content' | 'draw' | 'library' | 'statistics';
 };
 
 function TabIcon({ color, focused, kind }: TabIconProps) {
@@ -24,9 +24,7 @@ function TabIcon({ color, focused, kind }: TabIconProps) {
       ? focused ? 'ticket' : 'ticket-outline'
       : kind === 'statistics'
         ? focused ? 'stats-chart' : 'stats-chart-outline'
-        : kind === 'content'
-          ? focused ? 'newspaper' : 'newspaper-outline'
-        : focused ? 'options' : 'options-outline';
+        : focused ? 'newspaper' : 'newspaper-outline';
 
   return (
     <View style={[styles.iconShell, focused && styles.iconShellFocused]}>
@@ -141,11 +139,8 @@ function TabsNavigator() {
       <Tabs.Screen
         name="settings"
         options={{
+          href: null,
           title: '환경설정',
-          tabBarAccessibilityLabel: '환경설정 탭',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon color={color} focused={focused} kind="settings" />
-          ),
         }}
       />
     </Tabs>

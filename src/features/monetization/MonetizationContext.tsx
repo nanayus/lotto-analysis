@@ -10,7 +10,7 @@ import { authUid, hasLinkedAccount } from '@/features/auth/types';
 
 import { ProPaywallModal } from './ProPaywallModal';
 import { ReferralCodeOnboardingModal } from './ReferralCodeOnboardingModal';
-import { ALL_FEATURES_UNLOCKED, PRO_PLAN_ENABLED } from './featureFlags';
+import { ALL_FEATURES_UNLOCKED, PRO_PLAN_ENABLED, RESULT_ADS_ENABLED } from './featureFlags';
 import {
   normalizeMonetizationAccessState,
   type AnalysisAuthorization,
@@ -79,12 +79,16 @@ const EMPTY_PURCHASE_SNAPSHOT: RevenueCatSnapshot = {
   packages: [],
 };
 
+function areResultAdsActive() {
+  return RESULT_ADS_ENABLED && isInterstitialAdConfigured();
+}
+
 const fallbackValue: MonetizationValue = {
   applyReferral: async () => undefined,
   authorizeAnalysis: async (numbers) => ({
     accessState: EMPTY_ACCESS_STATE,
     combinationKey: [...numbers].sort((left, right) => left - right).join('-'),
-    decision: PRO_PLAN_ENABLED ? 'REWARD_OR_PRO_REQUIRED' : 'AUTHORIZED_PRO',
+    decision: areResultAdsActive() ? 'REWARD_OR_PRO_REQUIRED' : 'AUTHORIZED_PRO',
   }),
   closePaywall: () => undefined,
   closeReferralCode: () => undefined,
@@ -99,7 +103,10 @@ const fallbackValue: MonetizationValue = {
   purchasesConfigured: false,
   isPurchaseWorking: false,
   proPlanEnabled: PRO_PLAN_ENABLED,
-  productAccess: productAccessFor('guest', { unlockAllFeatures: ALL_FEATURES_UNLOCKED }),
+  productAccess: productAccessFor('guest', {
+    requireAdsForResults: areResultAdsActive(),
+    unlockAllFeatures: ALL_FEATURES_UNLOCKED,
+  }),
   refresh: async () => undefined,
   restorePurchases: async () => false,
   resultAdsAvailable: false,
@@ -213,7 +220,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   }, [applyPurchaseSnapshot, purchaseSnapshot.configured]);
 
   useEffect(() => {
-    if (!PRO_PLAN_ENABLED || !isInterstitialAdConfigured()) return;
+    if (!areResultAdsActive()) return;
     void prepareInterstitialAd();
   }, []);
 
@@ -226,9 +233,9 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     return {
       accessState,
       combinationKey,
-      decision: (!PRO_PLAN_ENABLED || accessState.isPro)
-        ? 'AUTHORIZED_PRO' as const
-        : 'REWARD_OR_PRO_REQUIRED' as const,
+      decision: areResultAdsActive() && !(PRO_PLAN_ENABLED && accessState.isPro)
+        ? 'REWARD_OR_PRO_REQUIRED' as const
+        : 'AUTHORIZED_PRO' as const,
     };
   }, [state]);
 
@@ -331,7 +338,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     setReferralCodeVisible(false);
   }, [isApplyingReferral]);
   const showResultAd = useCallback(async () => {
-    if (!PRO_PLAN_ENABLED || !isInterstitialAdConfigured()) return false;
+    if (!areResultAdsActive()) return false;
     return showInterstitialAd();
   }, []);
 
@@ -384,10 +391,11 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
   }, [applyPurchaseSnapshot, isPurchaseWorking, purchaseSnapshot.configured]);
 
   const tier = accountTier({
-    isPro: state.status === 'ready' && state.access.isPro,
+    isPro: PRO_PLAN_ENABLED && state.status === 'ready' && state.access.isPro,
   });
   const productAccess = productAccessFor(tier, {
     linkedAccount: hasLinkedAccount(authState),
+    requireAdsForResults: areResultAdsActive(),
     unlockAllFeatures: ALL_FEATURES_UNLOCKED,
   });
 
@@ -410,7 +418,7 @@ export function MonetizationProvider({ children }: PropsWithChildren) {
     productAccess,
     refresh,
     restorePurchases,
-    resultAdsAvailable: PRO_PLAN_ENABLED && isInterstitialAdConfigured(),
+    resultAdsAvailable: areResultAdsActive(),
     showResultAd,
     state,
     subscriptionManagementUrl: purchaseSnapshot.managementUrl,

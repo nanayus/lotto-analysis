@@ -16,6 +16,7 @@ const snapshot = {
         String(number),
         {
           appearanceCount: 100 + number,
+          appearanceRank: 46 - number,
           currentGap: number,
           number,
         } as GeneratedNumberAnalytics,
@@ -56,7 +57,27 @@ describe('AllNumberComparison', () => {
     expect(getByTestId('all-number-ball-1')).toBeTruthy();
     expect(getByTestId('all-number-item-23').props.accessibilityState).toEqual({ selected: true });
     expect(queryByText('45개 번호 비교')).toBeNull();
-    expect(queryByText('순위')).toBeNull();
+    expect(getByTestId('all-number-order-button').props.accessibilityLabel).toBe('정렬 번호순');
+    expect(queryByText('테두리가 길수록 값이 큽니다')).toBeNull();
+    expect(queryByText('번호별 출현 횟수')).toBeNull();
+
+    await act(async () => {
+      await fireEvent.press(getByRole('button', { name: '정렬 번호순' }));
+    });
+    await act(async () => {
+      await fireEvent.press(getByRole('button', { name: '출현 순위순으로 정렬' }));
+    });
+    expect(getAllByTestId(/^all-number-item-/)[0].props.testID).toBe('all-number-item-45');
+    expect(getByTestId('all-number-order-button').props.accessibilityLabel).toBe('정렬 출현 순위순');
+
+    await act(async () => {
+      await fireEvent.press(getByRole('button', { name: '정렬 출현 순위순' }));
+    });
+    await act(async () => {
+      await fireEvent.press(getByRole('button', { name: '미출현 많은 순으로 정렬' }));
+    });
+    expect(getAllByTestId(/^all-number-item-/)[0].props.testID).toBe('all-number-item-45');
+    expect(getByTestId('all-number-order-button').props.accessibilityLabel).toBe('정렬 미출현 많은 순');
 
     await act(async () => {
       await fireEvent.press(getByRole('button', { name: '13번, 출현 횟수 113회' }));

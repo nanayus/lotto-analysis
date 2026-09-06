@@ -19,6 +19,7 @@ export const GUEST_CONDITION_SELECTION_LIMIT = 99;
 
 type ProductAccessOptions = {
   linkedAccount?: boolean;
+  requireAdsForResults?: boolean;
   unlockAllFeatures?: boolean;
 };
 
@@ -32,7 +33,11 @@ export function accountTier({
 
 export function productAccessFor(
   tier: AccountTier,
-  { linkedAccount = false, unlockAllFeatures = false }: ProductAccessOptions = {},
+  {
+    linkedAccount = false,
+    requireAdsForResults = true,
+    unlockAllFeatures = false,
+  }: ProductAccessOptions = {},
 ): ProductAccess {
   const hasFullAccess = tier === 'pro' || unlockAllFeatures;
   return {
@@ -45,7 +50,7 @@ export function productAccessFor(
       ? PRO_COMBINATION_SELECTION_LIMIT
       : GUEST_COMBINATION_SELECTION_LIMIT,
     conditionSelectionLimit: hasFullAccess ? null : GUEST_CONDITION_SELECTION_LIMIT,
-    requiresAdForResults: !hasFullAccess,
+    requiresAdForResults: requireAdsForResults && tier !== 'pro',
     storageMode: linkedAccount && hasFullAccess ? 'cloud' : 'device',
     tier,
   };
