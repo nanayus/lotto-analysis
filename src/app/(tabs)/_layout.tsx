@@ -66,7 +66,9 @@ function TabsNavigator() {
   return (
     <Tabs
       screenOptions={{
-        animation: 'fade',
+        // A native iOS tab scene can occasionally remain at the fade transition's
+        // transparent state after a fast switch or foreground restore.
+        animation: Platform.OS === 'ios' ? 'none' : 'fade',
         sceneStyle: { backgroundColor: colors.background },
         headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
