@@ -718,13 +718,14 @@ describe('CombinationGeneratorScreen', () => {
 
     const sameEnding = screen.getByTestId('pattern-sameEnding-2+2');
     expect(sameEnding.props.accessibilityState).toEqual({ checked: false });
+    expect(StyleSheet.flatten(sameEnding.props.style)).toMatchObject({ overflow: 'hidden' });
     within(sameEnding).getAllByText(/^\d+$/, { includeHiddenElements: true }).forEach((cell) => {
       expect(cell.props.numberOfLines).toBe(1);
       expect(cell.props.maxFontSizeMultiplier).toBe(1);
       expect(StyleSheet.flatten(cell.props.style)).toMatchObject({
-        flexShrink: 0,
         height: 20,
-        width: 22,
+        maxWidth: 22,
+        width: '100%',
       });
     });
     await act(async () => { await fireEvent.press(sameEnding); });
@@ -734,6 +735,14 @@ describe('CombinationGeneratorScreen', () => {
     await act(async () => { await fireEvent.press(screen.getByRole('switch', { name: '연번 형태 조건' })); });
     expect(screen.getByLabelText('없음, 과거 최다')).toBeTruthy();
     const consecutive = screen.getByTestId('pattern-consecutive-3+2');
+    within(consecutive).getAllByText(/^\d+$/, { includeHiddenElements: true }).forEach((cell) => {
+      expect(StyleSheet.flatten(cell.props.style)).toMatchObject({
+        flex: 1,
+        flexShrink: 1,
+        maxWidth: 22,
+        minWidth: 0,
+      });
+    });
     await act(async () => { await fireEvent.press(consecutive); });
     expect(screen.getByTestId('pattern-consecutive-3+2').props.accessibilityState).toEqual({ checked: true });
   });

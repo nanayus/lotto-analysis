@@ -241,7 +241,7 @@ function PatternDiagram({ kind, pattern }: { kind: 'consecutive' | 'sameEnding';
                   key={index}
                   maxFontSizeMultiplier={1}
                   numberOfLines={1}
-                  style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
+                  style={[styles.patternCell, styles.endingPatternCell, size > 1 && styles.patternCellLinked]}>
                   {ending + (index * 10)}
                 </Text>
               ))}
@@ -252,13 +252,19 @@ function PatternDiagram({ kind, pattern }: { kind: 'consecutive' | 'sameEnding';
           .slice(0, groupIndex)
           .reduce((total, groupSize) => total + groupSize + 3, 0);
         return (
-          <View key={`${pattern}-${groupIndex}`} style={[styles.consecutiveGroup, size > 1 && styles.consecutiveGroupLinked]}>
+          <View
+            key={`${pattern}-${groupIndex}`}
+            style={[
+              styles.consecutiveGroup,
+              { flexGrow: size },
+              size > 1 && styles.consecutiveGroupLinked,
+            ]}>
             {Array.from({ length: size }, (_, index) => (
               <Text
                 key={index}
                 maxFontSizeMultiplier={1}
                 numberOfLines={1}
-                style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
+                style={[styles.patternCell, styles.consecutivePatternCell, size > 1 && styles.patternCellLinked]}>
                 {start + index}
               </Text>
             ))}
@@ -1490,7 +1496,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   patternOption: {
     width: '48.7%', minHeight: 104, padding: spacing.sm,
     borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surface, overflow: 'hidden',
   },
   patternOptionActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   patternOptionHeader: { minHeight: 30, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.xs },
@@ -1500,16 +1506,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: radius.round, backgroundColor: colors.surfaceSuccess,
     paddingHorizontal: 5, paddingVertical: 2,
   },
-  patternDiagram: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
-  endingGroup: { alignItems: 'center', gap: 2, borderRadius: radius.sm, padding: 2 },
+  patternDiagram: { width: '100%', minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  endingGroup: { flex: 1, minWidth: 0, maxWidth: 26, alignItems: 'center', gap: 2, borderRadius: radius.sm, padding: 2 },
   endingGroupLinked: { backgroundColor: colors.surfaceAccent },
-  consecutiveGroup: { flexDirection: 'row', alignItems: 'center', gap: 1, borderRadius: radius.sm, padding: 2 },
+  consecutiveGroup: { flexBasis: 0, flexShrink: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 1, borderRadius: radius.sm, padding: 2 },
   consecutiveGroupLinked: { backgroundColor: colors.surfaceAccent },
   patternCell: {
     width: 22, height: 20, flexShrink: 0, borderRadius: 5, borderWidth: 1, borderColor: colors.divider,
     backgroundColor: colors.background, color: colors.textSecondary,
     fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center', fontVariant: ['tabular-nums'],
   },
+  endingPatternCell: { width: '100%', maxWidth: 22 },
+  consecutivePatternCell: { flex: 1, flexShrink: 1, minWidth: 0, maxWidth: 22 },
   patternCellLinked: { borderColor: colors.accentBorder, color: colors.highlight },
   ratioDiagram: { width: 54, height: 5, flexDirection: 'row', gap: 2 },
   ratioSegment: { flex: 1, borderRadius: 2 },
