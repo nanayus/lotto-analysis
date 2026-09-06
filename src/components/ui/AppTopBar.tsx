@@ -41,6 +41,7 @@ export function MainTabHeader({ onProPress }: MainTabHeaderProps) {
 
   return (
     <View style={[styles.mainBar, webStickyHeader]} testID="main-tab-header">
+      <Text numberOfLines={1} style={styles.brandName}>LOTTO INSIGHT</Text>
       <View style={styles.rightActions}>
         {proPlanEnabled ? (
           <Pressable
@@ -121,10 +122,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
     backgroundColor: colors.surface,
+  },
+  brandName: {
+    minWidth: 0,
+    flexShrink: 1,
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: typography.weights.semibold,
+    letterSpacing: 0.3,
   },
   rightActions: {
     flexShrink: 0,

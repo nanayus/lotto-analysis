@@ -68,9 +68,10 @@ describe('MainTabHeader', () => {
     mockProExpiresAt = null;
   });
 
-  test('leaves the leading side empty and places an icon-only settings action at the trailing edge', async () => {
+  test('shows the app name at the leading edge and keeps icon-only settings at the trailing edge', async () => {
     const screen = await render(<MainTabHeader />);
 
+    expect(screen.getByText('LOTTO INSIGHT')).toBeTruthy();
     expect(screen.queryByText('로그인')).toBeNull();
     expect(screen.queryByText('설정')).toBeNull();
     await act(async () => {
