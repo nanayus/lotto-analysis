@@ -17,19 +17,25 @@ import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import { db } from '@/features/auth/firebaseClient';
 
 const CACHE_KEY = 'lotto.remoteDraws.v1';
-const REGULAR_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1_000;
-const WEEKEND_REFRESH_INTERVAL_MS = 15 * 60 * 1_000;
+const STALE_DATA_RETRY_INTERVAL_MS = 15 * 60 * 1_000;
+const DRAW_AVAILABLE_HOUR = 20;
+const DRAW_AVAILABLE_MINUTE = 45;
 
 type CachedLottoData = {
   draws: LottoHistoryDraw[];
   fetchedAt: number;
 };
 
+export type LottoRefreshResult = {
+  latestRound: number;
+  status: 'failed' | 'skipped' | 'unavailable' | 'unchanged' | 'updated';
+};
+
 type LottoDataValue = {
   history: LottoHistoryDraw[];
   isReady: boolean;
   latestDraw: LottoHistoryDraw;
-  refresh: (force?: boolean) => Promise<void>;
+  refresh: (force?: boolean) => Promise<LottoRefreshResult>;
 };
 
 const bundledHistory = lottoHistoryJson as LottoHistoryDraw[];
@@ -73,19 +79,60 @@ export function mergeLottoHistory(
 
 function seoulParts(now: Date) {
   const parts = new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
     hour: '2-digit',
     hour12: false,
+    minute: '2-digit',
+    month: '2-digit',
     timeZone: 'Asia/Seoul',
     weekday: 'short',
+    year: 'numeric',
   }).formatToParts(now);
-  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    weekday: values.weekday,
+  };
 }
 
-function refreshInterval(now: Date) {
-  const parts = seoulParts(now);
-  const hour = Number(parts.hour);
-  const inResultWindow = (parts.weekday === 'Sat' && hour >= 20) || parts.weekday === 'Sun';
-  return inResultWindow ? WEEKEND_REFRESH_INTERVAL_MS : REGULAR_REFRESH_INTERVAL_MS;
+function shiftIsoDate(value: string, days: number) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function expectedLatestLottoDrawDate(now = new Date()) {
+  const current = seoulParts(now);
+  const daysSinceSaturday: Record<string, number> = {
+    Sat: 0,
+    Sun: 1,
+    Mon: 2,
+    Tue: 3,
+    Wed: 4,
+    Thu: 5,
+    Fri: 6,
+  };
+  const elapsedDays = daysSinceSaturday[current.weekday];
+  if (elapsedDays === undefined) throw new Error('Unable to determine the Seoul weekday.');
+
+  const beforeSaturdayDraw = elapsedDays === 0
+    && (current.hour < DRAW_AVAILABLE_HOUR
+      || (current.hour === DRAW_AVAILABLE_HOUR && current.minute < DRAW_AVAILABLE_MINUTE));
+  return shiftIsoDate(current.date, beforeSaturdayDraw ? -7 : -elapsedDays);
+}
+
+export function shouldRefreshLottoData(
+  latestDraw: LottoHistoryDraw,
+  fetchedAt: number,
+  now = new Date(),
+  force = false,
+) {
+  if (force) return true;
+  const expectedDate = expectedLatestLottoDrawDate(now);
+  if (latestDraw.date && latestDraw.date >= expectedDate) return false;
+  return now.getTime() - fetchedAt >= STALE_DATA_RETRY_INTERVAL_MS;
 }
 
 function cachedData(value: string | null): CachedLottoData | null {
@@ -107,7 +154,10 @@ const fallbackValue: LottoDataValue = {
   history: fallbackHistory,
   isReady: true,
   latestDraw: newestDraw(fallbackHistory),
-  refresh: async () => undefined,
+  refresh: async () => ({
+    latestRound: newestDraw(fallbackHistory).round,
+    status: 'unavailable',
+  }),
 };
 
 const LottoDataContext = createContext<LottoDataValue>(fallbackValue);
@@ -116,26 +166,54 @@ export function LottoDataProvider({ children }: PropsWithChildren) {
   const [remoteDraws, setRemoteDraws] = useState<LottoHistoryDraw[]>([]);
   const [isReady, setIsReady] = useState(false);
   const fetchedAtRef = useRef(0);
-  const refreshPromiseRef = useRef<Promise<void> | null>(null);
+  const remoteDrawsRef = useRef<LottoHistoryDraw[]>([]);
+  const latestDrawRef = useRef(newestDraw(fallbackHistory));
+  const refreshPromiseRef = useRef<Promise<LottoRefreshResult> | null>(null);
 
   const refresh = useCallback(async (force = false) => {
-    if (!db) return;
+    if (!db) return {
+      latestRound: latestDrawRef.current.round,
+      status: 'unavailable' as const,
+    };
     if (refreshPromiseRef.current) return refreshPromiseRef.current;
-    if (!force && Date.now() - fetchedAtRef.current < refreshInterval(new Date())) return;
+    const now = new Date();
+    if (!shouldRefreshLottoData(latestDrawRef.current, fetchedAtRef.current, now, force)) {
+      return {
+        latestRound: latestDrawRef.current.round,
+        status: 'skipped' as const,
+      };
+    }
 
-    const task = getDoc(doc(db, 'publicData', 'lotto'))
+    const previousLatestRound = latestDrawRef.current.round;
+    const task: Promise<LottoRefreshResult> = getDoc(doc(db, 'publicData', 'lotto'))
       .then(async (snapshot) => {
         const data = snapshot.data();
         const draws = Array.isArray(data?.draws)
           ? data.draws.filter(isLottoHistoryDraw)
           : [];
-        if (!draws.length) return;
         const fetchedAt = Date.now();
+        const nextRemoteDraws = draws.length
+          ? mergeLottoHistory(remoteDrawsRef.current, draws)
+          : remoteDrawsRef.current;
         fetchedAtRef.current = fetchedAt;
-        setRemoteDraws(draws);
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ draws, fetchedAt }));
+        remoteDrawsRef.current = nextRemoteDraws;
+        latestDrawRef.current = newestDraw(mergeLottoHistory(bundledHistory, nextRemoteDraws));
+        if (draws.length) setRemoteDraws(nextRemoteDraws);
+        await AsyncStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({ draws: nextRemoteDraws, fetchedAt }),
+        ).catch(() => undefined);
+        return {
+          latestRound: latestDrawRef.current.round,
+          status: latestDrawRef.current.round > previousLatestRound
+            ? 'updated' as const
+            : 'unchanged' as const,
+        };
       })
-      .catch(() => undefined)
+      .catch(() => ({
+        latestRound: latestDrawRef.current.round,
+        status: 'failed' as const,
+      }))
       .finally(() => {
         refreshPromiseRef.current = null;
       });
@@ -151,6 +229,8 @@ export function LottoDataProvider({ children }: PropsWithChildren) {
         const cached = cachedData(value);
         if (cached) {
           fetchedAtRef.current = cached.fetchedAt;
+          remoteDrawsRef.current = cached.draws;
+          latestDrawRef.current = newestDraw(mergeLottoHistory(bundledHistory, cached.draws));
           setRemoteDraws(cached.draws);
         }
       })
@@ -174,6 +254,9 @@ export function LottoDataProvider({ children }: PropsWithChildren) {
     () => mergeLottoHistory(bundledHistory, remoteDraws),
     [remoteDraws],
   );
+  useEffect(() => {
+    latestDrawRef.current = newestDraw(history);
+  }, [history]);
   const value = useMemo<LottoDataValue>(() => ({
     history,
     isReady,

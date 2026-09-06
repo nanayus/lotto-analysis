@@ -1,7 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NumberFlow from 'rn-number-flow';
 
@@ -29,7 +38,17 @@ type GameCount = 1 | 2 | 3 | 5;
 const GUEST_GAME_COUNTS: readonly GameCount[] = [1, 2];
 const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
 
-function LatestDrawInfo({ draw }: { draw: LottoHistoryDraw }) {
+function LatestDrawInfo({
+  draw,
+  onRefresh,
+  refreshNotice,
+  refreshing,
+}: {
+  draw: LottoHistoryDraw;
+  onRefresh: () => void;
+  refreshNotice: string | null;
+  refreshing: boolean;
+}) {
   const styles = useThemedStyles(createStyles);
   const [now, setNow] = useState(() => new Date());
   const drawDate = formatDrawDate(draw.date);
@@ -42,65 +61,88 @@ function LatestDrawInfo({ draw }: { draw: LottoHistoryDraw }) {
   }, []);
 
   return (
-    <View
-      accessibilityLabel={`최근 당첨번호, 제 ${draw.round}회, ${draw.numbers.join(', ')}, 보너스 ${draw.bonus}. 다음 추첨까지 ${countdown}`}
-      accessible
-      style={styles.drawInfo}>
+    <View style={styles.drawInfo}>
       <View style={styles.drawInfoHeader}>
         <Text style={styles.drawInfoMeta}>
           제 {draw.round}회{drawDate ? ` · ${drawDate}` : ''}
         </Text>
-        <View style={styles.drawCountdownHeader}>
-          <View style={styles.drawCountdownDot} />
-          <Text style={styles.drawCountdownLabel}>다음 추첨까지</Text>
-        </View>
+        <Pressable
+          accessibilityHint="Firestore에서 최신 회차를 다시 확인합니다"
+          accessibilityLabel="최신 당첨번호 새로고침"
+          accessibilityRole="button"
+          accessibilityState={{ busy: refreshing, disabled: refreshing }}
+          disabled={refreshing}
+          hitSlop={8}
+          onPress={onRefresh}
+          style={({ pressed }) => [
+            styles.drawRefreshButton,
+            pressed && !refreshing && styles.pressed,
+          ]}>
+          {refreshing
+            ? <ActivityIndicator color={styles.drawRefreshIcon.color} size="small" />
+            : <Ionicons color={styles.drawRefreshIcon.color} name="refresh-outline" size={17} />}
+        </Pressable>
       </View>
-      <View style={styles.drawInfoContent}>
+      <View
+        accessibilityLabel={`최근 당첨번호, 제 ${draw.round}회, ${draw.numbers.join(', ')}, 보너스 ${draw.bonus}. 다음 추첨까지 ${countdown}`}
+        accessible
+        style={styles.drawInfoContent}>
         <LottoDrawBalls
           bonus={draw.bonus}
           highlightedNumbers={[]}
           numbers={draw.numbers}
           size={28}
         />
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.drawCountdownValue}>
-          <NumberFlow
-            animationConfig={{
-              animateOnMount: true,
-              damping: 18,
-              digitDelay: 28,
-              mass: 0.5,
-              stiffness: 210,
-            }}
-            style={styles.countdownNumber}
-            value={String(countdownParts.days)}
-          />
-          <Text style={styles.countdownUnit}>일</Text>
-          <NumberFlow
-            animationConfig={{
-              animateOnMount: true,
-              damping: 18,
-              digitDelay: 28,
-              mass: 0.5,
-              stiffness: 210,
-            }}
-            separatorStyle={styles.countdownSeparator}
-            style={styles.countdownNumber}
-            value={`${padTime(countdownParts.hours)}:${padTime(countdownParts.minutes)}`}
-          />
-          <Text style={styles.countdownSecondsColon}>:</Text>
-          <NumberFlow
-            animationConfig={{
-              animateOnMount: true,
-              damping: 18,
-              digitDelay: 34,
-              mass: 0.5,
-              stiffness: 225,
-            }}
-            style={styles.countdownSeconds}
-            value={padTime(countdownParts.seconds)}
-          />
+        <View style={styles.drawCountdownBlock}>
+          <View style={styles.drawCountdownHeader}>
+            <View style={styles.drawCountdownDot} />
+            <Text style={styles.drawCountdownLabel}>다음 추첨까지</Text>
+          </View>
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.drawCountdownValue}>
+            <NumberFlow
+              animationConfig={{
+                animateOnMount: true,
+                damping: 18,
+                digitDelay: 28,
+                mass: 0.5,
+                stiffness: 210,
+              }}
+              style={styles.countdownNumber}
+              value={String(countdownParts.days)}
+            />
+            <Text style={styles.countdownUnit}>일</Text>
+            <NumberFlow
+              animationConfig={{
+                animateOnMount: true,
+                damping: 18,
+                digitDelay: 28,
+                mass: 0.5,
+                stiffness: 210,
+              }}
+              separatorStyle={styles.countdownSeparator}
+              style={styles.countdownNumber}
+              value={`${padTime(countdownParts.hours)}:${padTime(countdownParts.minutes)}`}
+            />
+            <Text style={styles.countdownSecondsColon}>:</Text>
+            <NumberFlow
+              animationConfig={{
+                animateOnMount: true,
+                damping: 18,
+                digitDelay: 34,
+                mass: 0.5,
+                stiffness: 225,
+              }}
+              style={styles.countdownSeconds}
+              value={padTime(countdownParts.seconds)}
+            />
+          </View>
         </View>
       </View>
+      {refreshNotice ? (
+        <Text accessibilityLiveRegion="polite" style={styles.drawRefreshNotice}>
+          {refreshNotice}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -168,7 +210,7 @@ function NewDrawAnnouncement({
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
-  const { isReady: lottoDataReady, latestDraw } = useLottoData();
+  const { isReady: lottoDataReady, latestDraw, refresh: refreshLottoData } = useLottoData();
   const { productAccess, proPlanEnabled = true } = useMonetization();
   const hasFullGenerationAccess = productAccess.combinationSelectionLimit >= 5;
   const gameCounts = useMemo(
@@ -177,8 +219,15 @@ export function DrawHomeScreen() {
   );
   const [gameCount, setGameCount] = useState<GameCount>(1);
   const [announcementVisible, setAnnouncementVisible] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+  const [refreshingDraw, setRefreshingDraw] = useState(false);
   const checkedAnnouncementRoundRef = useRef<number | null>(null);
+  const refreshNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedGameCount = gameCounts.includes(gameCount) ? gameCount : 1;
+
+  useEffect(() => () => {
+    if (refreshNoticeTimerRef.current) clearTimeout(refreshNoticeTimerRef.current);
+  }, []);
 
   const openConditionDraw = useCallback(() => {
     router.navigate({
@@ -225,6 +274,26 @@ export function DrawHomeScreen() {
     router.navigate('/statistics/winning-number-analysis');
   }, [latestDraw.round]);
 
+  const refreshLatestDraw = useCallback(async () => {
+    if (refreshingDraw) return;
+    setRefreshingDraw(true);
+    setRefreshNotice(null);
+    if (refreshNoticeTimerRef.current) clearTimeout(refreshNoticeTimerRef.current);
+    const result = await refreshLottoData(true);
+    trackEvent('lotto_data_manual_refresh', {
+      latest_round: result.latestRound,
+      result: result.status,
+    });
+    const notice = result.status === 'updated'
+      ? '새 회차를 반영했어요.'
+      : result.status === 'unchanged' || result.status === 'skipped'
+        ? '이미 최신 회차예요.'
+        : '최신 정보를 확인하지 못했어요.';
+    setRefreshNotice(notice);
+    setRefreshingDraw(false);
+    refreshNoticeTimerRef.current = setTimeout(() => setRefreshNotice(null), 2_400);
+  }, [refreshLottoData, refreshingDraw]);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
@@ -264,7 +333,12 @@ export function DrawHomeScreen() {
             </View>
           </Pressable>
 
-          <LatestDrawInfo draw={latestDraw} />
+          <LatestDrawInfo
+            draw={latestDraw}
+            onRefresh={() => { void refreshLatestDraw(); }}
+            refreshNotice={refreshNotice}
+            refreshing={refreshingDraw}
+          />
 
           <View style={styles.randomCard}>
             <View style={styles.randomHeader}>
@@ -387,10 +461,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   drawInfoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   drawInfoMeta: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
   drawInfoContent: { marginTop: spacing.md, minHeight: 24, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: spacing.sm, rowGap: spacing.md },
-  drawCountdownHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  drawCountdownBlock: { minWidth: 120, marginLeft: 'auto', alignItems: 'flex-end', gap: 2 },
+  drawCountdownHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   drawCountdownDot: { width: 5, height: 5, borderRadius: radius.round, backgroundColor: colors.accentPrimary },
   drawCountdownLabel: { color: colors.textTertiary, fontSize: typography.sizes.caption },
-  drawCountdownValue: { minWidth: 120, marginLeft: 'auto', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 2 },
+  drawRefreshButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
+  drawRefreshIcon: { color: colors.accentPrimary },
+  drawRefreshNotice: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'right' },
+  drawCountdownValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 2 },
   countdownNumber: { color: colors.textPrimary, fontSize: typography.sizes.body, lineHeight: 22, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
   countdownSeparator: { color: colors.textTertiary },
   countdownUnit: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18, marginRight: 2 },

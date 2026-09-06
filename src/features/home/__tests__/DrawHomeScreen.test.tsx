@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { router } from 'expo-router';
 
@@ -20,6 +20,10 @@ const freeAccess = {
 
 let mockTier: AccountTier = 'guest';
 let mockProPlanEnabled = true;
+const mockRefreshLottoData = jest.fn(async () => ({
+  latestRound: 1239,
+  status: 'unchanged' as const,
+}));
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
@@ -32,6 +36,20 @@ jest.mock('rn-number-flow', () => {
   MockNumberFlow.displayName = 'MockNumberFlow';
   return MockNumberFlow;
 });
+
+jest.mock('@/features/lotto-data/LottoDataContext', () => ({
+  useLottoData: () => ({
+    history: [],
+    isReady: true,
+    latestDraw: {
+      bonus: 8,
+      date: '2026-08-29',
+      numbers: [11, 13, 22, 32, 33, 36],
+      round: 1239,
+    },
+    refresh: mockRefreshLottoData,
+  }),
+}));
 
 jest.mock('@/features/monetization/MonetizationContext', () => ({
   useMonetization: () => ({
@@ -59,6 +77,7 @@ describe('DrawHomeScreen', () => {
   beforeEach(() => {
     mockTier = 'guest';
     mockProPlanEnabled = true;
+    mockRefreshLottoData.mockClear();
   });
 
   test('shows Pro entry instead of ticket balance for guests', async () => {
@@ -132,12 +151,23 @@ describe('DrawHomeScreen', () => {
     expect(screen.queryByText('방금 뽑은 번호')).toBeNull();
   });
 
-  test('shows the latest draw and countdown as non-interactive information', async () => {
+  test('shows the latest draw, countdown, and a manual refresh action', async () => {
     const screen = await render(<DrawHomeScreen />);
 
     expect(screen.queryByText('최근 당첨번호')).toBeNull();
     expect(screen.getByText('제 1239회 · 8월 29일')).toBeTruthy();
     expect(screen.getByText('다음 추첨까지')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /최근 당첨번호/ })).toBeNull();
+    expect(screen.getByRole('button', { name: '최신 당첨번호 새로고침' })).toBeTruthy();
+  });
+
+  test('forces a remote check and reports when the draw is already current', async () => {
+    const screen = await render(<DrawHomeScreen />);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: '최신 당첨번호 새로고침' }));
+    });
+
+    expect(mockRefreshLottoData).toHaveBeenCalledWith(true);
+    await waitFor(() => expect(screen.getByText('이미 최신 회차예요.')).toBeTruthy());
   });
 });

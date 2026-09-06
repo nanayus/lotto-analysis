@@ -17,6 +17,7 @@ export type AnalyticsEventName =
   | 'login_prompt_closed'
   | 'login_prompt_viewed'
   | 'login_started'
+  | 'lotto_data_manual_refresh'
   | 'new_draw_announcement_closed'
   | 'new_draw_announcement_opened'
   | 'new_draw_announcement_viewed'

@@ -5,12 +5,33 @@ const OFFICIAL_LOTTO_ENDPOINT =
   'https://www.dhlottery.co.kr/lt645/selectPstLt645Info.do';
 const BUNDLED_LATEST_ROUND = 1239;
 const MAX_CATCH_UP_DRAWS = 12;
+const PRIZE_RANKS = [1, 2, 3, 4, 5] as const;
 
 type LottoDraw = {
   bonus: number;
   date: string;
   numbers: number[];
   round: number;
+};
+
+type LottoPrizeDetails = {
+  prizePerGame: number;
+  totalPrize: number;
+  winners: number;
+};
+
+type LottoDrawDetails = LottoDraw & {
+  firstPrizeSelection: {
+    automatic: number;
+    manual: number;
+    semiAutomatic: number;
+    unclassified: number;
+  };
+  prizes: Record<`${typeof PRIZE_RANKS[number]}`, LottoPrizeDetails>;
+  sourceGameSequence: number;
+  totalPrize: number;
+  totalSales: number;
+  totalWinners: number;
 };
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -21,12 +42,20 @@ function integer(value: unknown): number | null {
   return Number.isInteger(value) ? value as number : null;
 }
 
+function nonNegativeInteger(value: unknown, field: string) {
+  const parsed = integer(value);
+  if (parsed === null || parsed < 0) {
+    throw new Error(`Official Lotto response contained invalid ${field}.`);
+  }
+  return parsed;
+}
+
 function isoDate(value: unknown): string | null {
   if (typeof value !== 'string' || !/^\d{8}$/.test(value)) return null;
   return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
 }
 
-export function parseOfficialLottoDraw(payload: unknown): LottoDraw {
+export function parseOfficialLottoDraw(payload: unknown): LottoDrawDetails {
   const root = record(payload);
   const data = record(root?.data);
   const list = Array.isArray(data?.list) ? data.list : [];
@@ -65,7 +94,38 @@ export function parseOfficialLottoDraw(payload: unknown): LottoDraw {
     throw new Error('Official Lotto response failed number validation.');
   }
 
-  return { bonus, date, numbers: normalizedNumbers, round };
+  const prizes = Object.fromEntries(PRIZE_RANKS.map((rank) => [String(rank), {
+    prizePerGame: nonNegativeInteger(item[`rnk${rank}WnAmt`], `rank ${rank} prize`),
+    totalPrize: nonNegativeInteger(item[`rnk${rank}SumWnAmt`], `rank ${rank} total prize`),
+    winners: nonNegativeInteger(item[`rnk${rank}WnNope`], `rank ${rank} winners`),
+  }])) as LottoDrawDetails['prizes'];
+
+  return {
+    bonus,
+    date,
+    firstPrizeSelection: {
+      automatic: nonNegativeInteger(item.winType1, 'automatic winner count'),
+      manual: nonNegativeInteger(item.winType2, 'manual winner count'),
+      semiAutomatic: nonNegativeInteger(item.winType3, 'semi-automatic winner count'),
+      unclassified: nonNegativeInteger(item.winType0, 'unclassified winner count'),
+    },
+    numbers: normalizedNumbers,
+    prizes,
+    round,
+    sourceGameSequence: nonNegativeInteger(item.gmSqNo, 'game sequence'),
+    totalPrize: nonNegativeInteger(item.rlvtEpsdSumNtslAmt, 'total prize'),
+    totalSales: nonNegativeInteger(item.wholEpsdSumNtslAmt, 'total sales'),
+    totalWinners: nonNegativeInteger(item.sumWnNope, 'total winner count'),
+  };
+}
+
+function coreDraw(draw: LottoDraw): LottoDraw {
+  return {
+    bonus: draw.bonus,
+    date: draw.date,
+    numbers: draw.numbers,
+    round: draw.round,
+  };
 }
 
 async function fetchOfficialDraw(round?: number) {
@@ -162,7 +222,7 @@ export const syncLatestLottoDraw = onSchedule({
     throw new Error('Lotto data gap is too large for automatic catch-up.');
   }
 
-  const fetchedDraws: LottoDraw[] = [];
+  const fetchedDraws: LottoDrawDetails[] = [];
   for (let round = storedLatestRound + 1; round <= officialLatest.round; round += 1) {
     fetchedDraws.push(round === officialLatest.round
       ? officialLatest
@@ -170,11 +230,12 @@ export const syncLatestLottoDraw = onSchedule({
   }
 
   const drawsByRound = new Map(
-    [...existingDraws, ...fetchedDraws].map((draw) => [draw.round, draw]),
+    [...existingDraws, ...fetchedDraws.map(coreDraw)].map((draw) => [draw.round, draw]),
   );
   const draws = [...drawsByRound.values()].sort((left, right) => left.round - right.round);
 
-  await reference.set({
+  const batch = database.batch();
+  batch.set(reference, {
     baseRound: BUNDLED_LATEST_ROUND,
     draws,
     latestRound: draws.at(-1)?.round ?? BUNDLED_LATEST_ROUND,
@@ -182,6 +243,15 @@ export const syncLatestLottoDraw = onSchedule({
     source: OFFICIAL_LOTTO_ENDPOINT,
     updatedAt: FieldValue.serverTimestamp(),
   });
+  fetchedDraws.forEach((draw) => {
+    batch.set(reference.collection('drawDetails').doc(String(draw.round)), {
+      ...draw,
+      schemaVersion: 1,
+      source: OFFICIAL_LOTTO_ENDPOINT,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+  await batch.commit();
 
   console.info('Lotto draw data synchronized.', {
     fetchedRounds: fetchedDraws.map((draw) => draw.round),
