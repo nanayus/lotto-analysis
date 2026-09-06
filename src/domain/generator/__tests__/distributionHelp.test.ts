@@ -30,6 +30,10 @@ describe('buildDistributionHelp', () => {
     expect(help.primeCount).toMatchObject({ historicalLabel: '2개', historicalCount: 446 });
     expect(help.squareCount).toMatchObject({ historicalLabel: '0개', historicalCount: 621 });
     expect(help.multiple5).toMatchObject({ historicalLabel: '1개', historicalCount: 525 });
+    expect(help.multiples).toMatchObject({
+      title: '3·4·5의 배수',
+      historicalHeading: '과거 1등번호에서 가장 자주 나온 배수 구성',
+    });
     expect(help.carryCount).toMatchObject({ historicalLabel: '1개', historicalCount: 524 });
     expect(help.neighborCount).toMatchObject({
       historicalLabel: '제외 1개 · 포함 2개',
@@ -37,6 +41,10 @@ describe('buildDistributionHelp', () => {
     });
     expect(help.consecutivePattern).toMatchObject({ historicalLabel: '없음', historicalCount: 599 });
     expect(help.band40To45).toMatchObject({ historicalLabel: '1개', historicalCount: 526 });
+    expect(help.numberBands).toMatchObject({
+      title: '번호대별 개수',
+      historicalHeading: '과거 1등번호에서 가장 자주 나온 번호대 구성',
+    });
     expect(help.pastRanks.historicalHeading).toBe('비교 기준');
     expect(help.sameEnding.sourceLabel).toBe('1~1,239회 본번호 · 1,239개 조합');
   });

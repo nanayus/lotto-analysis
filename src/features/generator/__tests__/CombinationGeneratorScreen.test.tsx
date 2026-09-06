@@ -450,6 +450,18 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByText('직전 번호의 앞·뒤 수')).toBeTruthy();
     expect(screen.getByText('위 번호 중 조합에 다시 포함할 개수')).toBeTruthy();
     expect(screen.getByText('선택 후보 중 조합에 포함할 개수')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByText('직전 번호의 앞·뒤 수').props.style))
+      .toMatchObject({ fontSize: typography.sizes.small });
+    expect(StyleSheet.flatten(screen.getByText('기준 번호').props.style))
+      .toMatchObject({ fontSize: typography.sizes.caption });
+    expect(StyleSheet.flatten(screen.getByText('선택 후보').props.style))
+      .toMatchObject({ fontSize: typography.sizes.caption });
+    expect(StyleSheet.flatten(screen.getByText('선택 후보 중 조합에 포함할 개수').props.style))
+      .toMatchObject({
+        fontSize: typography.sizes.small,
+        marginBottom: spacing.sm,
+        marginTop: spacing.md,
+      });
   });
 
   test('labels ratio direction and shows number-trait examples', async () => {
@@ -580,10 +592,10 @@ describe('CombinationGeneratorScreen', () => {
     expect(screen.getByRole('button', { name: '고정수 · 제외수 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'A/C 값 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '소수 개수 설명 보기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '5의 배수 설명 보기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '3·4·5의 배수 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '이월수 개수 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '연번 형태 설명 보기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '40-45 번호대 설명 보기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '번호대별 개수 설명 보기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '과거 등수 조합 제외 설명 보기' })).toBeTruthy();
 
     await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '동끝수 형태 설명 보기' })); });
@@ -628,6 +640,51 @@ describe('CombinationGeneratorScreen', () => {
       .toEqual({ checked: true });
   });
 
+  test('treats number-band and multiple rows as compact grouped conditions', async () => {
+    const screen = await renderScreen();
+    await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
+
+    expect(screen.getByRole('switch', { name: '번호대별 개수 조건' }).props.accessibilityState)
+      .toEqual({ checked: false, disabled: false });
+    expect(screen.queryByRole('switch', { name: '1-9 번호대 조건' })).toBeNull();
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('switch', { name: '번호대별 개수 조건' }));
+    });
+    expect(screen.getAllByText('제한 없음')).toHaveLength(5);
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('checkbox', { name: '1-9 번호대 1개' }));
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('checkbox', { name: '10-19 번호대 2개' }));
+    });
+
+    expect(screen.getByRole('checkbox', { name: '1-9 번호대 1개' }).props.accessibilityState)
+      .toEqual({ checked: true });
+    expect(screen.getByRole('checkbox', { name: '10-19 번호대 2개' }).props.accessibilityState)
+      .toEqual({ checked: true });
+    expect(screen.getByRole('button', { name: '이 조건으로 뽑기, 3개 조건' })).toBeTruthy();
+
+    expect(screen.getByRole('switch', { name: '3·4·5의 배수 조건' }).props.accessibilityState)
+      .toEqual({ checked: false, disabled: false });
+    expect(screen.queryByRole('switch', { name: '3의 배수 조건' })).toBeNull();
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('switch', { name: '3·4·5의 배수 조건' }));
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('checkbox', { name: '3의 배수 2개' }));
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('checkbox', { name: '5의 배수 1개' }));
+    });
+    expect(screen.getByRole('checkbox', { name: '3의 배수 2개' }).props.accessibilityState)
+      .toEqual({ checked: true });
+    expect(screen.getByRole('checkbox', { name: '5의 배수 1개' }).props.accessibilityState)
+      .toEqual({ checked: true });
+    expect(screen.getByRole('button', { name: '이 조건으로 뽑기, 4개 조건' })).toBeTruthy();
+  });
+
   test('shows historical range presets enabled, preserves edits across toggles, and resets them', async () => {
     const screen = await renderScreen();
     await act(async () => { await fireEvent.press(screen.getByRole('button', { name: '조건 선택하기' })); });
@@ -661,6 +718,15 @@ describe('CombinationGeneratorScreen', () => {
 
     const sameEnding = screen.getByTestId('pattern-sameEnding-2+2');
     expect(sameEnding.props.accessibilityState).toEqual({ checked: false });
+    within(sameEnding).getAllByText(/^\d+$/, { includeHiddenElements: true }).forEach((cell) => {
+      expect(cell.props.numberOfLines).toBe(1);
+      expect(cell.props.maxFontSizeMultiplier).toBe(1);
+      expect(StyleSheet.flatten(cell.props.style)).toMatchObject({
+        flexShrink: 0,
+        height: 20,
+        width: 22,
+      });
+    });
     await act(async () => { await fireEvent.press(sameEnding); });
     expect(screen.getByTestId('pattern-sameEnding-2+2').props.accessibilityState).toEqual({ checked: true });
 

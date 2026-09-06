@@ -5,6 +5,7 @@ import {
   calculateCombinationMetrics,
   cloneGeneratorConditions,
   CONSECUTIVE_LABELS,
+  GENERATOR_BAND_KEYS,
   SAME_ENDING_LABELS,
 } from './combinationGenerator';
 import type {
@@ -28,12 +29,14 @@ export type ConditionHelpKey =
   | 'primeCount'
   | 'squareCount'
   | 'compositeCount'
+  | 'multiples'
   | 'multiple3'
   | 'multiple4'
   | 'multiple5'
   | 'carryCount'
   | 'neighborCount'
   | 'consecutivePattern'
+  | 'numberBands'
   | 'band1To9'
   | 'band10To19'
   | 'band20To29'
@@ -65,12 +68,22 @@ export type ConditionHelpSuggestion =
     value: number | SameEndingPattern | ConsecutivePattern;
   }
   | { kind: 'multipleCount'; multiple: 3 | 4 | 5; section: GeneratorSectionKey; value: CountValue }
+  | { kind: 'multipleCounts'; values: Record<3 | 4 | 5, CountValue> }
+  | { kind: 'bandCounts'; values: Record<NumberBandKey, CountValue> }
   | { band: NumberBandKey; kind: 'bandCount'; section: GeneratorSectionKey; value: CountValue }
   | { field: 'carry' | 'neighbor'; kind: 'recentCount'; section: GeneratorSectionKey; withBonus: CountValue; withoutBonus: CountValue };
 
 export type ConditionHelpMap = Record<ConditionHelpKey, ConditionHelpContent>;
 
 const helpCache = new WeakMap<readonly LottoHistoryDraw[], ConditionHelpMap>();
+
+const BAND_SECTION_KEYS: Record<NumberBandKey, GeneratorSectionKey> = {
+  '1-9': 'band1To9',
+  '10-19': 'band10To19',
+  '20-29': 'band20To29',
+  '30-39': 'band30To39',
+  '40-45': 'band40To45',
+};
 
 function mostFrequent<T extends string | number>(values: readonly T[]) {
   const counts = new Map<T, number>();
@@ -114,12 +127,28 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
   const multiple3 = mostFrequent(metrics.map((metric) => metric.multipleCounts[3]));
   const multiple4 = mostFrequent(metrics.map((metric) => metric.multipleCounts[4]));
   const multiple5 = mostFrequent(metrics.map((metric) => metric.multipleCounts[5]));
+  const multiples = mostFrequent(metrics.map((metric) => (
+    ([3, 4, 5] as const).map((multiple) => metric.multipleCounts[multiple]).join(',')
+  )));
+  const multipleValues = multiples
+    ? Object.fromEntries(
+      ([3, 4, 5] as const).map((multiple, index) => [multiple, countValue(Number(multiples[0].split(',')[index]))]),
+    ) as Record<3 | 4 | 5, CountValue>
+    : null;
   const consecutive = mostFrequent(metrics.map((metric) => metric.consecutivePattern));
   const band1To9 = mostFrequent(metrics.map((metric) => metric.bandCounts['1-9']));
   const band10To19 = mostFrequent(metrics.map((metric) => metric.bandCounts['10-19']));
   const band20To29 = mostFrequent(metrics.map((metric) => metric.bandCounts['20-29']));
   const band30To39 = mostFrequent(metrics.map((metric) => metric.bandCounts['30-39']));
   const band40To45 = mostFrequent(metrics.map((metric) => metric.bandCounts['40-45']));
+  const numberBands = mostFrequent(metrics.map((metric) => (
+    GENERATOR_BAND_KEYS.map((band) => metric.bandCounts[band]).join(',')
+  )));
+  const numberBandValues = numberBands
+    ? Object.fromEntries(
+      GENERATOR_BAND_KEYS.map((band, index) => [band, countValue(Number(numberBands[0].split(',')[index]))]),
+    ) as Record<NumberBandKey, CountValue>
+    : null;
 
   const previousCounts = (includeBonus: boolean) => {
     const carry: number[] = [];
@@ -282,6 +311,17 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       compositeCount,
       compositeCount ? { field: 'compositeCounts', kind: 'singleValue', section: 'compositeCount', value: compositeCount[0] } : null,
     ),
+    multiples: item({
+      title: '3·4·5의 배수',
+      description: '3, 4, 5로 나누어떨어지는 번호가 조합에 각각 몇 개 포함될지 설정합니다. 한 행에서 여러 개수를 선택하면 그중 하나만 만족해도 되며, 선택하지 않은 행은 제한하지 않아요.',
+      example: '예: 3의 배수 2개와 5의 배수 1개를 선택하면 두 조건을 모두 만족하는 조합만 허용합니다. 15처럼 여러 기준에 해당하는 번호는 각 행에서 함께 집계돼요.',
+      historicalLabel: multipleValues
+        ? ([3, 4, 5] as const).map((multiple) => `${multiple}의 배수 ${multipleValues[multiple]}개`).join(' · ')
+        : '데이터 없음',
+      historicalCount: multiples?.[1] ?? 0,
+      historicalHeading: '과거 1등번호에서 가장 자주 나온 배수 구성',
+      suggestion: multipleValues ? { kind: 'multipleCounts', values: multipleValues } : null,
+    }),
     multiple3: countItem('3의 배수', '3으로 나누어떨어지는 번호의 개수를 셉니다.', '예: 3, 6, 9, 12, 15 … 45', multiple3, multiple3 ? { kind: 'multipleCount', multiple: 3, section: 'multiple3', value: countValue(multiple3[0]) } : null),
     multiple4: countItem('4의 배수', '4로 나누어떨어지는 번호의 개수를 셉니다.', '예: 4, 8, 12, 16, 20 … 44', multiple4, multiple4 ? { kind: 'multipleCount', multiple: 4, section: 'multiple4', value: countValue(multiple4[0]) } : null),
     multiple5: countItem('5의 배수', '5로 나누어떨어지는 번호의 개수를 셉니다.', '예: 5, 10, 15, 20, 25 … 45', multiple5, multiple5 ? { kind: 'multipleCount', multiple: 5, section: 'multiple5', value: countValue(multiple5[0]) } : null),
@@ -328,6 +368,17 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
       historicalLabel: consecutive ? CONSECUTIVE_LABELS[consecutive[0]] : '데이터 없음',
       historicalCount: consecutive?.[1] ?? 0,
       suggestion: consecutive ? { field: 'consecutivePatterns', kind: 'singleValue', section: 'consecutivePattern', value: consecutive[0] } : null,
+    }),
+    numberBands: item({
+      title: '번호대별 개수',
+      description: '1~45를 다섯 번호대로 나눠 각 구간에서 몇 개가 포함될지 설정합니다. 한 행에서 여러 개수를 선택하면 그중 하나만 만족해도 되며, 선택하지 않은 행은 제한하지 않아요.',
+      example: '예: 1-9에서 1개, 10-19에서 2개를 선택하면 두 조건을 모두 만족하는 조합만 허용합니다.',
+      historicalLabel: numberBandValues
+        ? GENERATOR_BAND_KEYS.map((band) => `${band} ${numberBandValues[band]}개`).join(' · ')
+        : '데이터 없음',
+      historicalCount: numberBands?.[1] ?? 0,
+      historicalHeading: '과거 1등번호에서 가장 자주 나온 번호대 구성',
+      suggestion: numberBandValues ? { kind: 'bandCounts', values: numberBandValues } : null,
     }),
     band1To9: countItem('1-9 번호대', '1부터 9까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 1, 2, 3, 4, 5, 6, 7, 8, 9', band1To9, band1To9 ? { band: '1-9', kind: 'bandCount', section: 'band1To9', value: countValue(band1To9[0]) } : null),
     band10To19: countItem('10-19 번호대', '10부터 19까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 10~19', band10To19, band10To19 ? { band: '10-19', kind: 'bandCount', section: 'band10To19', value: countValue(band10To19[0]) } : null),
@@ -381,6 +432,24 @@ export function applyConditionHelpSuggestion(
   }
   if (suggestion.kind === 'range') {
     next[suggestion.field] = { enabled: true, min: suggestion.min, max: suggestion.max };
+    return next;
+  }
+  if (suggestion.kind === 'bandCounts') {
+    const enabledSections = { ...next.enabledSections };
+    GENERATOR_BAND_KEYS.forEach((band) => {
+      enabledSections[BAND_SECTION_KEYS[band]] = true;
+      next.bandCounts[band] = [suggestion.values[band]];
+    });
+    next.enabledSections = enabledSections;
+    return next;
+  }
+  if (suggestion.kind === 'multipleCounts') {
+    const enabledSections = { ...next.enabledSections };
+    ([3, 4, 5] as const).forEach((multiple) => {
+      enabledSections[`multiple${multiple}`] = true;
+      next.multipleCounts[multiple] = [suggestion.values[multiple]];
+    });
+    next.enabledSections = enabledSections;
     return next;
   }
 

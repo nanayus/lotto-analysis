@@ -16,11 +16,13 @@ describe('generator condition analytics', () => {
     conditions.sum.enabled = true;
     conditions.oddCounts = [3];
     conditions.bandCounts['20-29'] = [2];
+    conditions.bandCounts['40-45'] = [1];
     conditions.multipleCounts[3] = [1, 2];
     conditions.enabledSections = {
       fixedExcluded: true,
       oddEven: true,
       band20To29: true,
+      band40To45: true,
       multiple3: true,
     };
 
@@ -31,8 +33,8 @@ describe('generator condition analytics', () => {
       'excluded_numbers',
       'number_sum',
       'odd_even',
-      'band_20_29',
-      'multiple_3',
+      'number_bands',
+      'multiples',
     ]);
     expect(keys).toHaveLength(activeConditionCount(conditions));
   });

@@ -51,7 +51,7 @@ describe('generator condition defaults', () => {
     );
 
     expect(Object.values(directSetup.enabledSections ?? {}).every(Boolean)).toBe(true);
-    expect(enabledGeneratorConditionCount(directSetup)).toBe(23);
+    expect(enabledGeneratorConditionCount(directSetup)).toBe(17);
     expect(activeConditionCount(directSetup)).toBe(3);
     expect(directSetup.standardDeviation).toEqual({ enabled: true, min: 8, max: 16 });
     expect(directSetup.sum).toEqual({ enabled: true, min: 100, max: 180 });

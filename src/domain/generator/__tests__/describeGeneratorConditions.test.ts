@@ -36,7 +36,7 @@ describe('describeGeneratorConditions', () => {
       { key: 'sum', label: '번호 총합', value: '100–150' },
       { key: 'odd', label: '홀수 개수', value: '2 · 4개' },
       { key: 'carry', label: '이월수', value: '1 · 2개 · 보너스 포함' },
-      { key: 'band:40-45', label: '40-45 번호대', value: '0 · 1개' },
+      { key: 'numberBands', label: '번호대별 개수', value: '40-45 0 · 1개' },
       { key: 'pastRanks', label: '과거 등수 조합 제외', value: '1 · 3등' },
     ]);
   });

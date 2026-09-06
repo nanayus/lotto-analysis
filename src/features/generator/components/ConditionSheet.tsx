@@ -43,6 +43,7 @@ import type {
   CountValue,
   GeneratorConditions,
   GeneratorSectionKey,
+  NumberBandKey,
   SameEndingPattern,
 } from '@/domain/generator/types';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
@@ -68,20 +69,9 @@ const SAME_ENDING_PATTERNS: SameEndingPattern[] = [
 const CONSECUTIVE_PATTERNS: ConsecutivePattern[] = [
   'none', '2', '2+2', '2+2+2', '3', '3+2', '3+3', '4', '4+2', '5', '6',
 ];
+const MULTIPLES = [3, 4, 5] as const;
 const SAME_ENDING_OPTIONS = SAME_ENDING_PATTERNS.map((value) => [value, SAME_ENDING_LABELS[value]] as const);
 const CONSECUTIVE_OPTIONS = CONSECUTIVE_PATTERNS.map((value) => [value, CONSECUTIVE_LABELS[value]] as const);
-const MULTIPLE_HELP_KEYS = {
-  3: 'multiple3',
-  4: 'multiple4',
-  5: 'multiple5',
-} as const satisfies Record<3 | 4 | 5, ConditionHelpKey>;
-const BAND_HELP_KEYS = {
-  '1-9': 'band1To9',
-  '10-19': 'band10To19',
-  '20-29': 'band20To29',
-  '30-39': 'band30To39',
-  '40-45': 'band40To45',
-} as const satisfies Record<(typeof GENERATOR_BAND_KEYS)[number], ConditionHelpKey>;
 const BAND_SECTION_KEYS = {
   '1-9': 'band1To9',
   '10-19': 'band10To19',
@@ -247,7 +237,11 @@ function PatternDiagram({ kind, pattern }: { kind: 'consecutive' | 'sameEnding';
           return (
             <View key={`${pattern}-${groupIndex}`} style={[styles.endingGroup, size > 1 && styles.endingGroupLinked]}>
               {Array.from({ length: size }, (_, index) => (
-                <Text key={index} style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
+                <Text
+                  key={index}
+                  maxFontSizeMultiplier={1}
+                  numberOfLines={1}
+                  style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
                   {ending + (index * 10)}
                 </Text>
               ))}
@@ -260,7 +254,11 @@ function PatternDiagram({ kind, pattern }: { kind: 'consecutive' | 'sameEnding';
         return (
           <View key={`${pattern}-${groupIndex}`} style={[styles.consecutiveGroup, size > 1 && styles.consecutiveGroupLinked]}>
             {Array.from({ length: size }, (_, index) => (
-              <Text key={index} style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
+              <Text
+                key={index}
+                maxFontSizeMultiplier={1}
+                numberOfLines={1}
+                style={[styles.patternCell, size > 1 && styles.patternCellLinked]}>
                 {start + index}
               </Text>
             ))}
@@ -409,18 +407,103 @@ function RecentNumberGuide({
   );
 }
 
-function BandGuide({ activeBand }: { activeBand: (typeof GENERATOR_BAND_KEYS)[number] }) {
+function CompactCountMatrix<Key extends string | number>({
+  accessibilityLabel,
+  columnHeading,
+  onChange,
+  rows,
+  testIDPrefix,
+  valuesForRow,
+}: {
+  accessibilityLabel: string;
+  columnHeading: string;
+  onChange: (key: Key, values: CountValue[]) => void;
+  rows: readonly { accessibilityLabel: string; key: Key; label: string }[];
+  testIDPrefix: string;
+  valuesForRow: (key: Key) => readonly CountValue[];
+}) {
   const styles = useThemedStyles(createStyles);
   return (
-    <View accessibilityLabel={`1에서 45 중 ${activeBand} 번호대`} style={styles.bandGuide}>
-      {GENERATOR_BAND_KEYS.map((band, index) => (
-        <View
-          key={band}
-          style={[styles.bandGuideSegment, { flex: index === 4 ? 6 : index === 0 ? 9 : 10 }, band === activeBand && styles.bandGuideSegmentActive]}>
-          <Text style={[styles.bandGuideText, band === activeBand && styles.bandGuideTextActive]}>{band}</Text>
+    <View accessibilityLabel={accessibilityLabel} style={styles.bandMatrix}>
+      <View style={styles.bandMatrixHeader}>
+        <Text style={styles.bandMatrixCorner}>{columnHeading}</Text>
+        <View style={styles.bandMatrixCounts}>
+          {GENERATOR_COUNT_VALUES.map((count) => (
+            <Text key={count} style={styles.bandMatrixColumnLabel}>{count}개</Text>
+          ))}
         </View>
-      ))}
+      </View>
+      {rows.map((row) => {
+        const selected = valuesForRow(row.key);
+        return (
+          <View key={String(row.key)} style={styles.bandMatrixRow}>
+            <View style={styles.bandMatrixRowHeading}>
+              <Text style={styles.bandMatrixRowLabel}>{row.label}</Text>
+              {selected.length === 0 ? <Text style={styles.bandMatrixRowHint}>제한 없음</Text> : null}
+            </View>
+            <View style={styles.bandMatrixCounts}>
+              {GENERATOR_COUNT_VALUES.map((count) => {
+                const active = selected.includes(count);
+                return (
+                  <Pressable
+                    accessibilityLabel={`${row.accessibilityLabel} ${count}개`}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: active }}
+                    key={count}
+                    onPress={() => onChange(row.key, toggleValue(selected, count))}
+                    style={[styles.bandMatrixCell, active && styles.bandMatrixCellActive]}
+                    testID={`${testIDPrefix}-${row.key}-${count}`}>
+                    <Text style={[styles.bandMatrixCellText, active && styles.bandMatrixCellTextActive]}>{count}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
     </View>
+  );
+}
+
+function BandCountMatrix({
+  counts,
+  onChange,
+}: {
+  counts: GeneratorConditions['bandCounts'];
+  onChange: (band: NumberBandKey, values: CountValue[]) => void;
+}) {
+  return (
+    <CompactCountMatrix
+      accessibilityLabel="번호대별 포함 개수"
+      columnHeading="번호대"
+      onChange={onChange}
+      rows={GENERATOR_BAND_KEYS.map((band) => ({ accessibilityLabel: `${band} 번호대`, key: band, label: band }))}
+      testIDPrefix="band-count"
+      valuesForRow={(band) => counts[band]}
+    />
+  );
+}
+
+function MultipleCountMatrix({
+  counts,
+  onChange,
+}: {
+  counts: GeneratorConditions['multipleCounts'];
+  onChange: (multiple: 3 | 4 | 5, values: CountValue[]) => void;
+}) {
+  return (
+    <CompactCountMatrix
+      accessibilityLabel="3·4·5의 배수 포함 개수"
+      columnHeading="배수"
+      onChange={onChange}
+      rows={MULTIPLES.map((multiple) => ({
+        accessibilityLabel: `${multiple}의 배수`,
+        key: multiple,
+        label: `${multiple}의 배수`,
+      }))}
+      testIDPrefix="multiple-count"
+      valuesForRow={(multiple) => counts[multiple]}
+    />
   );
 }
 
@@ -646,6 +729,22 @@ export function ConditionSheet({
       ...draft,
       enabledSections: { ...draft.enabledSections, [key]: enabled },
     });
+  };
+  const bandGroupEnabled = GENERATOR_BAND_KEYS.some((band) => sectionEnabled(BAND_SECTION_KEYS[band]));
+  const setBandGroupEnabled = (enabled: boolean) => {
+    const enabledSections = { ...draft.enabledSections };
+    GENERATOR_BAND_KEYS.forEach((band) => {
+      enabledSections[BAND_SECTION_KEYS[band]] = enabled;
+    });
+    commitDraft({ ...draft, enabledSections });
+  };
+  const multipleGroupEnabled = MULTIPLES.some((multiple) => sectionEnabled(MULTIPLE_SECTION_KEYS[multiple]));
+  const setMultipleGroupEnabled = (enabled: boolean) => {
+    const enabledSections = { ...draft.enabledSections };
+    MULTIPLES.forEach((multiple) => {
+      enabledSections[MULTIPLE_SECTION_KEYS[multiple]] = enabled;
+    });
+    commitDraft({ ...draft, enabledSections });
   };
   const confirmHelpApplication = () => {
     if (!pendingHelpContent?.suggestion) return;
@@ -914,22 +1013,20 @@ export function ConditionSheet({
                 title="번호 총합"
                 value={draft.sum}
               />
-              {GENERATOR_BAND_KEYS.map((band) => (
-                <Section
-                  {...sectionAccessProps(BAND_SECTION_KEYS[band])}
-                  enabled={sectionEnabled(BAND_SECTION_KEYS[band])}
-                  key={band}
-                  onEnabledChange={(enabled) => setSectionEnabled(BAND_SECTION_KEYS[band], enabled)}
-                  onHelpPress={() => setActiveHelp(BAND_HELP_KEYS[band])}
-                  title={`${band} 번호대`}>
-                  <BandGuide activeBand={band} />
-                  <CountSelector
-                    label={`${band} 번호대 개수`}
-                    onChange={(values) => update({ bandCounts: { ...draft.bandCounts, [band]: values } })}
-                    selected={draft.bandCounts[band]}
-                  />
-                </Section>
-              ))}
+              <Section
+                activationLocked={conditionLimitReached && !bandGroupEnabled}
+                enabled={bandGroupEnabled}
+                onActivationLocked={() => setConditionLimitPromptVisible(true)}
+                onEnabledChange={setBandGroupEnabled}
+                onHelpPress={() => setActiveHelp('numberBands')}
+                title="번호대별 개수">
+                <BandCountMatrix
+                  counts={draft.bandCounts}
+                  onChange={(band, values) => update({
+                    bandCounts: { ...draft.bandCounts, [band]: values },
+                  })}
+                />
+              </Section>
             </View>
 
             <View
@@ -1016,23 +1113,20 @@ export function ConditionSheet({
                 <NumberSetGuide label="해당 번호" maxVisible={12} numbers={COMPOSITE_NUMBERS} />
                 <CountSelector label="합성수 개수" onChange={(compositeCounts) => update({ compositeCounts })} selected={draft.compositeCounts} visual />
               </Section>
-              {([3, 4, 5] as const).map((multiple) => (
-                <Section
-                  {...sectionAccessProps(MULTIPLE_SECTION_KEYS[multiple])}
-                  enabled={sectionEnabled(MULTIPLE_SECTION_KEYS[multiple])}
-                  key={multiple}
-                  onEnabledChange={(enabled) => setSectionEnabled(MULTIPLE_SECTION_KEYS[multiple], enabled)}
-                  onHelpPress={() => setActiveHelp(MULTIPLE_HELP_KEYS[multiple])}
-                  title={`${multiple}의 배수`}>
-                  <NumberSetGuide label="해당 번호" maxVisible={12} numbers={NUMBERS.filter((number) => number % multiple === 0)} />
-                  <CountSelector
-                    label={`${multiple}의 배수 개수`}
-                    onChange={(values) => update({ multipleCounts: { ...draft.multipleCounts, [multiple]: values } })}
-                    selected={draft.multipleCounts[multiple]}
-                    visual
-                  />
-                </Section>
-              ))}
+              <Section
+                activationLocked={conditionLimitReached && !multipleGroupEnabled}
+                enabled={multipleGroupEnabled}
+                onActivationLocked={() => setConditionLimitPromptVisible(true)}
+                onEnabledChange={setMultipleGroupEnabled}
+                onHelpPress={() => setActiveHelp('multiples')}
+                title="3·4·5의 배수">
+                <MultipleCountMatrix
+                  counts={draft.multipleCounts}
+                  onChange={(multiple, values) => update({
+                    multipleCounts: { ...draft.multipleCounts, [multiple]: values },
+                  })}
+                />
+              </Section>
               <Section
                 {...sectionAccessProps('consecutivePattern')}
                 enabled={sectionEnabled('consecutivePattern')}
@@ -1412,9 +1506,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   consecutiveGroup: { flexDirection: 'row', alignItems: 'center', gap: 1, borderRadius: radius.sm, padding: 2 },
   consecutiveGroupLinked: { backgroundColor: colors.surfaceAccent },
   patternCell: {
-    width: 17, height: 17, borderRadius: 5, borderWidth: 1, borderColor: colors.divider,
+    width: 22, height: 20, flexShrink: 0, borderRadius: 5, borderWidth: 1, borderColor: colors.divider,
     backgroundColor: colors.background, color: colors.textSecondary,
-    fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'center', fontVariant: ['tabular-nums'],
+    fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center', fontVariant: ['tabular-nums'],
   },
   patternCellLinked: { borderColor: colors.accentBorder, color: colors.highlight },
   ratioDiagram: { width: 54, height: 5, flexDirection: 'row', gap: 2 },
@@ -1454,17 +1548,49 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberSetMore: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginLeft: 2 },
   recentGuide: { gap: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md },
   recentGuideHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  recentGuideTitle: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
+  recentGuideTitle: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   recentGuideMeta: { color: colors.textSecondary, fontSize: typography.sizes.caption },
-  selectorPrompt: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
-  bandGuide: { height: 32, flexDirection: 'row', gap: 2 },
-  bandGuideSegment: {
-    alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
+  selectorPrompt: {
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+    lineHeight: 20,
   },
-  bandGuideSegmentActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
-  bandGuideText: { color: colors.textSecondary, fontSize: typography.sizes.caption },
-  bandGuideTextActive: { color: colors.highlight, fontWeight: typography.weights.semibold },
+  bandMatrix: { gap: 0 },
+  bandMatrixHeader: {
+    minHeight: 26, flexDirection: 'row', alignItems: 'center', paddingBottom: spacing.xs,
+  },
+  bandMatrixCorner: {
+    width: 62, color: colors.textSecondary, fontSize: 10,
+    fontWeight: typography.weights.semibold,
+  },
+  bandMatrixCounts: { flex: 1, minWidth: 0, flexDirection: 'row', gap: 3 },
+  bandMatrixColumnLabel: {
+    flex: 1, minWidth: 0, color: colors.textSecondary, fontSize: 9,
+    textAlign: 'center', fontVariant: ['tabular-nums'],
+  },
+  bandMatrixRow: {
+    minHeight: 48, flexDirection: 'row', alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider,
+  },
+  bandMatrixRowHeading: { width: 62, paddingRight: spacing.xs },
+  bandMatrixRowLabel: {
+    color: colors.textPrimary, fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'],
+  },
+  bandMatrixRowHint: { marginTop: 2, color: colors.textSecondary, fontSize: 9 },
+  bandMatrixCell: {
+    flex: 1, minWidth: 0, height: 38, alignItems: 'center', justifyContent: 'center',
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  bandMatrixCellActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
+  bandMatrixCellText: {
+    color: colors.textSecondary, fontSize: typography.sizes.caption, fontVariant: ['tabular-nums'],
+  },
+  bandMatrixCellTextActive: { color: colors.highlight, fontWeight: typography.weights.bold },
   fixedExcludedContent: { gap: spacing.md },
   modeRow: { flexDirection: 'row', gap: spacing.sm },
   modeButton: { flex: 1, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },

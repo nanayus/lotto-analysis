@@ -34,12 +34,19 @@ describe('condition help suggestions', () => {
       ? [patternSuggestion.value]
       : []);
 
-    const bandSuggestion = help.band20To29.suggestion!;
+    const bandSuggestion = help.numberBands.suggestion!;
     const banded = applyConditionHelpSuggestion(defaults, bandSuggestion);
-    expect(banded.enabledSections?.band20To29).toBe(true);
-    expect(banded.bandCounts['20-29']).toEqual(bandSuggestion.kind === 'bandCount'
-      ? [bandSuggestion.value]
-      : []);
+    expect(Object.values(banded.enabledSections ?? {}).filter(Boolean)).toHaveLength(5);
+    expect(banded.bandCounts).toEqual(bandSuggestion.kind === 'bandCounts'
+      ? Object.fromEntries(Object.entries(bandSuggestion.values).map(([band, value]) => [band, [value]]))
+      : {});
+
+    const multipleSuggestion = help.multiples.suggestion!;
+    const multiplied = applyConditionHelpSuggestion(defaults, multipleSuggestion);
+    expect(multiplied.enabledSections).toMatchObject({ multiple3: true, multiple4: true, multiple5: true });
+    expect(multiplied.multipleCounts).toEqual(multipleSuggestion.kind === 'multipleCounts'
+      ? Object.fromEntries(Object.entries(multipleSuggestion.values).map(([multiple, value]) => [multiple, [value]]))
+      : {});
   });
 
   test('uses the current bonus setting for previous-draw suggestions', () => {

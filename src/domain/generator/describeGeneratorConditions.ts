@@ -67,9 +67,27 @@ export function restoreGeneratorConditions(
       case 'multiple:3': conditions.multipleCounts[3] = values as GeneratorConditions['multipleCounts'][3]; break;
       case 'multiple:4': conditions.multipleCounts[4] = values as GeneratorConditions['multipleCounts'][4]; break;
       case 'multiple:5': conditions.multipleCounts[5] = values as GeneratorConditions['multipleCounts'][5]; break;
+      case 'multiples': {
+        value.split(' / ').forEach((multipleValue) => {
+          const match = multipleValue.match(/^(3|4|5)의 배수\s+(.+)개$/);
+          if (!match) return;
+          const multiple = Number(match[1]) as 3 | 4 | 5;
+          conditions.multipleCounts[multiple] = numbersFromDescription(match[2]) as GeneratorConditions['multipleCounts'][typeof multiple];
+        });
+        break;
+      }
       case 'carry': conditions.carry = { allowed: values as GeneratorConditions['carry']['allowed'], includeBonus: value.includes('보너스 포함') }; break;
       case 'neighbor': conditions.neighbor = { allowed: values as GeneratorConditions['neighbor']['allowed'], includeBonus: value.includes('보너스 포함') }; break;
       case 'consecutive': conditions.consecutivePatterns = patternFromLabel(CONSECUTIVE_LABELS, value); break;
+      case 'numberBands': {
+        value.split(' / ').forEach((bandValue) => {
+          const match = bandValue.match(/^(1-9|10-19|20-29|30-39|40-45)\s+(.+)개$/);
+          if (!match) return;
+          const band = match[1] as keyof GeneratorConditions['bandCounts'];
+          conditions.bandCounts[band] = numbersFromDescription(match[2]) as GeneratorConditions['bandCounts'][typeof band];
+        });
+        break;
+      }
       case 'pastRanks': conditions.excludedPastRanks = values as GeneratorConditions['excludedPastRanks']; break;
       default: {
         if (key.startsWith('band:')) {
@@ -125,11 +143,16 @@ export function describeGeneratorConditions(
   if (generatorSectionEnabled(conditions, 'primeCount') && conditions.primeCounts.length) add('prime', '소수', countValue(conditions.primeCounts));
   if (generatorSectionEnabled(conditions, 'squareCount') && conditions.squareCounts.length) add('square', '완전제곱수', countValue(conditions.squareCounts));
   if (generatorSectionEnabled(conditions, 'compositeCount') && conditions.compositeCounts.length) add('composite', '합성수', countValue(conditions.compositeCounts));
-  ([3, 4, 5] as const).forEach((multiple) => {
-    if (generatorSectionEnabled(conditions, `multiple${multiple}`) && conditions.multipleCounts[multiple].length) {
-      add(`multiple:${multiple}`, `${multiple}의 배수`, countValue(conditions.multipleCounts[multiple]));
-    }
-  });
+  const activeMultiples = ([3, 4, 5] as const).filter((multiple) => (
+    generatorSectionEnabled(conditions, `multiple${multiple}`) && conditions.multipleCounts[multiple].length
+  ));
+  if (activeMultiples.length) {
+    add(
+      'multiples',
+      '3·4·5의 배수',
+      activeMultiples.map((multiple) => `${multiple}의 배수 ${countValue(conditions.multipleCounts[multiple])}`).join(' / '),
+    );
+  }
   if (generatorSectionEnabled(conditions, 'carryCount') && conditions.carry.allowed.length) {
     add(
       'carry',
@@ -151,11 +174,16 @@ export function describeGeneratorConditions(
       conditions.consecutivePatterns.map((pattern) => CONSECUTIVE_LABELS[pattern]).join(' · '),
     );
   }
-  GENERATOR_BAND_KEYS.forEach((band) => {
-    if (generatorSectionEnabled(conditions, BAND_SECTION_KEYS[band]) && conditions.bandCounts[band].length) {
-      add(`band:${band}`, `${band} 번호대`, countValue(conditions.bandCounts[band]));
-    }
-  });
+  const activeBands = GENERATOR_BAND_KEYS.filter((band) => (
+    generatorSectionEnabled(conditions, BAND_SECTION_KEYS[band]) && conditions.bandCounts[band].length
+  ));
+  if (activeBands.length) {
+    add(
+      'numberBands',
+      '번호대별 개수',
+      activeBands.map((band) => `${band} ${countValue(conditions.bandCounts[band])}`).join(' / '),
+    );
+  }
   if (generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length) {
     add('pastRanks', '과거 등수 조합 제외', `${joined(conditions.excludedPastRanks)}등`);
   }

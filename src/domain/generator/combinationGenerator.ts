@@ -127,6 +127,13 @@ const BAND_SECTION_KEYS: Record<NumberBandKey, GeneratorSectionKey> = {
   '30-39': 'band30To39',
   '40-45': 'band40To45',
 };
+const BAND_SECTION_KEY_SET = new Set<GeneratorSectionKey>(Object.values(BAND_SECTION_KEYS));
+const MULTIPLE_SECTION_KEYS: Record<3 | 4 | 5, GeneratorSectionKey> = {
+  3: 'multiple3',
+  4: 'multiple4',
+  5: 'multiple5',
+};
+const MULTIPLE_SECTION_KEY_SET = new Set<GeneratorSectionKey>(Object.values(MULTIPLE_SECTION_KEYS));
 
 export function generatorSectionEnabled(
   conditions: GeneratorConditions,
@@ -747,18 +754,26 @@ export function activeConditionCount(conditions: GeneratorConditions) {
     generatorSectionEnabled(conditions, 'carryCount') && conditions.carry.allowed.length > 0,
     generatorSectionEnabled(conditions, 'neighborCount') && conditions.neighbor.allowed.length > 0,
     generatorSectionEnabled(conditions, 'consecutivePattern') && conditions.consecutivePatterns.length > 0,
-    ...BAND_KEYS.map((key) => generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]) && conditions.bandCounts[key].length > 0),
-    ...([3, 4, 5] as const).map((multiple) => generatorSectionEnabled(conditions, `multiple${multiple}`) && conditions.multipleCounts[multiple].length > 0),
+    BAND_KEYS.some((key) => generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]) && conditions.bandCounts[key].length > 0),
+    ([3, 4, 5] as const).some((multiple) => generatorSectionEnabled(conditions, MULTIPLE_SECTION_KEYS[multiple]) && conditions.multipleCounts[multiple].length > 0),
     generatorSectionEnabled(conditions, 'pastRanks') && conditions.excludedPastRanks.length > 0,
   ].filter(Boolean).length;
 }
 
 export function enabledGeneratorConditionCount(conditions: GeneratorConditions) {
+  const bandGroupEnabled = BAND_KEYS.some((key) => generatorSectionEnabled(conditions, BAND_SECTION_KEYS[key]));
+  const multipleGroupEnabled = ([3, 4, 5] as const).some((multiple) => (
+    generatorSectionEnabled(conditions, MULTIPLE_SECTION_KEYS[multiple])
+  ));
   return [
     conditions.standardDeviation.enabled,
     conditions.sum.enabled,
     conditions.lastDigitSum.enabled,
-    ...GENERATOR_SECTION_KEYS.map((key) => generatorSectionEnabled(conditions, key)),
+    ...GENERATOR_SECTION_KEYS
+      .filter((key) => !BAND_SECTION_KEY_SET.has(key) && !MULTIPLE_SECTION_KEY_SET.has(key))
+      .map((key) => generatorSectionEnabled(conditions, key)),
+    bandGroupEnabled,
+    multipleGroupEnabled,
   ].filter(Boolean).length;
 }
 
