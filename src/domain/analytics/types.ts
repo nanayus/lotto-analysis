@@ -11,6 +11,7 @@ export type AnalysisFilters = {
 
 export type LottoHistoryDraw = {
   bonus: number;
+  date?: string;
   numbers: number[];
   round: number;
 };

@@ -98,7 +98,7 @@ paywall_viewed
 - 조합 결과 유형별 관심도: `headline_metric`별 결과 영역 도달률과 탐색률을 비교한다.
 - 단순 스크롤 통과를 관심으로 오해하지 않도록, 결과 영역 노출은 화면의 50% 이상이 0.8초 유지된 경우에만 한 결과 세션당 한 번 기록한다.
 
-`headline_metric` 값은 결과 문구 자체가 아니라 `same-six`, `five-number`, `four-number`, `group-frequency`, `three-number`, `pair-concentration`, `odd-even`, `consecutive`, `neutral`, `empty-period`처럼 안정적인 분류값을 사용한다.
+`headline_metric` 값은 결과 문구 자체가 아니라 `same-six`, `five-number`, `four-number`, `three-number`, `pair-concentration`, `number-gap`, `group-frequency`, `consecutive`, `odd-even`, `low-high`, `sum-position`, `number-band`, `same-ending`, `distribution`, `previous-draw`, `number-property`, `neutral`, `empty-period`처럼 안정적인 분류값을 사용한다. 세부 문구와 노출 기준은 `COMBINATION_HEADLINE_SPEC_KO.md`를 따른다.
 
 ## 콘솔 설정
 

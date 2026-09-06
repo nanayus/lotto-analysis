@@ -28,7 +28,10 @@ describe('WinningNumberAnalysisScreen', () => {
     const screen = await render(<WinningNumberAnalysisScreen />);
 
     expect(screen.getByText(`제 ${latestRound}회`)).toBeTruthy();
-    expect(screen.getByRole('button', { name: `${latestRound}회 당첨번호 분석하기` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: `${latestRound}회, 이전 기록으로 분석` })).toBeTruthy();
+    expect(screen.getByText(/회 번호는/)).toBeTruthy();
+    expect(screen.queryByTestId('analysis-scope-bar')).toBeNull();
+    expect(screen.getByText(/이후 회차는 포함하지 않습니다/)).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: '이전 회차' }));
     await waitFor(() => expect(screen.getByText(`제 ${latestRound - 1}회`)).toBeTruthy());
@@ -41,10 +44,10 @@ describe('WinningNumberAnalysisScreen', () => {
     const latestRound = Math.max(...lottoHistoryJson.map((draw) => draw.round));
     const screen = await render(<WinningNumberAnalysisScreen />);
 
-    fireEvent.press(screen.getByText('이 회차 분석하기'));
+    fireEvent.press(screen.getByRole('button', { name: `${latestRound}회, 이전 기록으로 분석` }));
 
     await waitFor(() => expect(screen.getByText('과거 당첨 기록')).toBeTruthy());
-    expect(screen.getByText(`${latestRound}회 이전 데이터 기준`)).toBeTruthy();
+    expect(screen.queryByTestId('analysis-scope-bar')).toBeNull();
     expect(screen.queryByText(`${latestRound}회 1등 당첨번호와 정확히 같아요.`)).toBeNull();
     expect(screen.getAllByRole('button', { name: '다른 당첨 회차 선택' })).toHaveLength(2);
     expect(screen.queryByTestId('result-card-actions')).toBeNull();

@@ -5,11 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import { trackEvent } from '@/features/analytics/analyticsClient';
 import { combinationAnalyticsParams } from '@/features/analytics/events';
 import { activeGeneratorConditionKeys } from '@/features/analytics/generatorConditionAnalytics';
-import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
+import type { AnalysisFilters, AnalysisPeriod } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
 import { describeCombinationHeadline } from '@/domain/combination/describeCombinationHeadline';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
@@ -32,6 +31,7 @@ import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useAuth } from '@/features/auth/AuthContext';
 import { authUid } from '@/features/auth/types';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { isAnalysisAuthorized } from '@/features/monetization/types';
 import {
   buildCombinationReturnDestination,
@@ -39,10 +39,6 @@ import {
   type CombinationReturnTarget,
 } from './combinationNavigation';
 
-const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
-const firstRound = Math.min(...lottoHistory.map((draw) => draw.round));
-const latestRound = Math.max(...lottoHistory.map((draw) => draw.round));
-const DATA_VERSION = `lotto-${latestRound}`;
 const GENERATED_ANALYSIS_MIN_TRANSITION_MS = 650;
 
 const DEFAULT_FILTERS: AnalysisFilters = {
@@ -101,6 +97,10 @@ function analyticsPeriod(period: AnalysisPeriod) {
 
 export function CombinationScreen() {
   const styles = useThemedStyles(createStyles);
+  const { history: lottoHistory } = useLottoData();
+  const firstRound = Math.min(...lottoHistory.map((draw) => draw.round));
+  const latestRound = Math.max(...lottoHistory.map((draw) => draw.round));
+  const dataVersion = `lotto-${latestRound}`;
   const {
     analyze,
     accessMethod,
@@ -222,6 +222,7 @@ export function CombinationScreen() {
     analyzeToken,
     combinations,
     comparisonA,
+    lottoHistory,
     mode.kind,
     productAccess.tier,
     selectedNumbers,
@@ -245,7 +246,7 @@ export function CombinationScreen() {
         executeAnalysis();
         return;
       }
-      const authorization = await authorizeAnalysis(selectedNumbers, DATA_VERSION);
+      const authorization = await authorizeAnalysis(selectedNumbers, dataVersion);
       if (analyzeToken) await waitForGeneratedTransition(transitionStartedAt);
       if (!isAnalysisAuthorized(authorization.decision)) {
         setAnalysisAccessRequired(true);
@@ -262,6 +263,7 @@ export function CombinationScreen() {
     analysisSource,
     analyzeToken,
     authorizeAnalysis,
+    dataVersion,
     executeAnalysis,
     hasInterstitialAccess,
     isAuthorizing,
@@ -341,7 +343,7 @@ export function CombinationScreen() {
       setComparisonA(analyzeCombination(lottoHistory, comparisonA.numbers, filters));
       setComparisonB(analyzeCombination(lottoHistory, comparisonB.numbers, filters));
     }
-  }, [comparisonA, comparisonB, mode.kind, selectedNumbers]);
+  }, [comparisonA, comparisonB, lottoHistory, mode.kind, selectedNumbers]);
 
   const changePeriod = useCallback((period: AnalysisPeriod) => {
     if (period.kind === 'custom' && !productAccess.canUseCustomPeriod) {
@@ -608,6 +610,7 @@ export function CombinationScreen() {
     }
   }, [
     addCombination,
+    lottoHistory,
     openPaywall,
     productAccess.canRegenerateWithSameConditions,
     productAccess.requiresAdForResults,

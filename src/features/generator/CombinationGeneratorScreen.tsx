@@ -14,8 +14,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
-import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import { trackEvent } from '@/features/analytics/analyticsClient';
 import { combinationAnalyticsParams } from '@/features/analytics/events';
 import { activeGeneratorConditionKeys } from '@/features/analytics/generatorConditionAnalytics';
@@ -31,6 +29,7 @@ import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNa
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
@@ -47,7 +46,6 @@ import {
 import { ConditionSheet } from './components/ConditionSheet';
 import { useGeneratorDraft } from './GeneratorDraftContext';
 
-const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 export const CONDITION_APPLY_MINIMUM_LOADING_MS = 3000;
 
 function waitFor(milliseconds: number) {
@@ -88,6 +86,7 @@ export function CombinationGeneratorScreen({
 }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const { history: lottoHistory } = useLottoData();
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
   const { addCombination } = useNumberLibrary();
@@ -162,7 +161,7 @@ export function CombinationGeneratorScreen({
       nextOutcomes.push(nextOutcome);
     }
     return nextOutcomes;
-  }, [gameCount]);
+  }, [gameCount, lottoHistory]);
 
   const handleGenerate = useCallback(async () => {
     generationToken.current += 1;

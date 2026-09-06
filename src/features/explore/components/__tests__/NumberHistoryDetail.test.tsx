@@ -17,7 +17,12 @@ const entries: NumberAppearanceHistoryItem[] = [
 describe('NumberHistoryDetail', () => {
   test('shows one compact row and highlights only the explored number', async () => {
     const { getAllByText, getByLabelText, getByTestId, getByText, queryByText } = await render(
-      <NumberHistoryDetail entries={entries} number={39} onBack={() => undefined} />,
+      <NumberHistoryDetail
+        bonusIncluded={false}
+        entries={entries}
+        number={39}
+        onBack={() => undefined}
+      />,
     );
 
     expect(getAllByText('39번 출현 기록')).toHaveLength(2);
@@ -26,6 +31,7 @@ describe('NumberHistoryDetail', () => {
     expect(getByText('7회 만에 등장')).toBeTruthy();
     expect(getByTestId('number-history-round-1234').props.numberOfLines).toBeUndefined();
     expect(getByTestId('number-history-summary')).toBeTruthy();
+    expect(getByText('최근 52회에서 본번호로 등장한 회차와 직전 출현 간격입니다.')).toBeTruthy();
     expect(getByLabelText('39번, 선택 번호와 일치')).toBeTruthy();
     expect(getByLabelText('14번')).toBeTruthy();
     expect(getByLabelText('보너스 13번')).toBeTruthy();

@@ -1,4 +1,13 @@
 export const NUMBER_STEP = 48;
+export const HORIZONTAL_NUMBER_STEP = 64;
+export const HORIZONTAL_SCRUBBER_HEIGHT = 96;
+export const HORIZONTAL_ITEM_HEIGHT = 72;
+export const HORIZONTAL_RAIL_BOTTOM_INSET = 16;
+export const HORIZONTAL_RAIL_ACCENT_REST_LENGTH = 72;
+export const HORIZONTAL_RAIL_ACCENT_MAX_LENGTH = 104;
+export const HORIZONTAL_FISHEYE_SCALES = [0.28, 0.34, 0.43, 0.6, 1.06, 0.6, 0.43, 0.34, 0.28] as const;
+export const HORIZONTAL_FISHEYE_OPACITIES = [0.05, 0.11, 0.24, 0.46, 1, 0.46, 0.24, 0.11, 0.05] as const;
+export const MAX_FLING_ITEMS = 9;
 // Normalized viewport Y shared by the number scale, focus tick, and rail accent.
 export const FOCUS_Y = 0.5;
 

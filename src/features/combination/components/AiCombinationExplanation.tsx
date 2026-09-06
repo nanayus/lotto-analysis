@@ -86,6 +86,7 @@ function buildAiSnapshot(analysis: CombinationAnalysis) {
     } : null,
     sameSixCount: analysis.sameSixCount,
     shape: analysis.shape,
+    shapeDistribution: analysis.shapeDistribution,
     topSubCombinations: {
       2: topCombinations(2),
       3: topCombinations(3),

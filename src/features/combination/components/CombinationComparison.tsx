@@ -323,7 +323,7 @@ export function CombinationComparison({
           </View>
         </SectionCard>
 
-        <SectionCard description="등수 상당 기록은 보너스 분석 필터와 무관하게 실제 당첨 규칙으로 계산합니다." title="과거 당첨 기록">
+        <SectionCard description="등수 기록은 보너스 분석 필터와 무관하게 실제 당첨 규칙으로 계산합니다." title="과거 당첨 기록">
           <View style={styles.prizeGrid}>
             <View style={styles.prizeHeaderRow}>
               <Text style={styles.prizeLabel} />

@@ -336,7 +336,7 @@ export function buildConditionHelp(history: readonly LottoHistoryDraw[]): Condit
     band40To45: countItem('40-45 번호대', '40부터 45까지의 번호가 조합에 몇 개 포함될지 설정합니다.', '해당 번호: 40, 41, 42, 43, 44, 45', band40To45, band40To45 ? { band: '40-45', kind: 'bandCount', section: 'band40To45', value: countValue(band40To45[0]) } : null),
     pastRanks: item({
       title: '과거 등수 조합 제외',
-      description: '과거 전체 회차와 비교해 1등·2등·3등 상당으로 이미 등장한 후보 조합을 생성 대상에서 제외합니다.',
+      description: '과거 전체 회차에서 1등·2등·3등 기록과 같은 후보 조합을 생성 대상에서 제외합니다.',
       example: '1등은 본번호 6개 일치, 2등은 본번호 5개와 보너스 일치, 3등은 본번호 5개 일치로 판정합니다.',
       historicalLabel: `${history.length.toLocaleString('ko-KR')}개 회차와 비교`,
       historicalCount: history.length,

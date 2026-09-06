@@ -1,5 +1,5 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
-import { describe, expect, jest, test } from '@jest/globals';
+import { render } from '@testing-library/react-native';
+import { describe, expect, test } from '@jest/globals';
 import { StyleSheet } from 'react-native';
 
 import type { GeneratedNumberAnalytics } from '@/data/numberAnalytics.types';
@@ -15,13 +15,12 @@ const analytics = {
 } as GeneratedNumberAnalytics;
 
 describe('NumberProfile', () => {
-  test('centers the profile on the number and compact rank summary', async () => {
-    const onOpenComparison = jest.fn();
-    const { getByRole, getByTestId, getByText, queryByText } = await render(
-      <NumberProfile analytics={analytics} onOpenComparison={onOpenComparison} />,
+  test('shows a compact selected-number heading and rank summary', async () => {
+    const { getByTestId, getByText, queryByText } = await render(
+      <NumberProfile analytics={analytics} />,
     );
 
-    expect(getByText('16')).toBeTruthy();
+    expect(getByText('16번 분석')).toBeTruthy();
     expect(getByText('20위')).toBeTruthy();
     expect(queryByText('전체 20위')).toBeNull();
     expect(queryByText('168회 출현')).toBeNull();
@@ -30,11 +29,7 @@ describe('NumberProfile', () => {
     expect(queryByText('전체 출현')).toBeNull();
     expect(queryByText('출현 순위')).toBeNull();
 
-    await act(async () => {
-      await fireEvent.press(getByRole('button', { name: /전체 번호 보기/ }));
-    });
-
-    expect(onOpenComparison).toHaveBeenCalledTimes(1);
+    expect(queryByText('전체 번호 보기')).toBeNull();
 
     const badgeStyle = StyleSheet.flatten(getByTestId('rank-badge').props.style);
     expect(badgeStyle.paddingHorizontal).toBe(spacing.sm);
@@ -52,7 +47,6 @@ describe('NumberProfile', () => {
     const { getByTestId, getByText } = await render(
       <NumberProfile
         analytics={{ ...analytics, appearanceRank } as GeneratedNumberAnalytics}
-        onOpenComparison={jest.fn()}
       />,
     );
 

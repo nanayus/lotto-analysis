@@ -21,9 +21,14 @@ export function ReleaseNotesScreen() {
 
           <View style={styles.releaseList}>
             {RELEASE_NOTES.map((release) => (
-              <View key={release.version} style={styles.release}>
+              <View key={release.id} style={styles.release}>
                 <View style={styles.releaseHeader}>
-                  <Text style={styles.version}>버전 {release.version}</Text>
+                  <Text style={styles.version}>
+                    버전 {release.version}
+                    {release.revision
+                      ? ` · 추가 업데이트${release.revision > 1 ? ` ${release.revision}` : ''}`
+                      : ''}
+                  </Text>
                   <Text style={styles.date}>{release.date}</Text>
                 </View>
                 <View style={styles.changeList}>

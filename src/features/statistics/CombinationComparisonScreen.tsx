@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/ui/AppButton';
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
 import { CombinationComparison } from '@/features/combination/components/CombinationComparison';
@@ -25,12 +24,9 @@ import {
   type SavedCombination,
   useNumberLibrary,
 } from '@/features/library/NumberLibraryContext';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
-const lottoHistory = [...(lottoHistoryJson as LottoHistoryDraw[])]
-  .sort((left, right) => left.round - right.round);
-const firstRound = lottoHistory[0]?.round ?? 1;
-const latestRound = lottoHistory.at(-1)?.round ?? firstRound;
 const DEFAULT_FILTERS: AnalysisFilters = {
   includeBonus: false,
   period: { kind: 'preset', label: '전체' },
@@ -147,12 +143,18 @@ function SelectionSlot({
 
 function CandidatePicker({
   combinations,
+  firstRound,
+  history,
+  latestRound,
   onClose,
   onSelect,
   otherCandidate,
   target,
 }: {
   combinations: SavedCombination[];
+  firstRound: number;
+  history: LottoHistoryDraw[];
+  latestRound: number;
   onClose: () => void;
   onSelect: (candidate: ComparisonCandidate) => void;
   otherCandidate: ComparisonCandidate | null;
@@ -163,7 +165,7 @@ function CandidatePicker({
   const [source, setSource] = useState<PickerSource>(combinations.length ? 'saved' : 'winning');
   const [roundInput, setRoundInput] = useState(String(latestRound));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const recentDraws = useMemo(() => lottoHistory.slice(-10).reverse(), []);
+  const recentDraws = useMemo(() => history.slice(-10).reverse(), [history]);
   const otherNumberKey = otherCandidate ? numberKey(otherCandidate.numbers) : null;
 
   const isDuplicate = (candidate: ComparisonCandidate) =>
@@ -177,7 +179,7 @@ function CandidatePicker({
 
   const applyRound = () => {
     const round = Number.parseInt(roundInput, 10);
-    const draw = lottoHistory.find((item) => item.round === round);
+    const draw = history.find((item) => item.round === round);
     if (!draw) {
       setErrorMessage(`${firstRound}회부터 ${latestRound}회 사이의 회차를 입력해 주세요.`);
       return;
@@ -349,6 +351,13 @@ function CandidatePicker({
 }
 
 export function CombinationComparisonScreen() {
+  const { history: unsortedHistory } = useLottoData();
+  const lottoHistory = useMemo(
+    () => [...unsortedHistory].sort((left, right) => left.round - right.round),
+    [unsortedHistory],
+  );
+  const firstRound = lottoHistory[0]?.round ?? 1;
+  const latestRound = lottoHistory.at(-1)?.round ?? firstRound;
   const { combinations, isReady } = useNumberLibrary();
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -360,11 +369,11 @@ export function CombinationComparisonScreen() {
   const selectedCount = Number(Boolean(a)) + Number(Boolean(b));
   const aAnalysis = useMemo(
     () => a ? analyzeCombination(lottoHistory, a.numbers, filters) : null,
-    [a, filters],
+    [a, filters, lottoHistory],
   );
   const bAnalysis = useMemo(
     () => b ? analyzeCombination(lottoHistory, b.numbers, filters) : null,
-    [b, filters],
+    [b, filters, lottoHistory],
   );
 
   if (showResult && a && b && aAnalysis && bAnalysis) {
@@ -444,6 +453,9 @@ export function CombinationComparisonScreen() {
         {pickerTarget ? (
           <CandidatePicker
             combinations={combinations}
+            firstRound={firstRound}
+            history={lottoHistory}
+            latestRound={latestRound}
             onClose={() => setPickerTarget(null)}
             onSelect={(candidate) => {
               if (pickerTarget === 'A') setA(candidate);

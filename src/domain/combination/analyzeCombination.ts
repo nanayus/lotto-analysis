@@ -123,6 +123,30 @@ function competitionRanks(counts: readonly number[]) {
   return counts.map((count) => 1 + counts.filter((other) => other > count).length);
 }
 
+function combinationStandardDeviation(numbers: readonly number[]) {
+  const mean = numbers.reduce((sum, number) => sum + number, 0) / numbers.length;
+  return Math.sqrt(
+    numbers.reduce((sum, number) => sum + (number - mean) ** 2, 0) / numbers.length,
+  );
+}
+
+function combinationAcValue(numbers: readonly number[]) {
+  const differences = new Set<number>();
+  for (let left = 0; left < numbers.length; left += 1) {
+    for (let right = left + 1; right < numbers.length; right += 1) {
+      differences.add(Math.abs(numbers[right] - numbers[left]));
+    }
+  }
+  return differences.size - 5;
+}
+
+function percentileRank(value: number, values: readonly number[]) {
+  if (!values.length) return 0;
+  const less = values.filter((item) => item < value).length;
+  const equal = values.filter((item) => item === value).length;
+  return Number((((less + equal / 2) / values.length) * 100).toFixed(1));
+}
+
 function consecutiveGroups(numbers: readonly number[]) {
   const groups: number[][] = [];
   let current: number[] = [];
@@ -176,6 +200,9 @@ export function analyzeCombination(
   const prizeCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<PrizeRank, number>;
   const qualifyingHistory: DrawCombinationMatch[] = [];
   const subCombinations = {} as Record<CombinationSize, SubCombinationAnalysis[]>;
+  const historicAcValues: number[] = [];
+  const historicStandardDeviations: number[] = [];
+  const historicSums: number[] = [];
 
   for (const size of COMBINATION_SIZES) {
     subCombinations[size] = generateCombinations(numbers, size).map((combination) => ({
@@ -188,6 +215,9 @@ export function analyzeCombination(
   let highestMainMatch: MainMatchCount = 0;
   for (let drawIndex = 0; drawIndex < draws.length; drawIndex += 1) {
     const draw = draws[drawIndex];
+    historicAcValues.push(combinationAcValue(draw.numbers));
+    historicStandardDeviations.push(combinationStandardDeviation(draw.numbers));
+    historicSums.push(draw.numbers.reduce((sum, number) => sum + number, 0));
     const mainSet = new Set(draw.numbers);
     const matchedMainNumbers = numbers.filter((number) => mainSet.has(number));
     const mainMatchCount = matchedMainNumbers.length as MainMatchCount;
@@ -259,16 +289,17 @@ export function analyzeCombination(
     ? ((selectedAverage - overallAverage) / overallAverage) * 100
     : 0;
 
+  const conditionMetrics = calculateCombinationMetrics(
+    numbers,
+    chronologicalHistory,
+    {
+      carry: { allowed: [], includeBonus: normalizedFilters.includeBonus },
+      neighbor: { allowed: [], includeBonus: normalizedFilters.includeBonus },
+    },
+  );
   const result: CombinationAnalysis = {
     activeDrawCount: draws.length,
-    conditionMetrics: calculateCombinationMetrics(
-      numbers,
-      chronologicalHistory,
-      {
-        carry: { allowed: [], includeBonus: normalizedFilters.includeBonus },
-        neighbor: { allowed: [], includeBonus: normalizedFilters.includeBonus },
-      },
-    ),
+    conditionMetrics,
     filters: normalizedFilters,
     groupFrequency: {
       differencePct: Number(differencePct.toFixed(1)),
@@ -283,6 +314,15 @@ export function analyzeCombination(
     qualifyingHistory,
     recentMeaningfulMatch: qualifyingHistory[0] ?? null,
     sameSixCount: subCombinations[6][0]?.appearanceCount ?? 0,
+    shapeDistribution: {
+      acValuePercentile: percentileRank(conditionMetrics.acValue, historicAcValues),
+      sampleSize: draws.length,
+      standardDeviationPercentile: percentileRank(
+        conditionMetrics.standardDeviation,
+        historicStandardDeviations,
+      ),
+      sumPercentile: percentileRank(conditionMetrics.sum, historicSums),
+    },
     shape: {
       consecutiveGroups: consecutiveGroups(numbers),
       evenCount: numbers.filter((number) => number % 2 === 0).length,

@@ -7,8 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
 import { MainTabHeader } from '@/components/ui/AppTopBar';
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
-import type { LottoHistoryDraw } from '@/domain/analytics/types';
 import { generateCombination } from '@/domain/generator/combinationGenerator';
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
@@ -17,6 +15,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { ACCOUNT_LINKING_ENABLED } from '@/features/auth/featureFlags';
 import { type SavedCombination, useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
@@ -29,8 +28,6 @@ const TABS: readonly { label: string; value: LibraryTab }[] = [
   { label: '구매번호', value: 'purchased' },
   { label: '즐겨찾기', value: 'favorite' },
 ];
-
-const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 
 function formatSavedDate(value: string) {
   const date = new Date(value);
@@ -48,6 +45,7 @@ export function MyNumbersScreen() {
   const { openPaywall, productAccess, proPlanEnabled = true } = useMonetization();
   const { openLogin, state: authState } = useAuth();
   const { setNumbers } = useCombinationDraft();
+  const { history: lottoHistory } = useLottoData();
   const [activeTab, setActiveTab] = useState<LibraryTab>('all');
   const [expandedConditionId, setExpandedConditionId] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
@@ -101,7 +99,7 @@ export function MyNumbersScreen() {
     } finally {
       setRegeneratingId(null);
     }
-  }, [addCombination, regeneratingId, setNumbers]);
+  }, [addCombination, lottoHistory, regeneratingId, setNumbers]);
   const requestRegenerate = useCallback((item: SavedCombination) => {
     if (!productAccess.canRegenerateWithSameConditions) {
       openPaywall('same-condition-regeneration');

@@ -186,12 +186,20 @@ describe('CombinationResult', () => {
     expect(getByText('조합 분석')).toBeTruthy();
     expect(getByTestId('combination-headline-card')).toBeTruthy();
     expect(queryByText('한줄평')).toBeNull();
-    expect(getByText('홀짝 3:3, 합계 85인 조합이에요.')).toBeTruthy();
-    expect(getByText('조합 형태')).toBeTruthy();
+    expect(getByText('1·7·12·19 네 번호가 선택 기간에 1번 함께 나왔어요.')).toBeTruthy();
+    expect(getByText('1번은 평균 출현 간격의 2.2배인 15회째 미출현이에요.')).toBeTruthy();
+    expect(getByText('4번호 조합 · 1회')).toBeTruthy();
+    expect(getByText('1번 · 평균 6.8회 · 현재 15회')).toBeTruthy();
     expect(getByTestId('combination-headline').props.accessibilityLabel)
-      .toBe('조합 요약, 홀짝 3:3, 합계 85인 조합이에요., 근거 지표 조합 형태');
-    expect(getByText(/최근 5등/)).toBeTruthy();
+      .toBe('조합 요약, 1·7·12·19 네 번호가 선택 기간에 1번 함께 나왔어요., 1번은 평균 출현 간격의 2.2배인 15회째 미출현이에요., 근거 지표 4번호 조합 · 1회, 1번 · 평균 6.8회 · 현재 15회');
+    expect(queryByText(/최근 5등/)).toBeNull();
     expect(getByText(/홀짝 3:3 · 합계 85/)).toBeTruthy();
+    expect(getByText('주요 분석')).toBeTruthy();
+    expect(queryByText('분석 조건')).toBeNull();
+    expect(StyleSheet.flatten(getByTestId('headline-insight-dot-primary').props.style))
+      .toMatchObject({ backgroundColor: darkColors.accentPrimary });
+    expect(StyleSheet.flatten(getByTestId('headline-insight-dot-supporting').props.style))
+      .toMatchObject({ backgroundColor: darkColors.hot });
     expect(getByRole('button', { name: '분석 기간 전체' })).toBeTruthy();
     expect(getByRole('switch', { name: '보너스 번호 제외' })).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('analysis-period-chip').props.style)).toMatchObject({
@@ -202,14 +210,12 @@ describe('CombinationResult', () => {
     expect(queryByText('과거 일치 등급 기록')).toBeNull();
     expect(queryByText('HISTORICAL COMPARISON')).toBeNull();
     expect(queryByText('분석 결과')).toBeNull();
-    expect(queryByText('분석 조건')).toBeNull();
     expect(queryByText('내 번호')).toBeNull();
     expect(queryByText('과거 최고 일치')).toBeNull();
     expect(getByText('선택 번호 출현 빈도')).toBeTruthy();
     expect(getByText('전체 회차 일치 분포')).toBeTruthy();
     expect(getByTestId('combination-result-footer')).toBeTruthy();
     expect(getByRole('button', { name: '새 조합 분석하기' })).toBeTruthy();
-    expect(queryByText('과거 당첨번호와 비교한 등급 상당 기록입니다.')).toBeNull();
     expect(getByTestId('result-card-actions')).toBeTruthy();
     expect(getByRole('button', { name: '구매한 번호로 표시' }).props.accessibilityState)
       .toEqual({ selected: false });
@@ -313,6 +319,9 @@ describe('CombinationResult', () => {
       getByTestId('result-selected-profile').props.onLayout({
         nativeEvent: { layout: { height: 200, width: 340, x: 0, y: 0 } },
       });
+      getByTestId('combination-headline-card').props.onLayout({
+        nativeEvent: { layout: { height: 120, width: 340, x: 0, y: 216 } },
+      });
       jest.advanceTimersByTime(799);
     });
     expect(onSectionViewed).not.toHaveBeenCalled();
@@ -376,7 +385,7 @@ describe('CombinationResult', () => {
     expect(queryByText('AI로 쉽게 보기')).toBeNull();
   });
 
-  test('restores match distribution and group frequency before condition statistics', async () => {
+  test('orders result sections from core findings to detailed comparisons', async () => {
     const { getAllByTestId, getByTestId, getByText } = await render(
       <CombinationResult
         analysis={analysis}
@@ -393,13 +402,20 @@ describe('CombinationResult', () => {
       />,
     );
 
-    expect(getAllByTestId(/^result-section-/).map((section) => section.props.testID))
+    expect(getAllByTestId(/^(result-section-|ai-combination-explanation-card$)/)
+      .map((section) => section.props.testID))
       .toEqual([
-        'result-section-prize',
-        'result-section-match-distribution',
         'result-section-group-frequency',
+        'result-section-individual-numbers',
         'result-section-condition-statistics',
+        'result-section-prize',
+        'ai-combination-explanation-card',
+        'result-section-frequent-combinations',
+        'result-section-match-distribution',
       ]);
+    expect(getByText('핵심 결과')).toBeTruthy();
+    expect(getByText('번호 구성 분석')).toBeTruthy();
+    expect(getByText('과거 기록 비교')).toBeTruthy();
     expect(getByTestId('match-distribution-row-2').props.accessibilityLabel)
       .toBe('2개 일치, 4회, 40.0%');
     expect(StyleSheet.flatten(getByTestId('match-distribution-bar-2').props.style).width)

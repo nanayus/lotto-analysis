@@ -46,26 +46,38 @@ export function AnalysisControls({
   const styles = useThemedStyles(createStyles);
   const { openPaywall, productAccess } = useMonetization();
   const [selectorVisible, setSelectorVisible] = useState(false);
-  const [customVisible, setCustomVisible] = useState(false);
+  const [customExpanded, setCustomExpanded] = useState(false);
   const [startRound, setStartRound] = useState(String(firstRound));
   const [endRound, setEndRound] = useState(String(latestRound));
 
-  const choosePreset = (label: (typeof presetLabels)[number]) => {
-    onPeriodChange({ kind: 'preset', label });
+  const closeSelector = () => {
+    setCustomExpanded(false);
     setSelectorVisible(false);
   };
 
+  const choosePreset = (label: (typeof presetLabels)[number]) => {
+    onPeriodChange({ kind: 'preset', label });
+    closeSelector();
+  };
+
   const openCustom = () => {
+    if (customExpanded) {
+      setCustomExpanded(false);
+      return;
+    }
     if (!productAccess.canUseCustomPeriod) {
-      setSelectorVisible(false);
+      closeSelector();
       openPaywall('custom-period');
       return;
     }
     if (period.kind === 'custom') {
       setStartRound(String(period.startRound));
       setEndRound(String(period.endRound));
+    } else {
+      setStartRound(String(firstRound));
+      setEndRound(String(latestRound));
     }
-    setCustomVisible(true);
+    setCustomExpanded(true);
   };
 
   const applyCustom = () => {
@@ -78,8 +90,7 @@ export function AnalysisControls({
       startRound: Math.min(boundedStart, boundedEnd),
       endRound: Math.max(boundedStart, boundedEnd),
     });
-    setCustomVisible(false);
-    setSelectorVisible(false);
+    closeSelector();
   };
 
   return (
@@ -134,10 +145,10 @@ export function AnalysisControls({
 
       <Modal
         animationType="fade"
-        onRequestClose={() => setSelectorVisible(false)}
+        onRequestClose={closeSelector}
         transparent
         visible={selectorVisible}>
-        <Pressable onPress={() => setSelectorVisible(false)} style={styles.backdrop}>
+        <Pressable onPress={closeSelector} style={styles.backdrop}>
           <Pressable onPress={() => undefined} style={styles.sheet}>
             <Text style={styles.sheetTitle}>분석 기간</Text>
             {presetLabels.map((label) => (
@@ -157,50 +168,48 @@ export function AnalysisControls({
                 {!productAccess.canUseCustomPeriod ? (
                   <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View>
                 ) : null}
-                <Text style={styles.optionHint}>회차 범위</Text>
+                <Text style={styles.optionHint}>{customExpanded ? '접기' : '회차 범위'}</Text>
               </View>
             </Pressable>
+            {customExpanded ? (
+              <View style={styles.customContent} testID="analysis-custom-range">
+                <View style={styles.rangeRow}>
+                  <TextInput
+                    accessibilityLabel="시작 회차"
+                    keyboardType="number-pad"
+                    onChangeText={setStartRound}
+                    selectTextOnFocus
+                    style={styles.input}
+                    value={startRound}
+                  />
+                  <Text style={styles.rangeSeparator}>~</Text>
+                  <TextInput
+                    accessibilityLabel="종료 회차"
+                    keyboardType="number-pad"
+                    onChangeText={setEndRound}
+                    selectTextOnFocus
+                    style={styles.input}
+                    value={endRound}
+                  />
+                </View>
+                <View style={styles.actions}>
+                  <Pressable
+                    accessibilityLabel="직접 선택 취소"
+                    onPress={() => setCustomExpanded(false)}
+                    style={styles.actionButton}>
+                    <Text style={styles.cancelText}>취소</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="직접 선택 적용"
+                    onPress={applyCustom}
+                    style={[styles.actionButton, styles.applyButton]}>
+                    <Text style={styles.applyText}>적용</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </Pressable>
         </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setCustomVisible(false)}
-        transparent
-        visible={customVisible}>
-        <View style={styles.backdrop}>
-          <View style={styles.customSheet}>
-            <Text style={styles.sheetTitle}>회차 직접 선택</Text>
-            <View style={styles.rangeRow}>
-              <TextInput
-                accessibilityLabel="시작 회차"
-                keyboardType="number-pad"
-                onChangeText={setStartRound}
-                selectTextOnFocus
-                style={styles.input}
-                value={startRound}
-              />
-              <Text style={styles.rangeSeparator}>~</Text>
-              <TextInput
-                accessibilityLabel="종료 회차"
-                keyboardType="number-pad"
-                onChangeText={setEndRound}
-                selectTextOnFocus
-                style={styles.input}
-                value={endRound}
-              />
-            </View>
-            <View style={styles.actions}>
-              <Pressable onPress={() => setCustomVisible(false)} style={styles.actionButton}>
-                <Text style={styles.cancelText}>취소</Text>
-              </Pressable>
-              <Pressable onPress={applyCustom} style={[styles.actionButton, styles.applyButton]}>
-                <Text style={styles.applyText}>적용</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
       </Modal>
     </View>
   );
@@ -290,16 +299,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.divider,
-    backgroundColor: colors.background,
-  },
-  customSheet: {
-    width: '100%',
-    maxWidth: 320,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   sheetTitle: {
     color: colors.textPrimary,
@@ -335,8 +335,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  customContent: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
   input: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     height: 42,
     paddingHorizontal: spacing.md,
     borderRadius: radius.sm,

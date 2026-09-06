@@ -1,12 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NumberFlow from 'rn-number-flow';
 
 import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
+import type { LottoHistoryDraw } from '@/domain/analytics/types';
+import { trackEvent } from '@/features/analytics/analyticsClient';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
@@ -17,26 +20,19 @@ import {
   getLottoCountdownParts,
   padTime,
 } from './drawSchedule';
+import {
+  NEW_DRAW_ANNOUNCEMENT_STORAGE_KEY,
+  shouldShowNewDrawAnnouncement,
+} from './newDrawAnnouncement';
 
 type GameCount = 1 | 2 | 3 | 5;
 const GUEST_GAME_COUNTS: readonly GameCount[] = [1, 2];
 const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
 
-type HomeDraw = {
-  bonus: number;
-  date?: string;
-  numbers: number[];
-  round: number;
-};
-
-const latestDraw = (lottoHistoryJson as HomeDraw[]).reduce((latest, draw) =>
-  draw.round > latest.round ? draw : latest,
-);
-
-function LatestDrawInfo() {
+function LatestDrawInfo({ draw }: { draw: LottoHistoryDraw }) {
   const styles = useThemedStyles(createStyles);
   const [now, setNow] = useState(() => new Date());
-  const drawDate = formatDrawDate(latestDraw.date);
+  const drawDate = formatDrawDate(draw.date);
   const countdown = formatLottoCountdown(now);
   const countdownParts = getLottoCountdownParts(now);
 
@@ -47,12 +43,12 @@ function LatestDrawInfo() {
 
   return (
     <View
-      accessibilityLabel={`최근 당첨번호, 제 ${latestDraw.round}회, ${latestDraw.numbers.join(', ')}, 보너스 ${latestDraw.bonus}. 다음 추첨까지 ${countdown}`}
+      accessibilityLabel={`최근 당첨번호, 제 ${draw.round}회, ${draw.numbers.join(', ')}, 보너스 ${draw.bonus}. 다음 추첨까지 ${countdown}`}
       accessible
       style={styles.drawInfo}>
       <View style={styles.drawInfoHeader}>
         <Text style={styles.drawInfoMeta}>
-          제 {latestDraw.round}회{drawDate ? ` · ${drawDate}` : ''}
+          제 {draw.round}회{drawDate ? ` · ${drawDate}` : ''}
         </Text>
         <View style={styles.drawCountdownHeader}>
           <View style={styles.drawCountdownDot} />
@@ -61,9 +57,9 @@ function LatestDrawInfo() {
       </View>
       <View style={styles.drawInfoContent}>
         <LottoDrawBalls
-          bonus={latestDraw.bonus}
+          bonus={draw.bonus}
           highlightedNumbers={[]}
-          numbers={latestDraw.numbers}
+          numbers={draw.numbers}
           size={28}
         />
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.drawCountdownValue}>
@@ -109,9 +105,70 @@ function LatestDrawInfo() {
   );
 }
 
+function NewDrawAnnouncement({
+  draw,
+  onClose,
+  onOpen,
+  visible,
+}: {
+  draw: LottoHistoryDraw;
+  onClose: () => void;
+  onOpen: () => void;
+  visible: boolean;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const drawDate = formatDrawDate(draw.date);
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      transparent
+      visible={visible}>
+      <View style={styles.announcementBackdrop}>
+        <Pressable
+          accessibilityLabel="새 당첨 결과 안내 닫기"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+        <View accessibilityViewIsModal style={styles.announcementSheet}>
+          <View style={styles.announcementHandle} />
+          <Text style={styles.announcementEyebrow}>NEW DRAW</Text>
+          <Text style={styles.announcementTitle}>제 {draw.round}회 당첨 결과가 반영됐어요</Text>
+          <Text style={styles.announcementDescription}>
+            {drawDate ? `${drawDate} 추첨 · ` : ''}출처 동행복권
+          </Text>
+          <View style={styles.announcementNumbers}>
+            <LottoDrawBalls
+              bonus={draw.bonus}
+              highlightedNumbers={[]}
+              numbers={draw.numbers}
+              size={28}
+            />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onOpen}
+            style={({ pressed }) => [styles.announcementPrimary, pressed && styles.pressed]}>
+            <Text style={styles.announcementPrimaryText}>이번 회차 분석하기</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClose}
+            style={({ pressed }) => [styles.announcementSecondary, pressed && styles.pressed]}>
+            <Text style={styles.announcementSecondaryText}>닫기</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function DrawHomeScreen() {
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
+  const { isReady: lottoDataReady, latestDraw } = useLottoData();
   const { productAccess, proPlanEnabled = true } = useMonetization();
   const hasFullGenerationAccess = productAccess.combinationSelectionLimit >= 5;
   const gameCounts = useMemo(
@@ -119,6 +176,8 @@ export function DrawHomeScreen() {
     [hasFullGenerationAccess],
   );
   const [gameCount, setGameCount] = useState<GameCount>(1);
+  const [announcementVisible, setAnnouncementVisible] = useState(false);
+  const checkedAnnouncementRoundRef = useRef<number | null>(null);
   const selectedGameCount = gameCounts.includes(gameCount) ? gameCount : 1;
 
   const openConditionDraw = useCallback(() => {
@@ -134,6 +193,37 @@ export function DrawHomeScreen() {
       params: { count: String(selectedGameCount), draw: String(Date.now()) },
     });
   }, [selectedGameCount]);
+
+  useEffect(() => {
+    if (!lottoDataReady || checkedAnnouncementRoundRef.current === latestDraw.round) return;
+    checkedAnnouncementRoundRef.current = latestDraw.round;
+    let active = true;
+    void AsyncStorage.getItem(NEW_DRAW_ANNOUNCEMENT_STORAGE_KEY)
+      .then(async (value) => {
+        const seenRound = Number.parseInt(value ?? '0', 10) || 0;
+        if (!active || !shouldShowNewDrawAnnouncement(latestDraw, seenRound)) return;
+        await AsyncStorage.setItem(
+          NEW_DRAW_ANNOUNCEMENT_STORAGE_KEY,
+          String(latestDraw.round),
+        );
+        if (!active) return;
+        setAnnouncementVisible(true);
+        trackEvent('new_draw_announcement_viewed', { round: latestDraw.round });
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [latestDraw, lottoDataReady]);
+
+  const closeAnnouncement = useCallback(() => {
+    setAnnouncementVisible(false);
+    trackEvent('new_draw_announcement_closed', { round: latestDraw.round });
+  }, [latestDraw.round]);
+
+  const openLatestDrawAnalysis = useCallback(() => {
+    setAnnouncementVisible(false);
+    trackEvent('new_draw_announcement_opened', { round: latestDraw.round });
+    router.navigate('/statistics/winning-number-analysis');
+  }, [latestDraw.round]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -174,7 +264,7 @@ export function DrawHomeScreen() {
             </View>
           </Pressable>
 
-          <LatestDrawInfo />
+          <LatestDrawInfo draw={latestDraw} />
 
           <View style={styles.randomCard}>
             <View style={styles.randomHeader}>
@@ -239,6 +329,12 @@ export function DrawHomeScreen() {
 
           <Text style={styles.disclaimer}>생성 번호는 당첨 예측이나 추천을 의미하지 않습니다.</Text>
         </ScrollView>
+        <NewDrawAnnouncement
+          draw={latestDraw}
+          onClose={closeAnnouncement}
+          onOpen={openLatestDrawAnalysis}
+          visible={announcementVisible}
+        />
       </View>
     </SafeAreaView>
   );
@@ -303,4 +399,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   disclaimer: { color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'center', marginTop: spacing.xxxl },
   pressed: { opacity: 0.72 },
   cardPressed: { opacity: 0.94, transform: [{ scale: 0.985 }] },
+  announcementBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', padding: spacing.md, backgroundColor: colors.backdropStrong },
+  announcementSheet: { width: '100%', maxWidth: 468, paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.xl, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surfaceElevated },
+  announcementHandle: { alignSelf: 'center', width: 34, height: 4, marginBottom: spacing.xl, borderRadius: radius.round, backgroundColor: colors.borderStrong },
+  announcementEyebrow: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 1.1 },
+  announcementTitle: { marginTop: spacing.sm, color: colors.textPrimary, fontSize: 24, lineHeight: 31, fontWeight: typography.weights.semibold, letterSpacing: -0.5 },
+  announcementDescription: { marginTop: spacing.sm, color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 18 },
+  announcementNumbers: { marginTop: spacing.xl, paddingVertical: spacing.lg, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.divider },
+  announcementPrimary: { minHeight: 50, marginTop: spacing.xl, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.accentPrimary },
+  announcementPrimaryText: { color: '#FFFFFF', fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
+  announcementSecondary: { minHeight: 44, marginTop: spacing.xs, alignItems: 'center', justifyContent: 'center' },
+  announcementSecondaryText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
 });

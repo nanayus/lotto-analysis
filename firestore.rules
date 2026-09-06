@@ -58,6 +58,11 @@ service cloud.firestore {
       }
     }
 
+    match /publicData/lotto {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

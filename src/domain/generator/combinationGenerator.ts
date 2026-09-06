@@ -539,7 +539,7 @@ export function evaluateCombination(
     ? metrics.pastPrizeRanks.filter((rank) => conditions.excludedPastRanks.includes(rank))
     : [];
   if (blockedRanks.length) {
-    add('pastRank', '과거 등수', `${blockedRanks.join(', ')}등 상당`, '선택 등수 제외', 1);
+    add('pastRank', '과거 등수', `${blockedRanks.join(', ')}등 기록`, '선택 등수 제외', 1);
   }
   return { metrics, violations };
 }

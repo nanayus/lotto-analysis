@@ -5,6 +5,8 @@ import { defineSecret } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { importPKCS8, SignJWT } from 'jose';
 
+export { syncLatestLottoDraw } from './lottoData.js';
+
 initializeApp();
 
 const appleKeyId = defineSecret('APPLE_KEY_ID');

@@ -1962,23 +1962,29 @@ Do not turn descriptive statistics into claims about future winning probability.
 
 # 69. Release Versioning and Change History
 
-The first public app version is `1.0.0` and uses patch increments for each remote push that contains new product changes:
+The first public app version is `1.0.0`. Use semantic versions for native app
+releases:
 
-```text
-1.0.0
-1.0.1
-1.0.2
-...
-```
+- patch, such as `1.0.2 → 1.0.3`, for compatible fixes and small refinements
+- minor, such as `1.0.2 → 1.1.0`, for a backwards-compatible feature release
+- major only for a deliberate incompatible product or platform release
 
-Before pushing new changes to the remote Git repository:
+Native app releases must:
 
-1. increment the patch version exactly once
+1. update the version exactly once for that release
 2. keep `app.json`, `package.json`, and the root package entries in `package-lock.json` synchronized
-3. add the new version at the beginning of `src/features/settings/releaseNotes.ts`
+3. add an `app` delivery entry at the beginning of `src/features/settings/releaseNotes.ts`
 4. summarize every user-visible change as `screen` plus a specific Korean `summary`
-5. include all changes from that push in the release note
 
-Do not push new product changes without both the version bump and matching release-note entry.
+OTA releases must keep the app version and the `appVersion` runtime version
+unchanged so the installed compatible binary can receive them. Add a distinct
+`ota` delivery entry for the current app version at the beginning of
+`src/features/settings/releaseNotes.ts`. Give every release-note entry a unique
+`id` and an incrementing `revision` because an app release and one or more OTA
+releases may share a version. Display the first revision as
+`1.0.2 · 추가 업데이트`, then append the revision number from the second one,
+such as `1.0.2 · 추가 업데이트 2`. Do not expose an OTA label in the user interface.
+
+Do not publish a native app release or OTA update without a matching release-note entry.
 
 The in-app release-note list and direct route must remain visible to every user without an account or UID restriction.

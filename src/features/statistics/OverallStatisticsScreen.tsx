@@ -5,7 +5,6 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutCha
 import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import {
@@ -13,11 +12,10 @@ import {
   type OverallDistributionItem,
   type OverallStatistics,
 } from '@/domain/analytics/buildOverallStatistics';
-import type { LottoHistoryDraw } from '@/domain/analytics/types';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import type { NumberBandKey } from '@/domain/generator/types';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
-const lottoHistory = lottoHistoryJson as LottoHistoryDraw[];
 const STAT_TABS = ['번호', '분포', '수 성격', '직전·연번', '번호대·과거'] as const;
 type StatisticsTab = (typeof STAT_TABS)[number];
 
@@ -769,7 +767,8 @@ function BandStatistics({ statistics }: { statistics: OverallStatistics }) {
 
 export function OverallStatisticsScreen() {
   const styles = useThemedStyles(createStyles);
-  const statistics = useMemo(() => buildOverallStatistics(lottoHistory), []);
+  const { history: lottoHistory } = useLottoData();
+  const statistics = useMemo(() => buildOverallStatistics(lottoHistory), [lottoHistory]);
   const [activeTab, setActiveTab] = useState<StatisticsTab>('번호');
   const summary = [
     { label: '번호 최다', value: statistics.topNumbers[0] ? `${statistics.topNumbers[0].number}번` : '—' },
@@ -787,11 +786,6 @@ export function OverallStatisticsScreen() {
           title="종합 통계"
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.rangeRow}>
-            <Text style={styles.rangeLabel}>분석 범위</Text>
-            <Text style={styles.rangeValue}>{statistics.firstRound.toLocaleString()}–{statistics.latestRound.toLocaleString()}회 · 보너스 제외</Text>
-          </View>
-
           <View style={styles.summaryGrid}>
             {summary.map((item, index) => (
               <View key={item.label} style={[styles.summaryItem, index === 0 && styles.summaryItemPrimary]}>
@@ -845,10 +839,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
   headerCopy: { flex: 1, marginLeft: spacing.md },
-  rangeRow: { paddingBottom: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.divider },
-  rangeLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption },
-  rangeValue: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  summaryGrid: { marginTop: spacing.xl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   summaryItem: { width: '48.5%', minHeight: 82, padding: spacing.lg, justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
   summaryItemPrimary: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   summaryLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption },

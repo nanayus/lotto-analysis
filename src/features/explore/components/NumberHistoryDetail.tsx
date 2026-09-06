@@ -7,12 +7,18 @@ import type { NumberAppearanceHistoryItem } from '@/domain/analytics/numberHisto
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberHistoryDetailProps = {
+  bonusIncluded: boolean;
   entries: readonly NumberAppearanceHistoryItem[];
   number: number;
   onBack: () => void;
 };
 
-export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDetailProps) {
+export function NumberHistoryDetail({
+  bonusIncluded,
+  entries,
+  number,
+  onBack,
+}: NumberHistoryDetailProps) {
   const styles = useThemedStyles(createStyles);
   const { width } = useWindowDimensions();
   const compact = width <= 360;
@@ -34,7 +40,9 @@ export function NumberHistoryDetail({ entries, number, onBack }: NumberHistoryDe
           </View>
           <View style={styles.summaryCopy}>
             <Text style={styles.summaryTitle}>{number}번 출현 기록</Text>
-            <Text style={styles.summaryDescription}>선택한 번호가 등장한 회차와 직전 출현 간격입니다.</Text>
+            <Text style={styles.summaryDescription}>
+              최근 52회에서 {bonusIncluded ? '본번호와 보너스' : '본번호'}로 등장한 회차와 직전 출현 간격입니다.
+            </Text>
           </View>
           <View style={styles.summaryCount}>
             <Text style={styles.summaryValue}>총 {entries.length}회</Text>

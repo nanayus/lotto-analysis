@@ -4,13 +4,47 @@ export type ReleaseNote = {
     summary: string;
   }[];
   date: string;
+  delivery: 'app' | 'ota';
+  id: string;
+  revision?: number;
   version: string;
 };
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: '1.0.2-ota-2026-09-06',
+    version: '1.0.2',
+    revision: 1,
+    date: '2026.09.06',
+    delivery: 'ota',
+    changes: [
+      {
+        screen: '통계보기',
+        summary: '과거 당첨 회차의 번호를 이전 기록과 비교하는 당첨번호 분석을 추가했습니다.',
+      },
+      {
+        screen: '조합 비교',
+        summary: '저장한 번호와 과거 당첨번호 중 두 조합을 골라 출현 기록과 형태를 나란히 비교할 수 있게 했습니다.',
+      },
+      {
+        screen: '전체 번호 비교',
+        summary: '번호순, 출현 순위순, 미출현 많은 순으로 1–45번 통계를 정렬할 수 있게 했습니다.',
+      },
+      {
+        screen: '조건 선택',
+        summary: '조건 영역을 펼치고 접을 때 내용이 잘리거나 높이가 어긋나는 현상을 수정했습니다.',
+      },
+      {
+        screen: '업데이트 기록',
+        summary: '같은 앱 버전에서 추가로 수정된 내역을 별도 버전 번호로 확인할 수 있게 했습니다.',
+      },
+    ],
+  },
+  {
+    id: '1.0.2-app',
     version: '1.0.2',
     date: '2026.09.05',
+    delivery: 'app',
     changes: [
       {
         screen: '조합 분석',
@@ -19,8 +53,10 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: '1.0.1-app',
     version: '1.0.1',
     date: '2026.09.05',
+    delivery: 'app',
     changes: [
       {
         screen: '조합 분석',
@@ -49,8 +85,10 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: '1.0.0-app',
     version: '1.0.0',
     date: '2026.09.03',
+    delivery: 'app',
     changes: [
       {
         screen: '번호뽑기 홈',

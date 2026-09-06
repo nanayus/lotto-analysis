@@ -66,7 +66,7 @@ function MetricRing({ number, progress, selected }: MetricRingProps) {
       style={[styles.ring, selected && styles.ringSelected]}
       testID={`all-number-ball-${number}`}>
       <Svg
-        accessibilityElementsHidden
+        aria-hidden
         height={RING_SIZE}
         style={[StyleSheet.absoluteFill, styles.ringSvg]}
         width={RING_SIZE}>
@@ -83,14 +83,13 @@ function MetricRing({ number, progress, selected }: MetricRingProps) {
           cy={RING_SIZE / 2}
           fill="transparent"
           r={RING_RADIUS}
-          rotation={-90}
-          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
           stroke={selected ? colors.accentPrimary : colors.textTertiary}
           strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
           strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
           strokeLinecap="round"
           strokeWidth={RING_STROKE}
           testID={`all-number-progress-${number}`}
+          transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
         />
       </Svg>
       <Text style={[styles.number, selected && styles.numberSelected]}>

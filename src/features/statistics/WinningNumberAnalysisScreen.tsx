@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -16,18 +16,14 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
-import lottoHistoryJson from '@/data/generated/lotto_history.json';
 import type { AnalysisFilters, AnalysisPeriod, LottoHistoryDraw } from '@/domain/analytics/types';
 import { analyzeCombination } from '@/domain/combination/analyzeCombination';
 import type { PrizeRank } from '@/domain/combination/types';
 import { CombinationDetail } from '@/features/combination/components/CombinationDetail';
 import { CombinationResult } from '@/features/combination/components/CombinationResult';
+import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
-const lottoHistory = [...(lottoHistoryJson as LottoHistoryDraw[])]
-  .sort((left, right) => left.round - right.round);
-const firstRound = lottoHistory[0]?.round ?? 1;
-const latestRound = lottoHistory.at(-1)?.round ?? firstRound;
 const DEFAULT_FILTERS: AnalysisFilters = {
   includeBonus: false,
   period: { kind: 'preset', label: '전체' },
@@ -39,15 +35,19 @@ type ScreenMode =
   | { kind: 'history' }
   | { kind: 'prizeRank'; rank: PrizeRank };
 
-function findDraw(round: number) {
-  return lottoHistory.find((draw) => draw.round === round) ?? lottoHistory.at(-1)!;
+function findDraw(history: readonly LottoHistoryDraw[], round: number) {
+  return history.find((draw) => draw.round === round) ?? history.at(-1)!;
 }
 
 export function drawsBeforeRound(history: readonly LottoHistoryDraw[], round: number) {
   return history.filter((draw) => draw.round < round);
 }
 
-function filtersWithinRound(filters: AnalysisFilters, round: number): AnalysisFilters {
+function filtersWithinRound(
+  filters: AnalysisFilters,
+  round: number,
+  firstRound: number,
+): AnalysisFilters {
   if (filters.period.kind !== 'custom') return filters;
   const latestAvailableRound = round - 1;
   if (latestAvailableRound < firstRound) {
@@ -71,10 +71,16 @@ function closeScreen() {
 }
 
 function RoundPickerModal({
+  firstRound,
+  history,
+  latestRound,
   onClose,
   onSelect,
   selectedRound,
 }: {
+  firstRound: number;
+  history: LottoHistoryDraw[];
+  latestRound: number;
   onClose: () => void;
   onSelect: (round: number) => void;
   selectedRound: number;
@@ -83,11 +89,11 @@ function RoundPickerModal({
   const styles = useThemedStyles(createStyles);
   const [roundInput, setRoundInput] = useState(String(selectedRound));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const recentDraws = useMemo(() => lottoHistory.slice(-8).reverse(), []);
+  const recentDraws = useMemo(() => history.slice(-8).reverse(), [history]);
 
   const applyRound = () => {
     const nextRound = Number.parseInt(roundInput, 10);
-    const draw = lottoHistory.find((item) => item.round === nextRound);
+    const draw = history.find((item) => item.round === nextRound);
     if (!draw) {
       setErrorMessage(`${firstRound}회부터 ${latestRound}회 사이의 회차를 입력해 주세요.`);
       return;
@@ -229,13 +235,25 @@ function RoundStepper({
 
 export function WinningNumberAnalysisScreen() {
   const styles = useThemedStyles(createStyles);
+  const { history: unsortedHistory } = useLottoData();
+  const lottoHistory = useMemo(
+    () => [...unsortedHistory].sort((left, right) => left.round - right.round),
+    [unsortedHistory],
+  );
+  const firstRound = lottoHistory[0]?.round ?? 1;
+  const latestRound = lottoHistory.at(-1)?.round ?? firstRound;
   const [mode, setMode] = useState<ScreenMode>({ kind: 'select' });
   const [selectedRound, setSelectedRound] = useState(latestRound);
+  const previousLatestRoundRef = useRef(latestRound);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [pickerVisible, setPickerVisible] = useState(false);
-  const selectedDraw = findDraw(selectedRound);
-  const analysisHistory = useMemo(() => drawsBeforeRound(lottoHistory, selectedRound), [selectedRound]);
-  const latestAnalysisRound = Math.max(firstRound, selectedRound - 1);
+  const selectedDraw = findDraw(lottoHistory, selectedRound);
+  const analysisHistory = useMemo(
+    () => drawsBeforeRound(lottoHistory, selectedRound),
+    [lottoHistory, selectedRound],
+  );
+  const latestAnalysisRound = selectedRound - 1;
+  const hasPriorDraws = analysisHistory.length > 0;
   const selectedIndex = lottoHistory.findIndex((draw) => draw.round === selectedRound);
   const previousDraw = selectedIndex > 0 ? lottoHistory[selectedIndex - 1] : undefined;
   const nextDraw = selectedIndex < lottoHistory.length - 1 ? lottoHistory[selectedIndex + 1] : undefined;
@@ -243,9 +261,16 @@ export function WinningNumberAnalysisScreen() {
     () => analyzeCombination(analysisHistory, selectedDraw.numbers, filters),
     [analysisHistory, filters, selectedDraw.numbers],
   );
+  useEffect(() => {
+    const previousLatestRound = previousLatestRoundRef.current;
+    previousLatestRoundRef.current = latestRound;
+    if (selectedRound === previousLatestRound && latestRound > previousLatestRound) {
+      setSelectedRound(latestRound);
+    }
+  }, [latestRound, selectedRound]);
   const selectRound = (round: number) => {
     setSelectedRound(round);
-    setFilters((current) => filtersWithinRound(current, round));
+    setFilters((current) => filtersWithinRound(current, round, firstRound));
   };
   const roundStepper = (
     <RoundStepper
@@ -264,10 +289,14 @@ export function WinningNumberAnalysisScreen() {
             <SubScreenHeader onBack={closeScreen} title="당첨번호 분석" />
             <ScrollView contentContainerStyle={styles.selectionContent} showsVerticalScrollIndicator={false}>
               <View style={styles.selectionIntro}>
-                <Text style={styles.selectionEyebrow}>과거 당첨 데이터</Text>
-                <Text style={styles.selectionTitle}>분석할 회차를 선택하세요</Text>
+                <Text style={styles.selectionEyebrow}>당첨 당시의 기록으로 보기</Text>
+                <Text style={styles.selectionTitle}>
+                  {selectedRound.toLocaleString()}회 번호는{`\n`}그전에 어떻게 보였을까요?
+                </Text>
                 <Text style={styles.selectionDescription}>
-                  해당 회차의 당첨번호 6개를 그 이전 당첨 기록과 비교해 살펴봅니다.
+                  {hasPriorDraws
+                    ? `${selectedRound.toLocaleString()}회 당첨번호 6개를 ${firstRound.toLocaleString()}–${latestAnalysisRound.toLocaleString()}회 기록만으로 분석합니다.\n이후 회차는 포함하지 않습니다.`
+                    : '1회는 이전 당첨 기록이 없어 당시 기준 분석을 제공할 수 없습니다.'}
                 </Text>
               </View>
 
@@ -282,14 +311,15 @@ export function WinningNumberAnalysisScreen() {
                   style={styles.drawBalls}
                 />
                 <Text style={styles.bonusGuide}>
-                  오른쪽은 보너스 번호 · {selectedRound}회 이전 데이터만 분석
+                  오른쪽 숫자는 보너스 번호입니다.
                 </Text>
               </AppCard>
 
               <AppButton
-                accessibilityLabel={`${selectedRound}회 당첨번호 분석하기`}
-                iconAfter={<Ionicons color="#FFFFFF" name="arrow-forward" size={18} />}
-                label="이 회차 분석하기"
+                accessibilityLabel={`${selectedRound}회, 이전 기록으로 분석`}
+                disabled={!hasPriorDraws}
+                iconAfter={hasPriorDraws ? <Ionicons color="#FFFFFF" name="arrow-forward" size={18} /> : undefined}
+                label={`${selectedRound.toLocaleString()}회, 이전 기록으로 분석`}
                 onPress={() => setMode({ kind: 'result' })}
                 style={styles.analysisButton}
               />
@@ -309,7 +339,6 @@ export function WinningNumberAnalysisScreen() {
             heroContext={(
               <>
                 {roundStepper}
-                <Text style={styles.analysisCutoff}>{selectedRound}회 이전 데이터 기준</Text>
               </>
             )}
             latestRound={latestAnalysisRound}
@@ -334,6 +363,9 @@ export function WinningNumberAnalysisScreen() {
         )}
         {pickerVisible ? (
           <RoundPickerModal
+            firstRound={firstRound}
+            history={lottoHistory}
+            latestRound={latestRound}
             onClose={() => setPickerVisible(false)}
             onSelect={(round) => {
               selectRound(round);
@@ -407,12 +439,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   drawDivider: { height: StyleSheet.hairlineWidth, marginVertical: spacing.xl, backgroundColor: colors.divider },
   drawBalls: { alignSelf: 'center' },
   bonusGuide: { marginTop: spacing.md, color: colors.textTertiary, fontSize: typography.sizes.caption, textAlign: 'center' },
-  analysisCutoff: {
-    marginTop: spacing.sm,
-    color: colors.textTertiary,
-    fontSize: typography.sizes.caption,
-    textAlign: 'center',
-  },
   analysisButton: { marginTop: spacing.xl },
   disclaimer: {
     marginTop: spacing.xl,

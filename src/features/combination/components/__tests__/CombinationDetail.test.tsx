@@ -36,7 +36,7 @@ describe('CombinationDetail', () => {
     expect(getByText('5등')).toBeTruthy();
     expect(getByTestId('history-row-98').props.children).toHaveLength(3);
     expect(queryByText('3개 이상 본번호 일치')).toBeNull();
-    expect(queryByText(/5등 상당/)).toBeNull();
+    expect(queryByText(/5등 기록이 없습니다/)).toBeNull();
     expect(queryByText(/3개 일치/)).toBeNull();
     expect(getByLabelText('1번, 선택 번호와 일치')).toBeTruthy();
     expect(getByLabelText('40번')).toBeTruthy();

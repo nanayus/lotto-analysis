@@ -12,6 +12,7 @@ import { CombinationDraftProvider } from '@/features/combination/CombinationDraf
 import { getArticleBySlug } from '@/features/content/articles';
 import { GeneratorDraftProvider } from '@/features/generator/GeneratorDraftContext';
 import { NumberLibraryProvider } from '@/features/library/NumberLibraryContext';
+import { LottoDataProvider } from '@/features/lotto-data/LottoDataContext';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { MonetizationProvider } from '@/features/monetization/MonetizationContext';
 import { AppThemeProvider, useAppTheme } from '@/theme';
@@ -223,27 +224,29 @@ function ThemedApp() {
       {Platform.OS === 'web' ? <AppMetadata /> : null}
       <AnalyticsRouteTracker />
       <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme}>
-        <AuthProvider>
-          <MonetizationProvider>
-            <NumberLibraryProvider>
-              <GeneratorDraftProvider>
-                <CombinationDraftProvider>
-                  <ThemeProvider value={navigationTheme}>
-                    <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-                    <Stack
-                      screenOptions={{
-                        animation: STACK_ANIMATION,
-                        animationDuration: STACK_ANIMATION_DURATION_MS,
-                        contentStyle: { backgroundColor: colors.background },
-                        headerShown: false,
-                      }}
-                    />
-                  </ThemeProvider>
-                </CombinationDraftProvider>
-              </GeneratorDraftProvider>
-            </NumberLibraryProvider>
-          </MonetizationProvider>
-        </AuthProvider>
+        <LottoDataProvider>
+          <AuthProvider>
+            <MonetizationProvider>
+              <NumberLibraryProvider>
+                <GeneratorDraftProvider>
+                  <CombinationDraftProvider>
+                    <ThemeProvider value={navigationTheme}>
+                      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+                      <Stack
+                        screenOptions={{
+                          animation: STACK_ANIMATION,
+                          animationDuration: STACK_ANIMATION_DURATION_MS,
+                          contentStyle: { backgroundColor: colors.background },
+                          headerShown: false,
+                        }}
+                      />
+                    </ThemeProvider>
+                  </CombinationDraftProvider>
+                </GeneratorDraftProvider>
+              </NumberLibraryProvider>
+            </MonetizationProvider>
+          </AuthProvider>
+        </LottoDataProvider>
       </TamaguiProvider>
     </GestureHandlerRootView>
   );

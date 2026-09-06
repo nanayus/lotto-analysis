@@ -48,6 +48,12 @@ export type CombinationAnalysis = {
   qualifyingHistory: DrawCombinationMatch[];
   recentMeaningfulMatch: DrawCombinationMatch | null;
   sameSixCount: number;
+  shapeDistribution?: {
+    acValuePercentile: number;
+    sampleSize: number;
+    standardDeviationPercentile: number;
+    sumPercentile: number;
+  };
   shape: {
     consecutiveGroups: number[][];
     evenCount: number;

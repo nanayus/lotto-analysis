@@ -31,6 +31,10 @@ import {
 } from '@/domain/generator/combinationGenerator';
 import { AppCard } from '@/components/ui/AppCard';
 import { SubScreenHeader, TOP_BAR_HEIGHT } from '@/components/ui/AppTopBar';
+import {
+  ANALYSIS_STICKY_SUMMARY_MIN_HEIGHT,
+  ANALYSIS_STICKY_SUMMARY_VERTICAL_PADDING,
+} from '@/components/ui/analysisLayout';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 import { AnalysisControls } from '@/features/explore/components/AnalysisControls';
 import { LibraryStatusActions } from '@/features/library/components/LibraryStatusActions';
@@ -910,7 +914,8 @@ export function CombinationResult({
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
   const headline = describeCombinationHeadline(analysis);
-  const headlineEvidence = headline.sourceLabel;
+  const headlineEvidence = [headline.sourceLabel, headline.supportingSourceLabel]
+    .filter((label): label is string => Boolean(label));
   const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
   const [stickyNumbersVisible, setStickyNumbersVisible] = useState(false);
   const [favoriteSelection, setFavoriteSelection] = useState<{ key: string; value: boolean } | null>(null);
@@ -929,7 +934,6 @@ export function CombinationResult({
     (left, right) => right.appearanceCount - left.appearanceCount || left.number - right.number,
   );
   const maxDistribution = Math.max(...Object.values(analysis.matchDistribution), 1);
-  const recent = analysis.recentMeaningfulMatch;
   const consecutiveLabel = analysis.shape.consecutiveGroups.length
     ? analysis.shape.consecutiveGroups
       .map((group) => `${formatNumber(group[0])}‑${formatNumber(group.at(-1)!)}`)
@@ -1077,10 +1081,9 @@ export function CombinationResult({
       <View
         onLayout={(event) => {
           selectedProfileYRef.current = event.nativeEvent.layout.y;
-          sectionLayoutHandler('headline')(event);
         }}
         testID="result-selected-profile">
-      <AppCard style={[styles.selectedProfile, !showLibraryActions && styles.selectedProfileWithoutActions]}>
+      <View style={[styles.selectedProfile, !showLibraryActions && styles.selectedProfileWithoutActions]}>
         {heroContext ? <View style={styles.heroContext}>{heroContext}</View> : null}
         {showLibraryActions ? (
           <View style={styles.profileLibraryActions}>
@@ -1104,30 +1107,13 @@ export function CombinationResult({
           <CombinationNumberPills numbers={analysis.numbers} />
         </View>
         <Text style={styles.profileMeta}>
-          <Text style={styles.profileMetaMuted}>최근 </Text>
-          <Text style={styles.profileMetaStrong}>
-            {recent?.prizeRank ? `${recent.prizeRank}등` : '-'}
-          </Text>
-          {recent?.prizeRank ? (
-            <Text style={styles.profileMetaRound}> ({recent.round}회)</Text>
-          ) : null}
-          <Text style={styles.profileMetaSeparator}>  |  </Text>
           <Text style={styles.profileMetaMuted}>
             홀짝 {analysis.shape.oddCount}:{analysis.shape.evenCount}
             {' · '}합계 {analysis.shape.sum}
             {' · 연\u2060속\u00A0'}{consecutiveLabel}
           </Text>
         </Text>
-        <View style={styles.headlineBlock} testID="combination-headline-card">
-          <View
-            accessibilityLabel={`조합 요약, ${headline.text}, 근거 지표 ${headlineEvidence}`}
-            accessible
-            testID="combination-headline">
-            <Text style={styles.headlineText}>{headline.text}</Text>
-            <Text style={styles.headlineSource}>{headlineEvidence}</Text>
-          </View>
-        </View>
-      </AppCard>
+      </View>
       </View>
 
       <View style={styles.filterRow}>
@@ -1153,93 +1139,55 @@ export function CombinationResult({
         />
       </View>
 
-      <View onLayout={sectionLayoutHandler('prize_history')}>
-      <AppCard style={styles.prizeSection} testID="result-section-prize">
-        <View style={styles.prizeHeadingRow}>
-          <Text style={styles.prizeSectionTitle}>과거 당첨 기록</Text>
-          <Pressable
-            accessibilityLabel="전체 기록"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={() => {
-              onResultInteraction('prize_history', 'open_all_history');
-              onOpenHistory();
-            }}
-            style={({ pressed }) => [
-              styles.historyAction,
-              webPointerStyle,
-              pressed && styles.pressed,
-            ]}>
-            <Text style={styles.historyActionText}>전체 기록</Text>
-            <Text style={styles.historyActionChevron}>›</Text>
-          </Pressable>
+      <View
+        onLayout={sectionLayoutHandler('headline')}
+        style={styles.headlineBlock}
+        testID="combination-headline-card">
+        <Text style={styles.headlineSectionTitle}>주요 분석</Text>
+        <View
+          accessibilityLabel={`조합 요약, ${headline.text}${headline.supportingText ? `, ${headline.supportingText}` : ''}, 근거 지표 ${headlineEvidence.join(', ')}`}
+          accessible
+          testID="combination-headline">
+          <View style={styles.headlineInsightRow}>
+            <View
+              style={[
+                styles.headlineDot,
+                headline.tone === 'critical' && styles.headlineDotCritical,
+              ]}
+              testID="headline-insight-dot-primary"
+            />
+            <View style={styles.headlineCopy}>
+              <Text style={styles.headlineText}>{headline.text}</Text>
+              <Text style={[
+                styles.headlineSource,
+                headline.tone === 'critical' && styles.headlineSourceCritical,
+              ]}>{headline.sourceLabel}</Text>
+            </View>
+          </View>
+          {headline.supportingText ? (
+            <View style={[styles.headlineInsightRow, styles.headlineInsightRowSecondary]}>
+              <View
+                style={[
+                  styles.headlineDot,
+                  headline.supportingTone === 'critical' && styles.headlineDotCritical,
+                ]}
+                testID="headline-insight-dot-supporting"
+              />
+              <View style={styles.headlineCopy}>
+                <Text style={styles.headlineText} testID="combination-headline-supporting">
+                  {headline.supportingText}
+                </Text>
+                <Text style={[
+                  styles.headlineSource,
+                  headline.supportingTone === 'critical' && styles.headlineSourceCritical,
+                ]}>{headline.supportingSourceLabel}</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
-        <View style={styles.prizeRow}>
-          {PRIZE_RANKS.map((rank, index) => {
-            const disabled = analysis.prizeCounts[rank] === 0;
-            return (
-              <Pressable
-                accessibilityLabel={`${rank}등 기록 ${analysis.prizeCounts[rank]}회`}
-                accessibilityRole="button"
-                accessibilityState={{ disabled }}
-                disabled={disabled}
-                key={rank}
-                onPress={() => {
-                  onResultInteraction('prize_history', 'open_prize_rank', String(rank));
-                  onOpenPrizeRank(rank);
-                }}
-                style={({ pressed }) => [
-                  styles.prizeItem,
-                  index > 0 && styles.prizeDivider,
-                  !disabled && webPointerStyle,
-                  disabled && styles.prizeItemDisabled,
-                  pressed && styles.prizeItemPressed,
-                ]}>
-                <Text style={styles.prizeLabel}>{rank}등</Text>
-                <Text style={styles.prizeValue}>{analysis.prizeCounts[rank]}회</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </AppCard>
       </View>
 
-      <View onLayout={sectionLayoutHandler('match_distribution')}>
-      <SectionCard testID="result-section-match-distribution" title="전체 회차 일치 분포">
-        <Text style={styles.cardDescription}>
-          선택 번호가 과거 각 회차에서 몇 개씩 일치했는지 보여줍니다.
-        </Text>
-        <View style={styles.distributionList}>
-          {MATCH_COUNTS.map((count) => {
-            const value = analysis.matchDistribution[count];
-            const percentage = analysis.activeDrawCount
-              ? (value / analysis.activeDrawCount) * 100
-              : 0;
-            return (
-              <View
-                accessibilityLabel={`${count}개 일치, ${value}회, ${percentage.toFixed(1)}%`}
-                accessible
-                key={count}
-                style={styles.distributionRow}
-                testID={`match-distribution-row-${count}`}>
-                <Text style={styles.distributionLabel}>{count}개</Text>
-                <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      { width: `${(value / maxDistribution) * 100}%` },
-                    ]}
-                    testID={`match-distribution-bar-${count}`}
-                  />
-                </View>
-                <Text style={styles.distributionValue}>{value}회</Text>
-                <Text style={styles.distributionPct}>{percentage.toFixed(1)}%</Text>
-              </View>
-            );
-          })}
-        </View>
-      </SectionCard>
-      </View>
+      <Text style={styles.resultGroupTitle}>번호 구성 분석</Text>
 
       <View onLayout={sectionLayoutHandler('group_frequency')}>
       <SectionCard testID="result-section-group-frequency" title="선택 번호 출현 빈도">
@@ -1272,19 +1220,9 @@ export function CombinationResult({
       </SectionCard>
       </View>
 
-      <View onLayout={sectionLayoutHandler('condition_statistics')}>
-      <ConditionStatistics
-        analysis={analysis}
-        bonusIncluded={bonusIncluded}
-        onInteraction={(action, itemKey) => onResultInteraction(
-          'condition_statistics',
-          action,
-          itemKey,
-        )}
-      />
-      </View>
-
-      <View onLayout={sectionLayoutHandler('individual_numbers')}>
+      <View
+        onLayout={sectionLayoutHandler('individual_numbers')}
+        testID="result-section-individual-numbers">
       <SectionCard title="번호별 분석">
         <View style={styles.numberInsightGrid}>
           {individualNumbers.map((item) => {
@@ -1371,7 +1309,85 @@ export function CombinationResult({
       </SectionCard>
       </View>
 
-      <View onLayout={sectionLayoutHandler('frequent_combinations')}>
+      <View onLayout={sectionLayoutHandler('condition_statistics')}>
+      <ConditionStatistics
+        analysis={analysis}
+        bonusIncluded={bonusIncluded}
+        onInteraction={(action, itemKey) => onResultInteraction(
+          'condition_statistics',
+          action,
+          itemKey,
+        )}
+      />
+      </View>
+
+      <Text style={styles.resultGroupTitle}>핵심 결과</Text>
+
+      <View onLayout={sectionLayoutHandler('prize_history')}>
+      <AppCard style={styles.prizeSection} testID="result-section-prize">
+        <View style={styles.prizeHeadingRow}>
+          <Text style={styles.prizeSectionTitle}>과거 당첨 기록</Text>
+          <Pressable
+            accessibilityLabel="전체 기록"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => {
+              onResultInteraction('prize_history', 'open_all_history');
+              onOpenHistory();
+            }}
+            style={({ pressed }) => [
+              styles.historyAction,
+              webPointerStyle,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={styles.historyActionText}>전체 기록</Text>
+            <Text style={styles.historyActionChevron}>›</Text>
+          </Pressable>
+        </View>
+        <View style={styles.prizeRow}>
+          {PRIZE_RANKS.map((rank, index) => {
+            const disabled = analysis.prizeCounts[rank] === 0;
+            return (
+              <Pressable
+                accessibilityLabel={`${rank}등 기록 ${analysis.prizeCounts[rank]}회`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled }}
+                disabled={disabled}
+                key={rank}
+                onPress={() => {
+                  onResultInteraction('prize_history', 'open_prize_rank', String(rank));
+                  onOpenPrizeRank(rank);
+                }}
+                style={({ pressed }) => [
+                  styles.prizeItem,
+                  index > 0 && styles.prizeDivider,
+                  !disabled && webPointerStyle,
+                  disabled && styles.prizeItemDisabled,
+                  pressed && styles.prizeItemPressed,
+                ]}>
+                <Text style={styles.prizeLabel}>{rank}등</Text>
+                <Text style={styles.prizeValue}>{analysis.prizeCounts[rank]}회</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </AppCard>
+      </View>
+
+      {showAiExplanation ? (
+        <AiCombinationExplanation
+          analysis={analysis}
+          isPro={canUseAiExplanation}
+          onOpenPro={onOpenPro}
+          requiresLogin={requiresAiLogin}
+        />
+      ) : null}
+
+      <Text style={styles.resultGroupTitle}>과거 기록 비교</Text>
+
+      <View
+        onLayout={sectionLayoutHandler('frequent_combinations')}
+        testID="result-section-frequent-combinations">
       <FrequentCombinations
         analysis={analysis}
         onInteraction={(action, itemKey) => onResultInteraction(
@@ -1382,15 +1398,44 @@ export function CombinationResult({
       />
       </View>
 
+      <View onLayout={sectionLayoutHandler('match_distribution')}>
+      <SectionCard testID="result-section-match-distribution" title="전체 회차 일치 분포">
+        <Text style={styles.cardDescription}>
+          선택 번호가 과거 각 회차에서 몇 개씩 일치했는지 보여줍니다.
+        </Text>
+        <View style={styles.distributionList}>
+          {MATCH_COUNTS.map((count) => {
+            const value = analysis.matchDistribution[count];
+            const percentage = analysis.activeDrawCount
+              ? (value / analysis.activeDrawCount) * 100
+              : 0;
+            return (
+              <View
+                accessibilityLabel={`${count}개 일치, ${value}회, ${percentage.toFixed(1)}%`}
+                accessible
+                key={count}
+                style={styles.distributionRow}
+                testID={`match-distribution-row-${count}`}>
+                <Text style={styles.distributionLabel}>{count}개</Text>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      { width: `${(value / maxDistribution) * 100}%` },
+                    ]}
+                    testID={`match-distribution-bar-${count}`}
+                  />
+                </View>
+                <Text style={styles.distributionValue}>{value}회</Text>
+                <Text style={styles.distributionPct}>{percentage.toFixed(1)}%</Text>
+              </View>
+            );
+          })}
+        </View>
+      </SectionCard>
+      </View>
+
       <View style={styles.resultFooter} testID="combination-result-footer">
-        {showAiExplanation ? (
-          <AiCombinationExplanation
-            analysis={analysis}
-            isPro={canUseAiExplanation}
-            onOpenPro={onOpenPro}
-            requiresLogin={requiresAiLogin}
-          />
-        ) : null}
         <Text style={styles.resultDisclaimer}>
           모든 수치는 과거 회차의 당첨 번호 기록을 집계한 것으로,{`\n`}
           앞으로의 추첨 결과를 예측하거나 보장하지 않아요.
@@ -1463,9 +1508,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 19,
-    minHeight: 48,
+    minHeight: ANALYSIS_STICKY_SUMMARY_MIN_HEIGHT,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 7,
+    paddingVertical: ANALYSIS_STICKY_SUMMARY_VERTICAL_PADDING,
     justifyContent: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
@@ -1474,7 +1519,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: 0,
     paddingBottom: spacing.xxxl,
     gap: spacing.md,
   },
@@ -1488,11 +1533,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   selectedProfile: {
     position: 'relative',
     alignItems: 'stretch',
-    padding: spacing.lg,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.xxl,
+    paddingBottom: spacing.xxl,
     paddingTop: spacing.huge + spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
   },
   selectedProfileWithoutActions: {
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xxl,
   },
   heroContext: {
     alignSelf: 'stretch',
@@ -1504,22 +1554,64 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     right: spacing.md,
   },
   headlineBlock: {
-    alignSelf: 'stretch',
-    marginTop: spacing.lg,
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+  },
+  headlineSectionTitle: {
+    marginBottom: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.semibold,
+  },
+  headlineInsightRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  headlineInsightRowSecondary: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  headlineDot: {
+    width: 7,
+    height: 7,
+    marginTop: 8,
+    borderRadius: radius.round,
+    backgroundColor: colors.accentPrimary,
+  },
+  headlineDotCritical: {
+    backgroundColor: colors.hot,
+  },
+  headlineCopy: {
+    minWidth: 0,
+    flex: 1,
   },
   headlineText: {
     color: colors.textPrimary,
     fontSize: typography.sizes.body,
     fontWeight: typography.weights.medium,
     lineHeight: 24,
-    textAlign: 'center',
   },
   headlineSource: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     color: colors.textTertiary,
     fontSize: typography.sizes.caption,
-    lineHeight: 17,
-    textAlign: 'center',
+    lineHeight: 18,
+  },
+  headlineSourceCritical: {
+    color: colors.hot,
+  },
+  resultGroupTitle: {
+    marginTop: spacing.lg,
+    marginLeft: spacing.xs,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.semibold,
   },
   resultFooter: {
     paddingTop: spacing.md,
@@ -1579,16 +1671,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
   },
-  profileMetaStrong: {
-    color: colors.highlight,
-    fontWeight: typography.weights.semibold,
-  },
-  profileMetaRound: {
-    color: colors.textSecondary,
-  },
-  profileMetaSeparator: {
-    color: colors.neutral,
-  },
   profileMetaMuted: {
     color: colors.textSecondary,
   },
@@ -1627,8 +1709,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.semibold,
   },
   filterRow: {
+    minHeight: 48,
     alignItems: 'flex-end',
-    marginBottom: -spacing.xs,
   },
   toastPositioner: {
     position: 'absolute',
