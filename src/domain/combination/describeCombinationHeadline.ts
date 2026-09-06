@@ -26,6 +26,8 @@ export type CombinationHeadlineMetric =
 
 export type CombinationHeadlineTone = 'accent' | 'critical' | 'neutral';
 
+export type CombinationHeadlinePerspective = 'combination' | 'winning-draw';
+
 export type CombinationHeadline = {
   metric: CombinationHeadlineMetric;
   sourceLabel: string;
@@ -82,6 +84,7 @@ function latestPrizeMatches(analysis: CombinationAnalysis, prizeRank: 1 | 2 | 3)
 function prizeCandidate(
   analysis: CombinationAnalysis,
   prizeRank: 1 | 2 | 3,
+  perspective: CombinationHeadlinePerspective,
 ): Candidate | null {
   const matches = latestPrizeMatches(analysis, prizeRank);
   const latest = matches[0];
@@ -93,9 +96,13 @@ function prizeCandidate(
       metric: 'same-six',
       score: 100,
       sourceLabel: matches.length > 1 ? `동일 6번호 · ${matches.length}회` : '본번호 6개 일치',
-      text: matches.length > 1
-        ? `과거 ${matches.length}개 회차의 1등 본번호와 같아요. 가장 최근은 ${latest.round}회예요.`
-        : `${latest.round}회 1등 본번호와 정확히 같은 조합이에요.`,
+      text: perspective === 'winning-draw'
+        ? matches.length > 1
+          ? `이 회차 당첨번호와 같은 1등 본번호가 과거 ${matches.length}회 있었어요. 가장 최근은 ${latest.round}회예요.`
+          : `이 회차 당첨번호는 ${latest.round}회 1등 본번호와 정확히 같아요.`
+        : matches.length > 1
+          ? `과거 ${matches.length}개 회차의 1등 본번호와 같아요. 가장 최근은 ${latest.round}회예요.`
+          : `${latest.round}회 1등 본번호와 정확히 같은 조합이에요.`,
       tone: 'accent',
       variant: matches.length > 1 ? 'multiple' : 'single',
     };
@@ -109,17 +116,26 @@ function prizeCandidate(
     sourceLabel: matches.length > 1
       ? `5번호 일치 · ${matches.length}회`
       : `${prizeRank}등 기록 · ${latest.round}회`,
-    text: matches.length > 1
-      ? `본번호 5개가 일치한 기록이 ${matches.length}회 있어요. 가장 최근은 ${latest.round}회예요.`
-      : bonusMatched
-        ? `${latest.round}회 당첨번호와 본번호 5개, 보너스 번호가 일치해요.`
-        : `${latest.round}회 당첨번호와 본번호 5개가 일치해요.`,
+    text: perspective === 'winning-draw'
+      ? matches.length > 1
+        ? `이 회차 당첨번호와 본번호 5개가 일치한 과거 기록이 ${matches.length}회 있어요. 가장 최근은 ${latest.round}회예요.`
+        : bonusMatched
+          ? `이 회차 당첨번호는 ${latest.round}회 당첨번호와 본번호 5개, 보너스 번호가 일치해요.`
+          : `이 회차 당첨번호는 ${latest.round}회 당첨번호와 본번호 5개가 일치해요.`
+      : matches.length > 1
+        ? `본번호 5개가 일치한 기록이 ${matches.length}회 있어요. 가장 최근은 ${latest.round}회예요.`
+        : bonusMatched
+          ? `${latest.round}회 당첨번호와 본번호 5개, 보너스 번호가 일치해요.`
+          : `${latest.round}회 당첨번호와 본번호 5개가 일치해요.`,
     tone: 'accent',
     variant: bonusMatched ? 'bonus-match' : 'main-only',
   };
 }
 
-function coOccurrenceCandidates(analysis: CombinationAnalysis): Candidate[] {
+function coOccurrenceCandidates(
+  analysis: CombinationAnalysis,
+  perspective: CombinationHeadlinePerspective,
+): Candidate[] {
   const candidates: Candidate[] = [];
   const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   const topFour = topCombination(analysis, 4);
@@ -133,7 +149,9 @@ function coOccurrenceCandidates(analysis: CombinationAnalysis): Candidate[] {
       metric: 'four-number',
       score: 86 + Math.min(5, topFour.appearanceCount - 1),
       sourceLabel: `4번호 조합 · ${topFour.appearanceCount}회`,
-      text: `${formatNumbers(topFour.numbers)} 네 번호가 ${periodRange}에 ${topFour.appearanceCount}번 함께 나왔어요.`,
+      text: perspective === 'winning-draw'
+        ? `${formatNumbers(topFour.numbers)} 네 번호는 ${periodRange}에도 ${topFour.appearanceCount}번 함께 나왔어요.`
+        : `${formatNumbers(topFour.numbers)} 네 번호가 ${periodRange}에 ${topFour.appearanceCount}번 함께 나왔어요.`,
       tone: 'accent',
     });
   }
@@ -153,10 +171,10 @@ function coOccurrenceCandidates(analysis: CombinationAnalysis): Candidate[] {
       family: 'co-occurrence',
       metric: 'pair-concentration',
       score: 72 + Math.min(5, Math.max(0, topPair.appearanceCount - pairAverage)),
-      sourceLabel: `${formatNumbers(topPair.numbers)} ${topPair.appearanceCount}회 · 선택 쌍 평균 ${formatDecimal(pairAverage)}회`,
+      sourceLabel: `${formatNumbers(topPair.numbers)} ${topPair.appearanceCount}회 · ${perspective === 'winning-draw' ? '회차 내 번호쌍' : '선택 쌍'} 평균 ${formatDecimal(pairAverage)}회`,
       text: tiedPair
-        ? `가장 자주 함께 나온 번호쌍은 ${formatNumbers(topPair.numbers)}와 ${formatNumbers(tiedPair.numbers)}로, 각각 ${topPair.appearanceCount}회예요.`
-        : `선택한 번호쌍 중 가장 자주 함께 나온 것은 ${formatNumbers(topPair.numbers)}예요.`,
+        ? `${perspective === 'winning-draw' ? '이 회차에서 ' : ''}가장 자주 함께 나온 번호쌍은 ${formatNumbers(topPair.numbers)}와 ${formatNumbers(tiedPair.numbers)}로, 각각 ${topPair.appearanceCount}회예요.`
+        : `${perspective === 'winning-draw' ? '이 회차' : '선택한'} 번호쌍 중 가장 자주 함께 나온 것은 ${formatNumbers(topPair.numbers)}예요.`,
       tone: 'accent',
       variant: tiedPair ? 'tie' : 'single',
     });
@@ -165,7 +183,10 @@ function coOccurrenceCandidates(analysis: CombinationAnalysis): Candidate[] {
   return candidates;
 }
 
-function groupFrequencyCandidates(analysis: CombinationAnalysis): Candidate[] {
+function groupFrequencyCandidates(
+  analysis: CombinationAnalysis,
+  perspective: CombinationHeadlinePerspective,
+): Candidate[] {
   if (analysis.activeDrawCount < MIN_GROUP_FREQUENCY_DRAWS) return [];
   const candidates: Candidate[] = [];
   const difference = analysis.groupFrequency.differencePct;
@@ -174,10 +195,10 @@ function groupFrequencyCandidates(analysis: CombinationAnalysis): Candidate[] {
       family: 'frequency',
       metric: 'group-frequency',
       score: 66 + Math.min(10, Math.abs(difference)),
-      sourceLabel: `선택 평균 ${formatDecimal(analysis.groupFrequency.selectedAverage)}회 · 전체 평균 ${formatDecimal(analysis.groupFrequency.overallAverage)}회`,
+      sourceLabel: `${perspective === 'winning-draw' ? '당첨번호' : '선택'} 평균 ${formatDecimal(analysis.groupFrequency.selectedAverage)}회 · 전체 평균 ${formatDecimal(analysis.groupFrequency.overallAverage)}회`,
       text: difference > 0
-        ? `선택한 번호들은 전체 번호보다 평균 ${formatDecimal(Math.abs(difference))}% 더 자주 나왔어요.`
-        : `선택한 번호들은 전체 번호보다 평균 ${formatDecimal(Math.abs(difference))}% 적게 나왔어요.`,
+        ? `${perspective === 'winning-draw' ? '이 회차의 여섯 번호는' : '선택한 번호들은'} 전체 번호보다 평균 ${formatDecimal(Math.abs(difference))}% 더 자주 나왔어요.`
+        : `${perspective === 'winning-draw' ? '이 회차의 여섯 번호는' : '선택한 번호들은'} 전체 번호보다 평균 ${formatDecimal(Math.abs(difference))}% 적게 나왔어요.`,
       tone: 'accent',
       variant: difference > 0 ? 'above-average' : 'below-average',
     });
@@ -201,7 +222,7 @@ function groupFrequencyCandidates(analysis: CombinationAnalysis): Candidate[] {
       metric: 'group-frequency',
       score: 52 + Math.min(8, Math.max(highDifference, lowDifference) / 2),
       sourceLabel: `${selected.number}번 ${selected.appearanceCount}회 · 전체 ${selected.appearanceRank}위`,
-      text: `선택 번호 중 ${selected.number}번의 과거 출현 횟수가 가장 ${higher ? '많아요' : '적어요'}.`,
+      text: `${perspective === 'winning-draw' ? '이 회차 당첨번호' : '선택 번호'} 중 ${selected.number}번의 과거 출현 횟수가 가장 ${higher ? '많아요' : '적어요'}.`,
       tone: 'accent',
       variant: higher ? 'individual-high' : 'individual-low',
     });
@@ -209,7 +230,10 @@ function groupFrequencyCandidates(analysis: CombinationAnalysis): Candidate[] {
   return candidates;
 }
 
-function gapCandidate(analysis: CombinationAnalysis): Candidate | null {
+function gapCandidate(
+  analysis: CombinationAnalysis,
+  perspective: CombinationHeadlinePerspective,
+): Candidate | null {
   const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   const noAppearance = analysis.individualNumbers
     .filter((item) => item.appearanceCount === 0)
@@ -221,9 +245,13 @@ function gapCandidate(analysis: CombinationAnalysis): Candidate | null {
       metric: 'number-gap',
       score: 61,
       sourceLabel: `${periodRange} · 미출현 ${numbers.length}개`,
-      text: numbers.length === 1
-        ? `${numbers[0]}번은 ${periodRange} 동안 출현 기록이 없어요.`
-        : `${formatNumbers(numbers)}번은 ${periodRange} 동안 출현 기록이 없어요.`,
+      text: perspective === 'winning-draw'
+        ? numbers.length === 1
+          ? `${numbers[0]}번은 ${periodRange}에는 출현 기록이 없지만, 이 회차에는 나왔어요.`
+          : `${formatNumbers(numbers)}번은 ${periodRange}에는 출현 기록이 없지만, 이 회차에는 나왔어요.`
+        : numbers.length === 1
+          ? `${numbers[0]}번은 ${periodRange} 동안 출현 기록이 없어요.`
+          : `${formatNumbers(numbers)}번은 ${periodRange} 동안 출현 기록이 없어요.`,
       tone: 'accent',
       variant: 'no-appearance',
     };
@@ -239,12 +267,16 @@ function gapCandidate(analysis: CombinationAnalysis): Candidate | null {
     family: 'gap',
     metric: 'number-gap',
     score: critical ? 78 + Math.min(5, selected.ratio - 2) : 58 + Math.min(5, selected.ratio - 1),
-    sourceLabel: critical
-      ? `${selected.item.number}번 · 평균 ${formatDecimal(selected.item.averageGap)}회 · 현재 ${selected.item.currentGap}회`
-      : `${selected.item.number}번 · 평균 초과`,
-    text: critical
-      ? `${selected.item.number}번은 평균 출현 간격의 ${formatDecimal(selected.ratio)}배인 ${selected.item.currentGap}회째 미출현이에요.`
-      : `${selected.item.number}번은 평균 출현 간격 ${formatDecimal(selected.item.averageGap)}회보다 긴 ${selected.item.currentGap}회째 미출현이에요.`,
+    sourceLabel: perspective === 'winning-draw'
+      ? `${selected.item.number}번 · 평균 ${formatDecimal(selected.item.averageGap)}회 · 이번 간격 ${selected.item.currentGap}회`
+      : critical
+        ? `${selected.item.number}번 · 평균 ${formatDecimal(selected.item.averageGap)}회 · 현재 ${selected.item.currentGap}회`
+        : `${selected.item.number}번 · 평균 초과`,
+    text: perspective === 'winning-draw'
+      ? `${selected.item.number}번은 평균 ${formatDecimal(selected.item.averageGap)}회 간격으로 출현했는데, 이번에는 ${selected.item.currentGap}회 만에 다시 출현했어요.`
+      : critical
+        ? `${selected.item.number}번은 평균 출현 간격의 ${formatDecimal(selected.ratio)}배인 ${selected.item.currentGap}회째 미출현이에요.`
+        : `${selected.item.number}번은 평균 출현 간격 ${formatDecimal(selected.item.averageGap)}회보다 긴 ${selected.item.currentGap}회째 미출현이에요.`,
     tone: critical ? 'critical' : 'accent',
     variant: critical ? 'double-average' : 'above-average',
   };
@@ -485,7 +517,10 @@ function withSupport(primary: Candidate | null, candidates: Candidate[], analysi
   } satisfies CombinationHeadline;
 }
 
-export function describeCombinationHeadline(analysis: CombinationAnalysis): CombinationHeadline {
+export function describeCombinationHeadline(
+  analysis: CombinationAnalysis,
+  perspective: CombinationHeadlinePerspective = 'combination',
+): CombinationHeadline {
   const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   if (analysis.activeDrawCount === 0) return {
     metric: 'empty-period', sourceLabel: periodRange,
@@ -493,9 +528,10 @@ export function describeCombinationHeadline(analysis: CombinationAnalysis): Comb
   };
 
   const candidates = [
-    prizeCandidate(analysis, 1), prizeCandidate(analysis, 2), prizeCandidate(analysis, 3),
-    ...coOccurrenceCandidates(analysis), gapCandidate(analysis),
-    ...groupFrequencyCandidates(analysis), consecutiveCandidate(analysis),
+    prizeCandidate(analysis, 1, perspective), prizeCandidate(analysis, 2, perspective),
+    prizeCandidate(analysis, 3, perspective),
+    ...coOccurrenceCandidates(analysis, perspective), gapCandidate(analysis, perspective),
+    ...groupFrequencyCandidates(analysis, perspective), consecutiveCandidate(analysis),
     ...balanceCandidates(analysis), ...distributionCandidates(analysis),
     bandCandidate(analysis), sameEndingCandidate(analysis), previousDrawCandidate(analysis),
     ...propertyCandidates(analysis),

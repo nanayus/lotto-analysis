@@ -44,21 +44,22 @@
       "display": "standalone",
       "startUrl": "/",
       "orientation": "portrait",
-      "themeColor": "#080A12",
-      "backgroundColor": "#080A12",
-      "barStyle": "black-translucent"
+      "themeColor": "#F5F5F7",
+      "backgroundColor": "#F5F5F7",
+      "barStyle": "default"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
-          "ios": {
+          "backgroundColor": "#F5F5F7",
+          "image": "./assets/images/brand-splash-light.png",
+          "imageWidth": 340,
+          "resizeMode": "contain",
+          "dark": {
             "backgroundColor": "#000000",
-            "image": "./assets/images/brand-splash.png",
-            "imageWidth": 340,
-            "resizeMode": "contain"
+            "image": "./assets/images/brand-splash-dark.png"
           }
         }
       ],

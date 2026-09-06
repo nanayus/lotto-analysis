@@ -49,6 +49,9 @@ describe('WinningNumberAnalysisScreen', () => {
     await waitFor(() => expect(screen.getByText('과거 당첨 기록')).toBeTruthy());
     expect(screen.queryByTestId('analysis-scope-bar')).toBeNull();
     expect(screen.queryByText(`${latestRound}회 1등 당첨번호와 정확히 같아요.`)).toBeNull();
+    expect(screen.getByText('당첨번호 출현 빈도')).toBeTruthy();
+    expect(screen.queryByText('선택 번호 출현 빈도')).toBeNull();
+    expect(screen.getByText('이전 회차 일치 분포')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: '다른 당첨 회차 선택' })).toHaveLength(2);
     expect(screen.queryByTestId('result-card-actions')).toBeNull();
   });

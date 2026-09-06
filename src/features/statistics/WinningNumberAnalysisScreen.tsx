@@ -350,6 +350,7 @@ export function WinningNumberAnalysisScreen() {
             onPeriodChange={(period: AnalysisPeriod) => setFilters((current) => ({ ...current, period }))}
             onStartOver={() => setPickerVisible(true)}
             period={filters.period}
+            resultContext="winning-draw"
             showAiExplanation={false}
             showLibraryActions={false}
             startOverAccessibilityLabel="다른 당첨 회차 선택"

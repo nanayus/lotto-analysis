@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1800" viewBox="0 0 1800 1800">
+  <defs>
+    <clipPath id="iconShape"><rect width="1024" height="1024" rx="228" /></clipPath>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="20" stdDeviation="26" flood-color="#111522" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <rect width="1800" height="1020" fill="#ECEEF2" />
+  <text x="120" y="82" fill="#1D1D1F" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34" font-weight="700">LOTTO INSIGHT · APP ICON DIRECTIONS</text>
+  <text x="120" y="126" fill="#6E7582" font-family="Apple SD Gothic Neo, Helvetica Neue, sans-serif" font-size="24">로또 단서를 유지하면서도 차분한 데이터 제품으로 보이는 세 가지 방향</text>
+
+  <rect x="120" y="170" width="440" height="440" rx="98" fill="#FFFFFF" filter="url(#shadow)" />
+  <rect x="680" y="170" width="440" height="440" rx="98" fill="#FFFFFF" filter="url(#shadow)" />
+  <rect x="1240" y="170" width="440" height="440" rx="98" fill="#FFFFFF" filter="url(#shadow)" />
+
+  <g clip-path="url(#iconShape)" transform="translate(120 170) scale(.4296875)">
+    <rect width="1024" height="1024" fill="#F5F5F7" />
+    <rect x="396" y="176" width="232" height="672" rx="116" fill="none" stroke="#1D1D1F" stroke-width="34" />
+    <circle cx="512" cy="326" r="60" fill="#0066CC" /><circle cx="512" cy="512" r="60" fill="#1D1D1F" /><circle cx="512" cy="698" r="60" fill="#0066CC" />
+    <circle cx="270" cy="410" r="58" fill="#1D1D1F" /><circle cx="748" cy="326" r="58" fill="#0066CC" /><circle cx="748" cy="650" r="58" fill="#1D1D1F" />
+    <rect x="499" y="448" width="26" height="128" rx="13" fill="#F5F5F7" />
+  </g>
+
+  <g clip-path="url(#iconShape)" transform="translate(680 170) scale(.4296875)">
+    <rect width="1024" height="1024" fill="#0066CC" />
+    <rect x="218" y="146" width="588" height="732" rx="112" fill="#FFFFFF" />
+    <circle cx="218" cy="512" r="48" fill="#0066CC" /><circle cx="806" cy="512" r="48" fill="#0066CC" />
+    <g fill="none" stroke="#B8C0CC" stroke-width="15">
+      <circle cx="342" cy="342" r="33" /><circle cx="427" cy="342" r="33" /><circle cx="512" cy="342" r="33" /><circle cx="597" cy="342" r="33" /><circle cx="682" cy="342" r="33" />
+      <circle cx="342" cy="512" r="33" /><circle cx="427" cy="512" r="33" /><circle cx="512" cy="512" r="33" /><circle cx="597" cy="512" r="33" /><circle cx="682" cy="512" r="33" />
+      <circle cx="342" cy="682" r="33" /><circle cx="427" cy="682" r="33" /><circle cx="512" cy="682" r="33" /><circle cx="597" cy="682" r="33" /><circle cx="682" cy="682" r="33" />
+    </g>
+    <g fill="#0066CC"><circle cx="342" cy="342" r="43" /><circle cx="597" cy="342" r="43" /><circle cx="427" cy="512" r="43" /><circle cx="682" cy="512" r="43" /><circle cx="512" cy="682" r="43" /><circle cx="682" cy="682" r="43" /></g>
+  </g>
+
+  <g clip-path="url(#iconShape)" transform="translate(1240 170) scale(.4296875)">
+    <rect width="1024" height="1024" fill="#0066CC" />
+    <circle cx="310" cy="512" r="190" fill="#FFFFFF" /><circle cx="706" cy="512" r="230" fill="#DCEBFA" />
+    <text x="310" y="596" fill="#0066CC" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="250" font-weight="700" letter-spacing="-8" text-anchor="middle">6</text>
+    <text x="706" y="580" fill="#1D1D1F" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="194" font-weight="700" letter-spacing="-10" text-anchor="middle">45</text>
+    <rect x="493" y="413" width="18" height="198" rx="9" fill="#FFFFFF" opacity="0.88" />
+  </g>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="120" y="690" fill="#0066CC" font-size="22" font-weight="700" letter-spacing="2">A · FOCUS SIX</text>
+    <text x="120" y="742" fill="#1D1D1F" font-size="29" font-weight="700">레일 + 여섯 번호공</text>
+    <text x="120" y="785" fill="#6E7582" font-size="23">현재 앱 경험과 가장 자연스럽게 연결</text>
+
+    <text x="680" y="690" fill="#0066CC" font-size="22" font-weight="700" letter-spacing="2">B · SELECTION TICKET</text>
+    <text x="680" y="742" fill="#1D1D1F" font-size="29" font-weight="700">선택 용지 + 여섯 마킹</text>
+    <text x="680" y="785" fill="#6E7582" font-size="23">로또 인지는 가장 빠르지만 다소 기능적</text>
+
+    <text x="1240" y="690" fill="#0066CC" font-size="22" font-weight="700" letter-spacing="2">C · SIX / FORTY-FIVE</text>
+    <text x="1240" y="742" fill="#1D1D1F" font-size="29" font-weight="700">6·45 숫자공</text>
+    <text x="1240" y="785" fill="#6E7582" font-size="23">카테고리는 명확하지만 브랜드 확장성은 낮음</text>
+  </g>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="18" fill="#6E7582">
+    <text x="120" y="915">60 px</text><text x="207" y="915">29 px</text>
+    <g transform="translate(120 820) scale(.05859375)"><rect width="1024" height="1024" rx="220" fill="#F5F5F7" /><rect x="396" y="176" width="232" height="672" rx="116" fill="none" stroke="#1D1D1F" stroke-width="34" /><circle cx="512" cy="326" r="60" fill="#0066CC" /><circle cx="512" cy="512" r="60" fill="#1D1D1F" /><circle cx="512" cy="698" r="60" fill="#0066CC" /><circle cx="270" cy="410" r="58" fill="#1D1D1F" /><circle cx="748" cy="326" r="58" fill="#0066CC" /><circle cx="748" cy="650" r="58" fill="#1D1D1F" /><rect x="499" y="448" width="26" height="128" rx="13" fill="#F5F5F7" /></g>
+    <g transform="translate(207 820) scale(.0283203125)"><rect width="1024" height="1024" rx="220" fill="#F5F5F7" /><rect x="396" y="176" width="232" height="672" rx="116" fill="none" stroke="#1D1D1F" stroke-width="34" /><circle cx="512" cy="326" r="60" fill="#0066CC" /><circle cx="512" cy="512" r="60" fill="#1D1D1F" /><circle cx="512" cy="698" r="60" fill="#0066CC" /><circle cx="270" cy="410" r="58" fill="#1D1D1F" /><circle cx="748" cy="326" r="58" fill="#0066CC" /><circle cx="748" cy="650" r="58" fill="#1D1D1F" /><rect x="499" y="448" width="26" height="128" rx="13" fill="#F5F5F7" /></g>
+
+    <text x="680" y="915">60 px</text><text x="767" y="915">29 px</text>
+    <g transform="translate(680 820) scale(.05859375)"><rect width="1024" height="1024" rx="220" fill="#0066CC" /><rect x="218" y="146" width="588" height="732" rx="112" fill="#FFFFFF" /><circle cx="218" cy="512" r="48" fill="#0066CC" /><circle cx="806" cy="512" r="48" fill="#0066CC" /><g fill="none" stroke="#B8C0CC" stroke-width="15"><circle cx="342" cy="342" r="33" /><circle cx="427" cy="342" r="33" /><circle cx="512" cy="342" r="33" /><circle cx="597" cy="342" r="33" /><circle cx="682" cy="342" r="33" /><circle cx="342" cy="512" r="33" /><circle cx="427" cy="512" r="33" /><circle cx="512" cy="512" r="33" /><circle cx="597" cy="512" r="33" /><circle cx="682" cy="512" r="33" /><circle cx="342" cy="682" r="33" /><circle cx="427" cy="682" r="33" /><circle cx="512" cy="682" r="33" /><circle cx="597" cy="682" r="33" /><circle cx="682" cy="682" r="33" /></g><g fill="#0066CC"><circle cx="342" cy="342" r="43" /><circle cx="597" cy="342" r="43" /><circle cx="427" cy="512" r="43" /><circle cx="682" cy="512" r="43" /><circle cx="512" cy="682" r="43" /><circle cx="682" cy="682" r="43" /></g></g>
+    <g transform="translate(767 820) scale(.0283203125)"><rect width="1024" height="1024" rx="220" fill="#0066CC" /><rect x="218" y="146" width="588" height="732" rx="112" fill="#FFFFFF" /><circle cx="218" cy="512" r="48" fill="#0066CC" /><circle cx="806" cy="512" r="48" fill="#0066CC" /><g fill="none" stroke="#B8C0CC" stroke-width="15"><circle cx="342" cy="342" r="33" /><circle cx="427" cy="342" r="33" /><circle cx="512" cy="342" r="33" /><circle cx="597" cy="342" r="33" /><circle cx="682" cy="342" r="33" /><circle cx="342" cy="512" r="33" /><circle cx="427" cy="512" r="33" /><circle cx="512" cy="512" r="33" /><circle cx="597" cy="512" r="33" /><circle cx="682" cy="512" r="33" /><circle cx="342" cy="682" r="33" /><circle cx="427" cy="682" r="33" /><circle cx="512" cy="682" r="33" /><circle cx="597" cy="682" r="33" /><circle cx="682" cy="682" r="33" /></g><g fill="#0066CC"><circle cx="342" cy="342" r="43" /><circle cx="597" cy="342" r="43" /><circle cx="427" cy="512" r="43" /><circle cx="682" cy="512" r="43" /><circle cx="512" cy="682" r="43" /><circle cx="682" cy="682" r="43" /></g></g>
+
+    <text x="1240" y="915">60 px</text><text x="1327" y="915">29 px</text>
+    <g transform="translate(1240 820) scale(.05859375)"><rect width="1024" height="1024" rx="220" fill="#0066CC" /><circle cx="310" cy="512" r="190" fill="#FFFFFF" /><circle cx="706" cy="512" r="230" fill="#DCEBFA" /><text x="310" y="596" fill="#0066CC" font-family="Helvetica Neue, Arial" font-size="250" font-weight="700" text-anchor="middle">6</text><text x="706" y="580" fill="#1D1D1F" font-family="Helvetica Neue, Arial" font-size="194" font-weight="700" text-anchor="middle">45</text><rect x="493" y="413" width="18" height="198" rx="9" fill="#FFFFFF" opacity="0.88" /></g>
+    <g transform="translate(1327 820) scale(.0283203125)"><rect width="1024" height="1024" rx="220" fill="#0066CC" /><circle cx="310" cy="512" r="190" fill="#FFFFFF" /><circle cx="706" cy="512" r="230" fill="#DCEBFA" /><text x="310" y="596" fill="#0066CC" font-family="Helvetica Neue, Arial" font-size="250" font-weight="700" text-anchor="middle">6</text><text x="706" y="580" fill="#1D1D1F" font-family="Helvetica Neue, Arial" font-size="194" font-weight="700" text-anchor="middle">45</text><rect x="493" y="413" width="18" height="198" rx="9" fill="#FFFFFF" opacity="0.88" /></g>
+  </g>
+
+  <line x1="120" y1="1050" x2="1680" y2="1050" stroke="#D7DAE0" stroke-width="2" />
+  <text x="120" y="1135" fill="#1D1D1F" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="30" font-weight="700">DESIGN READOUT</text>
+
+  <g font-family="Apple SD Gothic Neo, Helvetica Neue, Arial, sans-serif">
+    <text x="120" y="1215" fill="#1D1D1F" font-size="27" font-weight="700">A</text>
+    <text x="170" y="1215" fill="#4E5562" font-size="25">브랜드 연결 5 · 로또 인지 4 · 작은 크기 5</text>
+    <text x="120" y="1285" fill="#1D1D1F" font-size="27" font-weight="700">B</text>
+    <text x="170" y="1285" fill="#4E5562" font-size="25">브랜드 연결 3 · 로또 인지 5 · 작은 크기 3</text>
+    <text x="120" y="1355" fill="#1D1D1F" font-size="27" font-weight="700">C</text>
+    <text x="170" y="1355" fill="#4E5562" font-size="25">브랜드 연결 3 · 로또 인지 5 · 작은 크기 5</text>
+  </g>
+
+  <rect x="120" y="1450" width="1560" height="190" rx="42" fill="#E3EEF9" />
+  <text x="170" y="1525" fill="#0066CC" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="2">RECOMMENDED DIRECTION</text>
+  <text x="170" y="1590" fill="#1D1D1F" font-family="Apple SD Gothic Neo, Helvetica Neue, Arial, sans-serif" font-size="32" font-weight="700">A의 레일 구조를 유지하고, 여섯 번호공을 더 둥글고 명확하게 다듬는 방향</text>
+</svg>

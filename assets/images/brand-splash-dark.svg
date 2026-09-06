@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <g transform="translate(512 382)">
+    <rect x="-39" y="2" width="8" height="54" rx="4" fill="#2997FF" />
+    <rect x="-4" y="-31" width="8" height="87" rx="4" fill="#F5F5F7" />
+    <rect x="31" y="2" width="8" height="54" rx="4" fill="#2997FF" />
+  </g>
+
+  <text
+    x="512"
+    y="514"
+    fill="#F5F5F7"
+    font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+    font-size="38"
+    font-weight="500"
+    letter-spacing="13"
+    text-anchor="middle"
+  >LOTTO INSIGHT</text>
+
+  <g
+    fill="#CCCCCC"
+    font-family="Apple SD Gothic Neo, Noto Sans KR, Helvetica Neue, sans-serif"
+    font-size="49"
+    font-weight="500"
+    letter-spacing="-0.8"
+    text-anchor="middle"
+  >
+    <text x="512" y="641">
+      <tspan>번호는 무작위. 보는 방식은 </tspan><tspan fill="#2997FF" font-weight="600">다르게.</tspan>
+    </text>
+  </g>
+</svg>

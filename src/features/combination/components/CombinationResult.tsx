@@ -83,6 +83,7 @@ type CombinationResultProps = {
   favorite?: boolean;
   isPro?: boolean;
   requiresAiLogin?: boolean;
+  resultContext?: 'combination' | 'winning-draw';
   showAiExplanation?: boolean;
 };
 
@@ -692,9 +693,11 @@ function NumberCharacterProfile({
 function RecentNumberRelations({
   bonusIncluded,
   metrics,
+  resultContext,
 }: {
   bonusIncluded: boolean;
   metrics: CombinationAnalysis['conditionMetrics'];
+  resultContext: 'combination' | 'winning-draw';
 }) {
   const styles = useThemedStyles(createStyles);
   const [activeRelation, setActiveRelation] = useState<'carry' | 'neighbor' | null>(null);
@@ -744,7 +747,9 @@ function RecentNumberRelations({
       </View>
 
       <View style={styles.relationSectionHeader}>
-        <Text style={styles.relationSectionTitle}>현재 조합과의 관계</Text>
+        <Text style={styles.relationSectionTitle}>
+          {resultContext === 'winning-draw' ? '이 회차와 직전 회차의 관계' : '현재 조합과의 관계'}
+        </Text>
         <Text style={styles.relationSectionHint}>
           {activeRelation === 'carry'
             ? '이월수의 기준 번호를 강조했어요.'
@@ -807,7 +812,9 @@ function RecentNumberRelations({
       <View style={styles.consecutiveSummary}>
         <View style={styles.consecutiveCopy}>
           <Text style={styles.consecutiveLabel}>연번 형태</Text>
-          <Text style={styles.consecutiveDescription}>현재 조합 안의 연속 번호</Text>
+          <Text style={styles.consecutiveDescription}>
+            {resultContext === 'winning-draw' ? '이 회차 당첨번호 안의 연속 번호' : '현재 조합 안의 연속 번호'}
+          </Text>
         </View>
         <Text style={styles.consecutiveValue}>{CONSECUTIVE_LABELS[metrics.consecutivePattern]}</Text>
       </View>
@@ -819,10 +826,12 @@ function ConditionStatistics({
   analysis,
   bonusIncluded,
   onInteraction = NOOP,
+  resultContext,
 }: {
   analysis: CombinationAnalysis;
   bonusIncluded: boolean;
   onInteraction?: (action: CombinationResultAction, itemKey?: string) => void;
+  resultContext: 'combination' | 'winning-draw';
 }) {
   const styles = useThemedStyles(createStyles);
   const [activeTab, setActiveTab] = useState<ConditionStatTab>('분포');
@@ -870,7 +879,11 @@ function ConditionStatistics({
           <BandCountChart counts={metrics.bandCounts} />
         </View>
       ) : activeTab === '직전·연번' ? (
-        <RecentNumberRelations bonusIncluded={bonusIncluded} metrics={metrics} />
+        <RecentNumberRelations
+          bonusIncluded={bonusIncluded}
+          metrics={metrics}
+          resultContext={resultContext}
+        />
       ) : null}
 
     </SectionCard>
@@ -1019,10 +1032,12 @@ export function CombinationResult({
   isPro = false,
   canUseAiExplanation = isPro,
   requiresAiLogin = false,
+  resultContext = 'combination',
   showAiExplanation = true,
 }: CombinationResultProps) {
   const styles = useThemedStyles(createStyles);
-  const headline = describeCombinationHeadline(analysis);
+  const winningDrawContext = resultContext === 'winning-draw';
+  const headline = describeCombinationHeadline(analysis, resultContext);
   const headlineEvidence = [headline.sourceLabel, headline.supportingSourceLabel]
     .filter((label): label is string => Boolean(label));
   const compactPeriodLabel = period.kind === 'preset'
@@ -1160,7 +1175,7 @@ export function CombinationResult({
       />
       {stickyNumbersVisible ? (
         <Animated.View
-          accessibilityLabel={`선택 번호 ${analysis.numbers.join(', ')}, ${stickyFilterLabel}`}
+          accessibilityLabel={`${winningDrawContext ? '당첨번호' : '선택 번호'} ${analysis.numbers.join(', ')}, ${stickyFilterLabel}`}
           accessible
           entering={FadeIn.duration(120)}
           exiting={FadeOut.duration(100)}
@@ -1297,7 +1312,7 @@ export function CombinationResult({
         testID="combination-headline-card">
         <Text style={styles.headlineSectionTitle}>주요 분석</Text>
         <View
-          accessibilityLabel={`조합 요약, ${headline.text}${headline.supportingText ? `, ${headline.supportingText}` : ''}, 근거 지표 ${headlineEvidence.join(', ')}`}
+          accessibilityLabel={`${winningDrawContext ? '당첨번호' : '조합'} 요약, ${headline.text}${headline.supportingText ? `, ${headline.supportingText}` : ''}, 근거 지표 ${headlineEvidence.join(', ')}`}
           accessible
           testID="combination-headline">
           <View style={styles.headlineInsightRow}>
@@ -1353,16 +1368,18 @@ export function CombinationResult({
       <Text style={styles.resultGroupTitle}>번호 구성 분석</Text>
 
       <View onLayout={sectionLayoutHandler('group_frequency')}>
-      <SectionCard testID="result-section-group-frequency" title="선택 번호 출현 빈도">
+      <SectionCard
+        testID="result-section-group-frequency"
+        title={winningDrawContext ? '당첨번호 출현 빈도' : '선택 번호 출현 빈도'}>
         <View style={styles.trendRow}>
           <View
-            accessibilityLabel={`선택 6개 평균, ${analysis.groupFrequency.selectedAverage.toFixed(1)}회`}
+            accessibilityLabel={`${winningDrawContext ? '당첨번호' : '선택 6개'} 평균, ${analysis.groupFrequency.selectedAverage.toFixed(1)}회`}
             accessible
             style={styles.trendItem}>
             <Text style={styles.trendValue}>
               {analysis.groupFrequency.selectedAverage.toFixed(1)}회
             </Text>
-            <Text style={styles.trendLabel}>선택 6개 평균</Text>
+            <Text style={styles.trendLabel}>{winningDrawContext ? '당첨번호 평균' : '선택 6개 평균'}</Text>
           </View>
           <View style={styles.trendDivider} />
           <View
@@ -1401,7 +1418,7 @@ export function CombinationResult({
               : gapHighlight === 'notable' ? '평균 초과' : null;
             return (
               <View
-                accessibilityLabel={`${item.number}번, 출현 ${item.appearanceCount}회, ${rankLabel}, 평균 출현 간격 ${averageGapLabel}, 현재 ${item.currentGap}회째 미출현${gapHighlightLabel ? `, ${gapHighlightLabel}` : ''}`}
+                accessibilityLabel={`${item.number}번, 출현 ${item.appearanceCount}회, ${rankLabel}, 평균 출현 간격 ${averageGapLabel}, ${winningDrawContext ? `이번 출현 간격 ${item.currentGap}회` : `현재 ${item.currentGap}회째 미출현`}${gapHighlightLabel ? `, ${gapHighlightLabel}` : ''}`}
                 accessible
                 key={item.number}
                 style={[
@@ -1452,7 +1469,9 @@ export function CombinationResult({
                     <Text style={styles.numberInsightMetricValue}>{averageGapLabel}</Text>
                   </View>
                   <View style={styles.numberInsightMetricRow}>
-                    <Text style={styles.numberInsightMetricLabel}>현재 미출현</Text>
+                    <Text style={styles.numberInsightMetricLabel}>
+                      {winningDrawContext ? '이번 출현 간격' : '현재 미출현'}
+                    </Text>
                     <Text
                       style={[
                         styles.numberInsightMetricValue,
@@ -1480,6 +1499,7 @@ export function CombinationResult({
           action,
           itemKey,
         )}
+        resultContext={resultContext}
       />
       </View>
 
@@ -1499,9 +1519,13 @@ export function CombinationResult({
       </View>
 
       <View onLayout={sectionLayoutHandler('match_distribution')}>
-      <SectionCard testID="result-section-match-distribution" title="전체 회차 일치 분포">
+      <SectionCard
+        testID="result-section-match-distribution"
+        title={winningDrawContext ? '이전 회차 일치 분포' : '전체 회차 일치 분포'}>
         <Text style={styles.cardDescription}>
-          선택 번호가 과거 각 회차에서 몇 개씩 일치했는지 보여줍니다.
+          {winningDrawContext
+            ? '이 회차 당첨번호가 이전 각 회차에서 몇 개씩 일치했는지 보여줍니다.'
+            : '선택 번호가 과거 각 회차에서 몇 개씩 일치했는지 보여줍니다.'}
         </Text>
         <View style={styles.distributionList}>
           {MATCH_COUNTS.map((count) => {

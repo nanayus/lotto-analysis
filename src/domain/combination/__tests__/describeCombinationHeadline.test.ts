@@ -253,6 +253,38 @@ describe('describeCombinationHeadline', () => {
     });
   });
 
+  it('describes a long gap as a completed appearance for a winning draw', () => {
+    const headline = describeCombinationHeadline(analysisWith({
+      groupFrequency: { differencePct: 0, overallAverage: 10, selectedAverage: 10 },
+      individualNumbers: [
+        { appearanceCount: 10, appearanceRank: 10, averageGap: 6.5, currentGap: 11, number: 44 },
+      ],
+      shape: { consecutiveGroups: [], evenCount: 3, oddCount: 3, sum: 120 },
+    }), 'winning-draw');
+
+    expect(headline).toMatchObject({
+      metric: 'number-gap',
+      sourceLabel: '44번 · 평균 6.5회 · 이번 간격 11회',
+      text: '44번은 평균 6.5회 간격으로 출현했는데, 이번에는 11회 만에 다시 출현했어요.',
+      tone: 'accent',
+      variant: 'above-average',
+    });
+  });
+
+  it('uses winning-draw subjects instead of selection language', () => {
+    const headline = describeCombinationHeadline(analysisWith({
+      activeDrawCount: 52,
+      groupFrequency: { differencePct: 18, overallAverage: 8, selectedAverage: 9.4 },
+      shape: { consecutiveGroups: [], evenCount: 3, oddCount: 3, sum: 120 },
+    }), 'winning-draw');
+
+    expect(headline).toMatchObject({
+      metric: 'group-frequency',
+      sourceLabel: '당첨번호 평균 9.4회 · 전체 평균 8회',
+      text: '이 회차의 여섯 번호는 전체 번호보다 평균 18% 더 자주 나왔어요.',
+    });
+  });
+
   it('describes a number with no appearance in a sufficiently long active period', () => {
     const headline = describeCombinationHeadline(analysisWith({
       activeDrawCount: 52,

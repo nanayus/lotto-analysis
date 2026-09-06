@@ -273,6 +273,39 @@ describe('CombinationResult', () => {
     expect(onResultInteraction).toHaveBeenCalledWith('prize_history', 'open_all_history');
   });
 
+  test('uses retrospective copy for a winning-number result', async () => {
+    const { getAllByText, getByTestId, getByText, queryByText } = await render(
+      <CombinationResult
+        analysis={analysis}
+        bonusIncluded={false}
+        firstRound={1}
+        latestRound={100}
+        onBonusChange={() => undefined}
+        onOpenHistory={() => undefined}
+        onOpenPrizeRank={() => undefined}
+        onPeriodChange={() => undefined}
+        onStartOver={() => undefined}
+        period={{ kind: 'preset', label: '전체' }}
+        resultContext="winning-draw"
+      />,
+    );
+
+    expect(getByTestId('combination-headline').props.accessibilityLabel)
+      .toContain('당첨번호 요약');
+    expect(getByTestId('combination-headline').props.accessibilityLabel)
+      .toContain('이번에는 15회 만에 다시 출현했어요.');
+    expect(getByText('당첨번호 출현 빈도')).toBeTruthy();
+    expect(getByText('당첨번호 평균')).toBeTruthy();
+    expect(queryByText('선택 번호 출현 빈도')).toBeNull();
+    expect(getAllByText('이번 출현 간격')).toHaveLength(6);
+    expect(getByTestId('individual-number-card-7').props.accessibilityLabel)
+      .toContain('이번 출현 간격 1회');
+    expect(getByText('이 회차 당첨번호가 이전 각 회차에서 몇 개씩 일치했는지 보여줍니다.'))
+      .toBeTruthy();
+    expect(getByText('이전 회차 일치 분포')).toBeTruthy();
+    expect(queryByText('전체 회차 일치 분포')).toBeNull();
+  });
+
   test('pins only the selected numbers after their original row scrolls away', async () => {
     const { getByTestId, queryByTestId } = await render(
       <CombinationResult
