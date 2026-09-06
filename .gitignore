@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 functions/lib/
+functions-lotto/lib/
 functions-monetization/lib/
 expo-env.d.ts
 

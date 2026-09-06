@@ -1,10 +1,15 @@
+import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+
+initializeApp();
 
 const OFFICIAL_LOTTO_ENDPOINT =
   'https://www.dhlottery.co.kr/lt645/selectPstLt645Info.do';
 const BUNDLED_LATEST_ROUND = 1239;
 const MAX_CATCH_UP_DRAWS = 12;
+const OFFICIAL_REQUEST_ATTEMPTS = 3;
+const OFFICIAL_REQUEST_TIMEOUT_MS = 30_000;
 const PRIZE_RANKS = [1, 2, 3, 4, 5] as const;
 
 type LottoDraw = {
@@ -131,19 +136,28 @@ function coreDraw(draw: LottoDraw): LottoDraw {
 async function fetchOfficialDraw(round?: number) {
   const url = new URL(OFFICIAL_LOTTO_ENDPOINT);
   if (round !== undefined) url.searchParams.set('srchLtEpsd', String(round));
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/json',
-      'user-agent': 'LottoInsight/1.0 (+https://lotto.wondly.net)',
-    },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new Error(`Official Lotto request failed: ${response.status}`);
-  const draw = parseOfficialLottoDraw(await response.json());
-  if (round !== undefined && draw.round !== round) {
-    throw new Error(`Official Lotto response returned round ${draw.round}, expected ${round}.`);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= OFFICIAL_REQUEST_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'LottoInsight/1.0 (+https://lotto.wondly.net)',
+        },
+        signal: AbortSignal.timeout(OFFICIAL_REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(`Official Lotto request failed: ${response.status}`);
+      const draw = parseOfficialLottoDraw(await response.json());
+      if (round !== undefined && draw.round !== round) {
+        throw new Error(`Official Lotto response returned round ${draw.round}, expected ${round}.`);
+      }
+      return draw;
+    } catch (error) {
+      lastError = error;
+      console.warn('Official Lotto request attempt failed.', { attempt, error, round });
+    }
   }
-  return draw;
+  throw lastError;
 }
 
 function storedDraws(value: unknown): LottoDraw[] {
@@ -192,12 +206,12 @@ export const syncLatestLottoDraw = onSchedule({
   maxBackoffSeconds: 600,
   maxDoublings: 0,
   region: 'asia-northeast3',
-  retryCount: 6,
+  retryCount: 4,
   minBackoffSeconds: 300,
   maxRetrySeconds: 3_600,
   schedule: '45 20 * * 6',
   timeZone: 'Asia/Seoul',
-  timeoutSeconds: 30,
+  timeoutSeconds: 180,
 }, async () => {
   const database = getFirestore();
   const reference = database.doc('publicData/lotto');

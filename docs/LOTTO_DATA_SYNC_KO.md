@@ -72,7 +72,21 @@ npm --prefix functions run lint
 npm run typecheck
 npm run lint
 npm test -- --runInBand
-firebase deploy --only firestore:rules,functions:account
+firebase deploy --only firestore:rules,functions:lotto
 ```
 
 Blaze 결제 계정과 Cloud Scheduler API가 필요합니다. Firebase 및 Google Cloud에서 예산 알림을 설정하고, Functions 실패 로그와 Firestore 읽기 수를 모니터링합니다.
+
+## 운영 연결 점검
+
+2026-09-06 운영 배포 검증에서 `asia-northeast3`의 2세대 Firebase Function이
+동행복권 서버 `www.dhlottery.co.kr:443`에 연결할 때 TCP 연결 제한 시간 초과가
+반복됐다. 같은 요청은 일반 인터넷 환경에서는 정상 응답했다. 따라서 현재 예약
+함수와 규칙은 배포되어 있지만, 동행복권이 Google Cloud 발신 연결을 허용하는지
+추가 확인하기 전까지 자동 저장이 보장되지 않는다.
+
+공식 응답을 그대로 검증하는 원칙은 유지하되, 운영 대안은 별도 승인 후 선택한다.
+
+- 고정 IP를 사용하는 중계 서버를 두고 동행복권에 접근 허용 여부를 확인한다.
+- 외부 스케줄러가 공식 응답을 받아 인증된 수집 함수에 전달한다.
+- 어떤 대안이든 회차·날짜·번호·상금 필드 검증과 Firestore 서버 전용 쓰기를 유지한다.

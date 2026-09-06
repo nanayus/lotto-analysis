@@ -12,6 +12,14 @@
       "source": "functions"
     },
     {
+      "codebase": "lotto",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "source": "functions-lotto"
+    },
+    {
       "codebase": "monetization",
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run lint",
