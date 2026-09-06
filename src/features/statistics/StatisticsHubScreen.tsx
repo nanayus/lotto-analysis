@@ -49,18 +49,15 @@ export function StatisticsHubScreen() {
                 params: { returnTo: 'statistics', selectionMode: 'manual' },
               });
             }}
-            style={({ pressed }) => [styles.primaryListCard, pressed && styles.pressed]}>
-            <View style={styles.primaryListIcon}>
+            style={({ pressed }) => [styles.listCard, pressed && styles.pressed]}>
+            <View style={styles.listIcon}>
               <Ionicons color={colors.accentPrimary} name="grid-outline" size={22} />
             </View>
             <View style={styles.listCopy}>
               <Text style={styles.listTitle}>조합 분석</Text>
               <Text style={styles.listDescription}>6개 번호를 직접 선택해 과거 당첨 데이터와 비교해 보세요.</Text>
-              <View style={styles.inlineTag}>
-                <Text style={styles.inlineTagText}>6개 직접 선택</Text>
-              </View>
             </View>
-            <Ionicons color={colors.accentPrimary} name="chevron-forward" size={20} />
+            <Ionicons color={colors.textSecondary} name="chevron-forward" size={20} />
           </Pressable>
 
           <Text style={styles.sectionLabel}>당첨 기록을 기준으로</Text>
@@ -127,14 +124,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionLabel: { marginTop: spacing.xxl, marginBottom: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, fontWeight: typography.weights.semibold },
   firstSectionLabel: { marginTop: 0 },
   listCard: { minHeight: 104, marginTop: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, flexDirection: 'row', alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
-  primaryListCard: { minHeight: 120, marginTop: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, flexDirection: 'row', alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   listIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceElevated },
-  primaryListIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surface },
   listCopy: { flex: 1, marginHorizontal: spacing.lg },
   listTitle: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.bold },
   listDescription: { color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, marginTop: spacing.xs },
-  inlineTag: { alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.round, backgroundColor: colors.surface },
-  inlineTagText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   notice: { marginTop: spacing.xxl, paddingVertical: spacing.lg, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderStrong },
   noticeText: { flex: 1, color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
   pressed: { opacity: 0.82, transform: [{ scale: 0.95 }] },

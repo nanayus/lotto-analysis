@@ -33,7 +33,8 @@ describe('StatisticsHubScreen', () => {
       '종합 통계 열기',
       '조합 비교 열기',
     ]);
-    expect(screen.getByText('6개 직접 선택')).toBeTruthy();
+    expect(screen.getByText('6개 번호를 직접 선택해 과거 당첨 데이터와 비교해 보세요.')).toBeTruthy();
+    expect(screen.queryByText('6개 직접 선택')).toBeNull();
     expect(screen.queryByTestId('analysis-scope-bar')).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: '조합 분석 열기' }));
