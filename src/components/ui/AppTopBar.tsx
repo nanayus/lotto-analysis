@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { type ReactNode, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
-import { useAuth } from '@/features/auth/AuthContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { ProStatusModal } from '@/features/monetization/ProStatusModal';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
@@ -13,40 +12,21 @@ const webStickyHeader = Platform.select({
   web: { position: 'sticky', top: 0, zIndex: 20 } as unknown as ViewStyle,
 });
 
-function accountLabel(state: ReturnType<typeof useAuth>['state']) {
-  if (state.status === 'loading') return '계정 확인 중';
-  if (state.status !== 'authenticated') return '로그인';
-  const preferred = state.user.displayName?.trim() || state.user.email?.split('@')[0]?.trim();
-  return preferred || '내 계정';
-}
-
 type MainTabHeaderProps = {
-  onAuthenticatedAccountPress?: () => void;
   onProPress?: () => void;
 };
 
-export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainTabHeaderProps) {
+export function MainTabHeader({ onProPress }: MainTabHeaderProps) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { openLogin, state: authState } = useAuth();
   const monetization = useMonetization();
   const [proStatusVisible, setProStatusVisible] = useState(false);
-  const authenticated = authState.status === 'authenticated';
   const isPro = monetization.productAccess.tier === 'pro';
   const proPlanEnabled = monetization.proPlanEnabled ?? true;
   const proExpiresAt = monetization.state?.status === 'ready'
     ? monetization.state.access.proExpiresAt
     : null;
   const subscriptionManagementUrl = monetization.subscriptionManagementUrl ?? null;
-
-  const openAccount = () => {
-    if (!authenticated) {
-      openLogin();
-      return;
-    }
-    if (onAuthenticatedAccountPress) onAuthenticatedAccountPress();
-    else router.navigate('/(tabs)/settings');
-  };
 
   const openSettings = () => router.navigate('/(tabs)/settings');
 
@@ -61,22 +41,6 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
 
   return (
     <View style={[styles.mainBar, webStickyHeader]} testID="main-tab-header">
-      <Pressable
-        accessibilityHint={authenticated ? '환경설정으로 이동합니다' : '로그인 화면을 엽니다'}
-        accessibilityLabel={authenticated ? `${accountLabel(authState)} 계정` : '로그인'}
-        accessibilityRole="button"
-        onPress={openAccount}
-        style={({ pressed }) => [styles.accountButton, pressed && styles.pressed]}>
-        <View style={styles.accountIcon}>
-          <Ionicons
-            color={authenticated ? colors.accentPrimary : colors.textSecondary}
-            name={authenticated ? 'person' : 'person-outline'}
-            size={17}
-          />
-        </View>
-        <Text numberOfLines={1} style={styles.accountText}>{accountLabel(authState)}</Text>
-      </Pressable>
-
       <View style={styles.rightActions}>
         {proPlanEnabled ? (
           <Pressable
@@ -157,34 +121,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
     backgroundColor: colors.surface,
-  },
-  accountButton: {
-    minWidth: 0,
-    minHeight: 44,
-    maxWidth: '68%',
-    paddingRight: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  accountIcon: {
-    width: 20,
-    height: 20,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountText: {
-    minWidth: 0,
-    flexShrink: 1,
-    color: colors.textPrimary,
-    fontSize: typography.sizes.small,
-    fontWeight: typography.weights.semibold,
-    letterSpacing: -0.2,
   },
   rightActions: {
     flexShrink: 0,

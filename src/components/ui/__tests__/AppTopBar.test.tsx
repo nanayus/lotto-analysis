@@ -5,29 +5,12 @@ import { StyleSheet, Text } from 'react-native';
 
 import { MainTabHeader, SubScreenHeader, TOP_BAR_HEIGHT } from '../AppTopBar';
 
-const mockOpenLogin = jest.fn();
 const mockOpenPaywall = jest.fn();
 let mockTier: 'guest' | 'pro' = 'guest';
 let mockProExpiresAt: string | null = null;
 
 jest.mock('expo-router', () => ({
   router: { navigate: jest.fn() },
-}));
-
-jest.mock('@/features/auth/AuthContext', () => ({
-  useAuth: () => ({
-    openLogin: mockOpenLogin,
-    state: {
-      status: 'authenticated',
-      user: {
-        displayName: '테스터',
-        email: 'tester@example.com',
-        photoUrl: null,
-        providers: ['google.com'],
-        uid: 'tester',
-      },
-    },
-  }),
 }));
 
 jest.mock('@/features/monetization/MonetizationContext', () => ({
@@ -80,25 +63,15 @@ describe('SubScreenHeader', () => {
 describe('MainTabHeader', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
-    mockOpenLogin.mockClear();
     mockOpenPaywall.mockClear();
     mockTier = 'guest';
     mockProExpiresAt = null;
   });
 
-  test('opens settings when an authenticated user presses the account area', async () => {
+  test('leaves the leading side empty and places an icon-only settings action at the trailing edge', async () => {
     const screen = await render(<MainTabHeader />);
 
-    await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: '테스터 계정' }));
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/settings');
-  });
-
-  test('places an icon-only settings action at the trailing edge', async () => {
-    const screen = await render(<MainTabHeader />);
-
+    expect(screen.queryByText('로그인')).toBeNull();
     expect(screen.queryByText('설정')).toBeNull();
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: '환경설정' }));
