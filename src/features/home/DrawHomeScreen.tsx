@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import NumberFlow from 'rn-number-flow';
 
 import { MainTabHeader } from '@/components/ui/AppTopBar';
@@ -35,18 +36,20 @@ import {
 } from './newDrawAnnouncement';
 
 type GameCount = 1 | 2 | 3 | 5;
+type RefreshNotice = {
+  kind: 'error' | 'success';
+  message: string;
+};
 const GUEST_GAME_COUNTS: readonly GameCount[] = [1, 2];
 const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
 
 function LatestDrawInfo({
   draw,
   onRefresh,
-  refreshNotice,
   refreshing,
 }: {
   draw: LottoHistoryDraw;
   onRefresh: () => void;
-  refreshNotice: string | null;
   refreshing: boolean;
 }) {
   const styles = useThemedStyles(createStyles);
@@ -138,11 +141,6 @@ function LatestDrawInfo({
           </View>
         </View>
       </View>
-      {refreshNotice ? (
-        <Text accessibilityLiveRegion="polite" style={styles.drawRefreshNotice}>
-          {refreshNotice}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -219,7 +217,7 @@ export function DrawHomeScreen() {
   );
   const [gameCount, setGameCount] = useState<GameCount>(1);
   const [announcementVisible, setAnnouncementVisible] = useState(false);
-  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<RefreshNotice | null>(null);
   const [refreshingDraw, setRefreshingDraw] = useState(false);
   const checkedAnnouncementRoundRef = useRef<number | null>(null);
   const refreshNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,11 +282,11 @@ export function DrawHomeScreen() {
       latest_round: result.latestRound,
       result: result.status,
     });
-    const notice = result.status === 'updated'
-      ? '새 회차를 반영했어요.'
+    const notice: RefreshNotice = result.status === 'updated'
+      ? { kind: 'success', message: '새 회차를 반영했어요.' }
       : result.status === 'unchanged' || result.status === 'skipped'
-        ? '이미 최신 회차예요.'
-        : '최신 정보를 확인하지 못했어요.';
+        ? { kind: 'success', message: '이미 최신 회차예요.' }
+        : { kind: 'error', message: '최신 정보를 확인하지 못했어요.' };
     setRefreshNotice(notice);
     setRefreshingDraw(false);
     refreshNoticeTimerRef.current = setTimeout(() => setRefreshNotice(null), 2_400);
@@ -336,7 +334,6 @@ export function DrawHomeScreen() {
           <LatestDrawInfo
             draw={latestDraw}
             onRefresh={() => { void refreshLatestDraw(); }}
-            refreshNotice={refreshNotice}
             refreshing={refreshingDraw}
           />
 
@@ -409,6 +406,27 @@ export function DrawHomeScreen() {
           onOpen={openLatestDrawAnalysis}
           visible={announcementVisible}
         />
+        {refreshNotice ? (
+          <Animated.View
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            entering={FadeIn.duration(140)}
+            exiting={FadeOut.duration(140)}
+            pointerEvents="none"
+            style={styles.refreshToastPositioner}
+            testID="lotto-refresh-toast">
+            <View style={styles.refreshToast}>
+              <Ionicons
+                color={refreshNotice.kind === 'error'
+                  ? styles.refreshToastErrorIcon.color
+                  : styles.refreshToastText.color}
+                name={refreshNotice.kind === 'error' ? 'alert-circle' : 'checkmark-circle'}
+                size={17}
+              />
+              <Text style={styles.refreshToastText}>{refreshNotice.message}</Text>
+            </View>
+          </Animated.View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -467,7 +485,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   drawCountdownLabel: { color: colors.textTertiary, fontSize: typography.sizes.caption },
   drawRefreshButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
   drawRefreshIcon: { color: colors.accentPrimary },
-  drawRefreshNotice: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'right' },
   drawCountdownValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 2 },
   countdownNumber: { color: colors.textPrimary, fontSize: typography.sizes.body, lineHeight: 22, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
   countdownSeparator: { color: colors.textTertiary },
@@ -488,4 +505,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   announcementPrimaryText: { color: '#FFFFFF', fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   announcementSecondary: { minHeight: 44, marginTop: spacing.xs, alignItems: 'center', justifyContent: 'center' },
   announcementSecondaryText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
+  refreshToastPositioner: { position: 'absolute', left: 0, right: 0, bottom: spacing.xl, alignItems: 'center', zIndex: 20, elevation: 8 },
+  refreshToast: { minHeight: 42, maxWidth: '90%', paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.round, backgroundColor: colors.textPrimary, boxShadow: colors.cardShadow },
+  refreshToastErrorIcon: { color: colors.hot },
+  refreshToastText: { color: colors.background, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
 });

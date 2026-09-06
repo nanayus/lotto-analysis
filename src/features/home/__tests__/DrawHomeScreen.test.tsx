@@ -169,5 +169,6 @@ describe('DrawHomeScreen', () => {
 
     expect(mockRefreshLottoData).toHaveBeenCalledWith(true);
     await waitFor(() => expect(screen.getByText('이미 최신 회차예요.')).toBeTruthy());
+    expect(screen.getByTestId('lotto-refresh-toast')).toBeTruthy();
   });
 });
