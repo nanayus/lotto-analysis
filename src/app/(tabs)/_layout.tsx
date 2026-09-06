@@ -4,10 +4,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
 import { ColorValue, Platform, StyleSheet, View, ViewStyle } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { radius, type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
-const TAB_BAR_FLOATING_HEIGHT = 64;
+import { type ThemeColors, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 const TAB_TRANSITION_DURATION_MS = 180;
 
 type TabIconProps = {
@@ -60,20 +58,14 @@ function TabBarButton({ children, style, ...props }: BottomTabBarButtonProps) {
 }
 
 function TabsNavigator() {
-  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const tabBarBottom = Math.max(insets.bottom - spacing.lg, spacing.sm);
 
   return (
     <Tabs
-      safeAreaInsets={{ bottom: 0 }}
       screenOptions={{
         animation: 'fade',
-        sceneStyle: {
-          backgroundColor: colors.background,
-          paddingBottom: TAB_BAR_FLOATING_HEIGHT + tabBarBottom + spacing.sm,
-        },
+        sceneStyle: { backgroundColor: colors.background },
         headerShown: false,
         tabBarActiveTintColor: colors.accentPrimary,
         tabBarInactiveTintColor: colors.neutral,
@@ -83,10 +75,6 @@ function TabsNavigator() {
         tabBarHideOnKeyboard: false,
         tabBarStyle: [
           styles.tabBar,
-          {
-            height: TAB_BAR_FLOATING_HEIGHT,
-            bottom: tabBarBottom,
-          },
           Platform.OS === 'web' && styles.tabBarWeb,
         ],
         tabBarItemStyle: styles.tabItem,
@@ -163,19 +151,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   tabBar: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
     backgroundColor: colors.surface,
-    borderColor: colors.borderStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.round,
-    boxShadow: '0 8px 28px rgba(0, 0, 0, 0.14)',
-    elevation: 8,
+    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    boxShadow: 'none',
+    elevation: 0,
     overflow: 'hidden',
   },
   tabBarWeb: {
-    maxWidth: 476,
+    width: '100%',
+    maxWidth: 500,
     marginHorizontal: 'auto',
   },
   tabItem: {
