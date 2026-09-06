@@ -15,7 +15,7 @@ const webStickyHeader = Platform.select({
 
 function accountLabel(state: ReturnType<typeof useAuth>['state']) {
   if (state.status === 'loading') return '계정 확인 중';
-  if (state.status !== 'authenticated') return '설정';
+  if (state.status !== 'authenticated') return '로그인';
   const preferred = state.user.displayName?.trim() || state.user.email?.split('@')[0]?.trim();
   return preferred || '내 계정';
 }
@@ -28,7 +28,7 @@ type MainTabHeaderProps = {
 export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainTabHeaderProps) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const { state: authState } = useAuth();
+  const { openLogin, state: authState } = useAuth();
   const monetization = useMonetization();
   const [proStatusVisible, setProStatusVisible] = useState(false);
   const authenticated = authState.status === 'authenticated';
@@ -40,9 +40,15 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   const subscriptionManagementUrl = monetization.subscriptionManagementUrl ?? null;
 
   const openAccount = () => {
+    if (!authenticated) {
+      openLogin();
+      return;
+    }
     if (onAuthenticatedAccountPress) onAuthenticatedAccountPress();
     else router.navigate('/(tabs)/settings');
   };
+
+  const openSettings = () => router.navigate('/(tabs)/settings');
 
   const openAccess = () => {
     if (!isPro) {
@@ -56,23 +62,23 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
   return (
     <View style={[styles.mainBar, webStickyHeader]} testID="main-tab-header">
       <Pressable
-        accessibilityHint="환경설정으로 이동합니다"
-        accessibilityLabel={authenticated ? `${accountLabel(authState)} 계정` : '설정'}
+        accessibilityHint={authenticated ? '환경설정으로 이동합니다' : '로그인 화면을 엽니다'}
+        accessibilityLabel={authenticated ? `${accountLabel(authState)} 계정` : '로그인'}
         accessibilityRole="button"
         onPress={openAccount}
         style={({ pressed }) => [styles.accountButton, pressed && styles.pressed]}>
         <View style={styles.accountIcon}>
           <Ionicons
             color={authenticated ? colors.accentPrimary : colors.textSecondary}
-            name={authenticated ? 'person' : 'settings-outline'}
+            name={authenticated ? 'person' : 'person-outline'}
             size={17}
           />
         </View>
         <Text numberOfLines={1} style={styles.accountText}>{accountLabel(authState)}</Text>
       </Pressable>
 
-      {proPlanEnabled ? (
-        <>
+      <View style={styles.rightActions}>
+        {proPlanEnabled ? (
           <Pressable
             accessibilityHint={isPro ? '구독 정보를 확인합니다' : 'Pro 혜택을 확인합니다'}
             accessibilityLabel={isPro ? 'PRO 플랜, 이용 정보 보기' : 'FREE 플랜, Pro 혜택 보기'}
@@ -88,15 +94,25 @@ export function MainTabHeader({ onAuthenticatedAccountPress, onProPress }: MainT
               size={13}
             />
           </Pressable>
-          <ProStatusModal
-            expiresAt={proExpiresAt}
-            onClose={() => setProStatusVisible(false)}
-            onManage={subscriptionManagementUrl
-              ? () => void Linking.openURL(subscriptionManagementUrl)
-              : undefined}
-            visible={proStatusVisible}
-          />
-        </>
+        ) : null}
+        <Pressable
+          accessibilityHint="환경설정으로 이동합니다"
+          accessibilityLabel="환경설정"
+          accessibilityRole="button"
+          onPress={openSettings}
+          style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}>
+          <Ionicons color={colors.textSecondary} name="settings-outline" size={20} />
+        </Pressable>
+      </View>
+      {proPlanEnabled ? (
+        <ProStatusModal
+          expiresAt={proExpiresAt}
+          onClose={() => setProStatusVisible(false)}
+          onManage={subscriptionManagementUrl
+            ? () => void Linking.openURL(subscriptionManagementUrl)
+            : undefined}
+          visible={proStatusVisible}
+        />
       ) : null}
     </View>
   );
@@ -169,6 +185,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.semibold,
     letterSpacing: -0.2,
+  },
+  rightActions: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   accessButton: {
     minWidth: 68,

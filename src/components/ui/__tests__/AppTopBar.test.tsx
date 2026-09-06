@@ -96,6 +96,17 @@ describe('MainTabHeader', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/settings');
   });
 
+  test('places an icon-only settings action at the trailing edge', async () => {
+    const screen = await render(<MainTabHeader />);
+
+    expect(screen.queryByText('설정')).toBeNull();
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: '환경설정' }));
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/settings');
+  });
+
   test('opens the shared Pro paywall when a FREE user presses the plan badge', async () => {
     const screen = await render(<MainTabHeader />);
 
