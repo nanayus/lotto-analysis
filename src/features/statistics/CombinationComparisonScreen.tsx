@@ -74,7 +74,7 @@ function formatSavedDate(value: string) {
 
 function savedCandidate(item: SavedCombination): ComparisonCandidate {
   return {
-    detail: `${formatSavedDate(item.createdAt)}${item.favorite ? ' · 즐겨찾기' : ''}${item.purchased ? ' · 구매번호' : ''}`,
+    detail: `${formatSavedDate(item.createdAt)}${item.favorite ? ' · 즐겨찾기' : ''}`,
     id: `saved:${item.id}`,
     kind: 'saved',
     label: sourceLabel(item.source),
@@ -84,7 +84,7 @@ function savedCandidate(item: SavedCombination): ComparisonCandidate {
 
 function drawCandidate(draw: LottoHistoryDraw): ComparisonCandidate {
   return {
-    detail: `보너스 ${String(draw.bonus).padStart(2, '0')}`,
+    detail: `보너스 ${draw.bonus}`,
     id: `winning:${draw.round}`,
     kind: 'winning',
     label: `${draw.round}회 당첨번호`,
@@ -162,7 +162,7 @@ function CandidatePicker({
 }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const [source, setSource] = useState<PickerSource>(combinations.length ? 'saved' : 'winning');
+  const [source, setSource] = useState<PickerSource>(target === 'A' ? 'saved' : 'winning');
   const [roundInput, setRoundInput] = useState(String(latestRound));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recentDraws = useMemo(() => history.slice(-10).reverse(), [history]);
@@ -260,7 +260,7 @@ function CandidatePicker({
                           <Text style={styles.candidateDetail}>{duplicate ? '이미 반대쪽에 선택됨' : candidate.detail}</Text>
                         </View>
                         <Text adjustsFontSizeToFit numberOfLines={1} style={styles.candidateNumbers}>
-                          {candidate.numbers.map((number) => String(number).padStart(2, '0')).join(' · ')}
+                          {candidate.numbers.join(' · ')}
                         </Text>
                       </View>
                       <Ionicons color={duplicate ? colors.textTertiary : colors.textSecondary} name="chevron-forward" size={18} />
@@ -284,21 +284,23 @@ function CandidatePicker({
           ) : (
             <>
               <View style={styles.roundInputRow}>
-                <TextInput
-                  accessibilityLabel={`${target}에 넣을 당첨 회차`}
-                  keyboardType="number-pad"
-                  onChangeText={(value) => {
-                    setRoundInput(value.replace(/[^0-9]/g, ''));
-                    setErrorMessage(null);
-                  }}
-                  onSubmitEditing={applyRound}
-                  placeholder={String(latestRound)}
-                  placeholderTextColor={colors.textTertiary}
-                  selectTextOnFocus
-                  style={styles.roundInput}
-                  value={roundInput}
-                />
-                <Text style={styles.roundUnit}>회</Text>
+                <View style={styles.roundField}>
+                  <TextInput
+                    accessibilityLabel={`${target}에 넣을 당첨 회차`}
+                    keyboardType="number-pad"
+                    onChangeText={(value) => {
+                      setRoundInput(value.replace(/[^0-9]/g, ''));
+                      setErrorMessage(null);
+                    }}
+                    onSubmitEditing={applyRound}
+                    placeholder={String(latestRound)}
+                    placeholderTextColor={colors.textTertiary}
+                    selectTextOnFocus
+                    style={styles.roundInput}
+                    value={roundInput}
+                  />
+                  <Text pointerEvents="none" style={styles.roundUnit}>회</Text>
+                </View>
                 <Pressable
                   accessibilityLabel={`입력한 회차를 ${target}로 선택`}
                   accessibilityRole="button"
@@ -606,7 +608,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   candidateCopy: { flex: 1, minWidth: 0, paddingRight: spacing.sm },
   candidateMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   candidateLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  candidateDetail: { flexShrink: 1, color: colors.textTertiary, fontSize: 11, textAlign: 'right' },
+  candidateDetail: { flexShrink: 1, color: colors.textTertiary, fontSize: typography.sizes.caption, textAlign: 'right' },
   candidateNumbers: {
     marginTop: spacing.sm,
     color: colors.textPrimary,
@@ -619,11 +621,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   emptyStateDescription: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center' },
   emptyStateAction: { marginTop: spacing.xl, minHeight: 40, paddingHorizontal: spacing.lg, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
   emptyStateActionText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  roundInputRow: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center' },
+  roundInputRow: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  roundField: { flex: 1, minWidth: 0, position: 'relative' },
   roundInput: {
-    flex: 1,
+    width: '100%',
     height: 48,
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.lg,
+    paddingRight: 44,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderStrong,
@@ -633,7 +637,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.semibold,
     fontVariant: ['tabular-nums'],
   },
-  roundUnit: { marginLeft: -34, marginRight: spacing.lg, color: colors.textSecondary, fontSize: typography.sizes.small },
+  roundUnit: { position: 'absolute', right: spacing.lg, top: 14, color: colors.textSecondary, fontSize: typography.sizes.small },
   roundApplyButton: { minWidth: 68, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.accentPrimary },
   roundApplyText: { color: '#FFFFFF', fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   inputError: { marginTop: spacing.sm, color: colors.hot, fontSize: typography.sizes.caption, lineHeight: 17 },

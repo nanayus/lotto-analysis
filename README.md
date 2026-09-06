@@ -17,20 +17,20 @@ npm run web
 
 주요 환경 변수는 [.env.example](./.env.example)에 정리되어 있습니다.
 
-- Firebase 익명 인증과 선택적 Apple·Google 계정 연결: [Firebase 인증 설정](./docs/FIREBASE_AUTH_SETUP_KO.md)
+- 비활성 상태로 보존된 Firebase 익명 인증과 Apple·Google 계정 연결: [Firebase 인증 설정](./docs/FIREBASE_AUTH_SETUP_KO.md)
 - RevenueCat 구독·구매 복원: [RevenueCat 설정](./docs/REVENUECAT_SETUP_KO.md)
 
-Firebase 설정이 없으면 인증·클라우드 기능 없이 기기 저장 방식으로 동작합니다. 결과 광고는 `EXPO_PUBLIC_RESULT_ADS_ENABLED`, 계정 연결 UI와 Pro 결제는 각각 `EXPO_PUBLIC_ACCOUNT_LINKING_ENABLED`, `EXPO_PUBLIC_PRO_PLAN_ENABLED`로 독립 제어합니다.
+Firebase 설정이 없으면 인증·클라우드 기능 없이 기기 저장 방식으로 동작합니다. 결과 광고, 익명 인증, 계정 연결 UI와 Pro 결제는 각각 `EXPO_PUBLIC_RESULT_ADS_ENABLED`, `EXPO_PUBLIC_ANONYMOUS_AUTH_ENABLED`, `EXPO_PUBLIC_ACCOUNT_LINKING_ENABLED`, `EXPO_PUBLIC_PRO_PLAN_ENABLED`로 독립 제어합니다.
 
 ## 현재 구현 범위
 
 - 번호뽑기: 무작위 뽑기와 조건 기반 조합 생성
-- 내번호보기: 생성·선택한 조합의 기기 저장, 즐겨찾기·구매 표시, 재생성 및 분석 이동
+- 내번호보기: 생성·선택한 조합의 기기 저장, 즐겨찾기, 재생성 및 분석 이동
 - 통계보기: 번호별 탐색, 전체 번호 통계, 회차별 당첨번호 분석, 여섯 번호 조합 분석
 - 조합 분석: 과거 회차의 일치 분포·등수 기록, 개별 번호·형태·부분 조합·그룹 빈도 분석
 - 콘텐츠: 로또 통계를 확률과 무작위성의 관점에서 설명하는 읽을거리
-- 환경설정: 화면 모드, 개인정보처리방침, 익명 이용정보/계정 삭제, 조건부 Pro 상태
-- Firebase 익명 인증, 선택적 계정 연결과 클라우드 저장 코드
+- 환경설정: 화면 모드, 개인정보처리방침, 로컬 데이터 안내, 변경 내역
+- 현재 비활성 상태로 보존된 Firebase 익명 인증, 계정 연결과 클라우드 저장 코드
 - RevenueCat 구매·복원 및 서버 권한 확인 코드
 - Firebase Analytics 이벤트와 AI 해설 연동 코드
 

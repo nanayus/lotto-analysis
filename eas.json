@@ -6,21 +6,28 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "development"
     },
     "preview": {
       "channel": "preview",
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "preview"
     },
     "testflight": {
       "channel": "testflight",
       "environment": "preview",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_ANONYMOUS_AUTH_ENABLED": "false"
+      }
     },
     "production": {
       "channel": "production",
+      "environment": "production",
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_ANONYMOUS_AUTH_ENABLED": "false",
         "EXPO_PUBLIC_PRO_PLAN_ENABLED": "false",
         "EXPO_PUBLIC_RESULT_ADS_ENABLED": "true"
       }

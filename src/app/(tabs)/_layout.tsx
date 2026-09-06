@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
@@ -60,6 +60,8 @@ function TabBarButton({ children, style, ...props }: BottomTabBarButtonProps) {
 function TabsNavigator() {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const pathname = usePathname();
+  const isFocusedRandomDraw = pathname === '/draw/random-draw';
 
   return (
     <Tabs
@@ -76,6 +78,7 @@ function TabsNavigator() {
         tabBarStyle: [
           styles.tabBar,
           Platform.OS === 'web' && styles.tabBarWeb,
+          isFocusedRandomDraw && styles.tabBarHidden,
         ],
         tabBarItemStyle: styles.tabItem,
         tabBarButton: (props) => <TabBarButton {...props} />,
@@ -162,6 +165,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
     maxWidth: 500,
     marginHorizontal: 'auto',
+  },
+  tabBarHidden: {
+    display: 'none',
   },
   tabItem: {
     paddingTop: spacing.xs,

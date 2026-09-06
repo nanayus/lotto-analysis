@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 type AdListener = (payload?: Error) => void;
 
@@ -47,10 +47,16 @@ jest.mock('react-native-google-mobile-ads', () => ({
 
 describe('interstitialAdClient.native', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.resetModules();
     mockAds.length = 0;
     mockShowError = false;
     process.env.EXPO_PUBLIC_ADMOB_TEST_MODE = 'true';
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   const loadClient = () => {
@@ -66,8 +72,16 @@ describe('interstitialAdClient.native', () => {
 
   test('returns true after the interstitial closes', async () => {
     const client = loadClient();
+    let settled = false;
+    const result = client.showInterstitialAd().then((shown) => {
+      settled = true;
+      return shown;
+    });
 
-    await expect(client.showInterstitialAd()).resolves.toBe(true);
+    await jest.advanceTimersByTimeAsync(client.AD_DISMISS_SETTLE_MS - 1);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    await expect(result).resolves.toBe(true);
     expect(mockAds[0]?.show).toBeDefined();
   });
 

@@ -30,7 +30,7 @@ import { combinationAnalyticsParams } from '@/features/analytics/events';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
 import { fillCombinationRandomly } from '@/features/combination/randomFill';
-import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
+import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import {
   type ThemeColors,
@@ -69,12 +69,14 @@ export function RandomDrawScreen({
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
-  const { addCombination } = useNumberLibrary();
+  const { productAccess, showResultAd } = useMonetization();
   const [displayNumbers, setDisplayNumbers] = useState(() => fillCombinationRandomly([]));
   const [results, setResults] = useState<number[][]>([]);
   const [isRolling, setIsRolling] = useState(false);
+  const [isOpeningAnalysis, setIsOpeningAnalysis] = useState(false);
   const [revealedCount, setRevealedCount] = useState(0);
   const drawSequence = useRef(0);
+  const mountedRef = useRef(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const revealTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,7 +131,6 @@ export function RandomDrawScreen({
             setResults(finalResults);
             setIsRolling(false);
             finalResults.forEach((numbers) => {
-              addCombination(numbers, 'random');
               trackEvent('combination_generated', combinationAnalyticsParams(numbers, {
                 game_count: gameCount,
                 source: 'random_draw',
@@ -144,29 +145,64 @@ export function RandomDrawScreen({
       });
     }, SHUFFLE_DURATION_MS);
     revealTimerRefs.current.push(shuffleTimer);
-  }, [addCombination, clearTimers, gameCount, rollingMotion]);
+  }, [clearTimers, gameCount, rollingMotion]);
 
   useEffect(() => {
+    mountedRef.current = true;
     autoTimerRef.current = setTimeout(runDraw, 220);
     return () => {
+      mountedRef.current = false;
       drawSequence.current += 1;
       clearTimers();
       cancelAnimation(rollingMotion);
     };
   }, [autoDrawToken, clearTimers, rollingMotion, runDraw]);
 
-  const analyze = useCallback((numbers: readonly number[]) => {
-    setNumbers(numbers);
-    router.push({
-      pathname: COMBINATION_ANALYSIS_ROUTE,
-      params: {
-        analyze: `random-draw-${Date.now()}`,
-        returnCount: String(gameCount),
-        returnTo: 'random-draw',
-        returnToken: autoDrawToken ?? '',
-      },
+  const analyze = useCallback(async (numbers: readonly number[]) => {
+    if (isOpeningAnalysis) return;
+    setIsOpeningAnalysis(true);
+    const requiresResultAd = productAccess.requiresAdForResults;
+    const eventParams = combinationAnalyticsParams(numbers, {
+      account_tier: productAccess.tier,
+      source: 'random_draw_analysis',
     });
-  }, [autoDrawToken, gameCount, setNumbers]);
+    try {
+      if (requiresResultAd) {
+        trackEvent('interstitial_ad_started', eventParams);
+        try {
+          const shown = await showResultAd();
+          trackEvent(shown ? 'interstitial_ad_completed' : 'interstitial_ad_failed', {
+            ...eventParams,
+            ...(!shown ? { reason: 'not_completed' } : {}),
+          });
+        } catch {
+          trackEvent('interstitial_ad_failed', { ...eventParams, reason: 'playback_error' });
+        }
+      }
+      if (!mountedRef.current) return;
+      setNumbers(numbers, { source: 'random' });
+      router.push({
+        pathname: COMBINATION_ANALYSIS_ROUTE,
+        params: {
+          analyze: `random-draw-${Date.now()}`,
+          ...(requiresResultAd ? { accessMethod: 'interstitial' } : {}),
+          returnCount: String(gameCount),
+          returnTo: 'random-draw',
+          returnToken: autoDrawToken ?? '',
+        },
+      });
+    } finally {
+      if (mountedRef.current) setIsOpeningAnalysis(false);
+    }
+  }, [
+    autoDrawToken,
+    gameCount,
+    isOpeningAnalysis,
+    productAccess.requiresAdForResults,
+    productAccess.tier,
+    setNumbers,
+    showResultAd,
+  ]);
 
   const firstResult = results[0];
   const sum = firstResult?.reduce((total, number) => total + number, 0) ?? 0;
@@ -246,9 +282,10 @@ export function RandomDrawScreen({
                   </View>
                 </View>
                 <AppButton
+                  disabled={isOpeningAnalysis}
                   iconAfter={<Ionicons color="#FFFFFF" name="arrow-forward" size={18} />}
-                  label="이 조합 분석하기"
-                  onPress={() => analyze(firstResult)}
+                  label={isOpeningAnalysis ? '분석 여는 중' : '조합 분석하기'}
+                  onPress={() => void analyze(firstResult)}
                   style={styles.analyzeButton}
                 />
               </>
@@ -264,8 +301,9 @@ export function RandomDrawScreen({
                   <Pressable
                     accessibilityLabel={`${index + 2}게임 ${numbers.join(', ')}, 분석하기`}
                     accessibilityRole="button"
+                    disabled={isOpeningAnalysis}
                     key={`${numbers.join('-')}-${index}`}
-                    onPress={() => analyze(numbers)}
+                    onPress={() => void analyze(numbers)}
                     style={({ pressed }) => [styles.resultRow, pressed && styles.pressed]}>
                     <Text style={styles.gameIndex}>{String(index + 2).padStart(2, '0')}</Text>
                     <CombinationNumberRow numbers={numbers} size="small" style={styles.resultNumbers} />
@@ -297,7 +335,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
   header: { flexDirection: 'row', alignItems: 'center' },
   headerCopy: { flex: 1, marginLeft: spacing.md },
-  eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.5, marginBottom: spacing.xs },
+  eyebrow: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 1.2, marginBottom: spacing.xs },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: typography.weights.bold, letterSpacing: -0.7 },
   countBadge: { minHeight: 44, paddingHorizontal: spacing.sm, alignItems: 'center', justifyContent: 'center' },
   countBadgeText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
@@ -316,7 +354,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberTextReady: { color: colors.textPrimary },
   rollingGuide: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xxxl },
   rollingLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
-  rollingText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 1.5 },
+  rollingText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 1.2 },
   metricDivider: { height: StyleSheet.hairlineWidth, marginTop: spacing.xxl, backgroundColor: colors.divider },
   metrics: { height: 68, flexDirection: 'row', alignItems: 'center' },
   metric: { flex: 1, alignItems: 'center', gap: spacing.xs },
@@ -329,7 +367,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionDescription: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: spacing.xs },
   resultList: { marginTop: spacing.lg, overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
   resultRow: { minHeight: 62, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
-  gameIndex: { width: 28, color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.bold },
+  gameIndex: { width: 28, color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   resultNumbers: { flex: 1, gap: 4 },
   redrawButton: { marginTop: spacing.xxl },
   disclaimer: { color: colors.textSecondary, fontSize: typography.sizes.caption, textAlign: 'center', lineHeight: 17, marginTop: spacing.md },

@@ -6,7 +6,6 @@ import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '@/theme';
 
 type NumberSelectorProps = {
-  analysisAvailabilityLabel?: string;
   analysisMessage?: string | null;
   excludedNumbers: number[];
   isAnalyzing?: boolean;
@@ -21,11 +20,10 @@ const NUMBERS = Array.from({ length: 45 }, (_, index) => index + 1);
 const NOOP = () => undefined;
 
 function formatNumber(number: number) {
-  return String(number).padStart(2, '0');
+  return String(number);
 }
 
 export function NumberSelector({
-  analysisAvailabilityLabel,
   analysisMessage,
   excludedNumbers,
   isAnalyzing = false,
@@ -84,31 +82,27 @@ export function NumberSelector({
                 key={number}
                 onPress={() => onToggleNumber(number)}
                 style={({ pressed }) => [
+                  styles.numberCell,
+                  pressed && styles.numberButtonPressed,
+                ]}
+                testID={`combination-number-${number}`}>
+                <View style={[
                   styles.numberButton,
                   selected && styles.numberButtonSelected,
                   excluded && styles.numberButtonExcluded,
                   unavailable && styles.numberButtonUnavailable,
-                  pressed && styles.numberButtonPressed,
-                ]}
-                testID={`combination-number-${number}`}>
-                <Text style={[
-                  styles.numberText,
-                  selected && styles.numberTextSelected,
-                  excluded && styles.numberTextExcluded,
                 ]}>
-                  {number}
-                </Text>
+                  <Text style={[
+                    styles.numberText,
+                    selected && styles.numberTextSelected,
+                    excluded && styles.numberTextExcluded,
+                  ]}>
+                    {number}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
-          {Array.from({ length: 4 }, (_, index) => (
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              key={`placeholder-${index}`}
-              style={styles.numberPlaceholder}
-            />
-          ))}
         </View>
 
         <View style={styles.selectionSection} testID="combination-selection-summary">
@@ -117,10 +111,12 @@ export function NumberSelector({
             {Array.from({ length: 6 }, (_, index) => {
               const number = selectedNumbers[index];
               return (
-                <View key={index} style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
-                  <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
-                    {number ? formatNumber(number) : ''}
-                  </Text>
+                <View key={index} style={styles.selectionCell}>
+                  <View style={[styles.selectionSlot, Boolean(number) && styles.selectionSlotFilled]}>
+                    <Text style={[styles.selectionText, Boolean(number) && styles.selectionTextFilled]}>
+                      {number ? formatNumber(number) : ''}
+                    </Text>
+                  </View>
                 </View>
               );
             })}
@@ -128,12 +124,6 @@ export function NumberSelector({
         </View>
       </AppCard>
 
-      {analysisAvailabilityLabel ? (
-        <View style={styles.accessSummary}>
-          <Text style={styles.accessSummaryLabel}>결과 공개</Text>
-          <Text style={styles.accessSummaryValue}>{analysisAvailabilityLabel}</Text>
-        </View>
-      ) : null}
       <AppButton
         disabled={!ready || isAnalyzing}
         label={isAnalyzing ? '분석 확인 중…' : '분석하기'}
@@ -159,7 +149,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   eyebrow: {
     color: colors.textSecondary,
-    fontSize: 9,
+    fontSize: typography.sizes.caption,
     letterSpacing: 1.6,
     marginBottom: spacing.sm,
   },
@@ -208,26 +198,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.sm,
+    alignItems: 'flex-start',
+    rowGap: spacing.xs,
+  },
+  numberCell: {
+    width: '14.28%',
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   numberButton: {
-    width: '12.6%',
-    minWidth: 44,
-    aspectRatio: 1,
-    maxHeight: 50,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.round,
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: colors.surface,
-  },
-  numberPlaceholder: {
-    width: '12.6%',
-    minWidth: 44,
-    aspectRatio: 1,
-    maxHeight: 50,
   },
   numberButtonSelected: {
     borderColor: colors.accentPrimary,
@@ -242,12 +230,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   numberButtonPressed: {
     opacity: 0.72,
-    transform: [{ scale: 0.96 }],
+    transform: [{ scale: 0.94 }],
   },
   numberText: {
     color: colors.textPrimary,
     fontSize: typography.sizes.small,
     fontWeight: typography.weights.medium,
+    lineHeight: 18,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   numberTextSelected: {
     color: '#FFFFFF',
@@ -260,7 +251,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   selectionSection: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     paddingTop: spacing.lg,
   },
   sectionLabel: {
@@ -270,11 +261,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   selectionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+  },
+  selectionCell: {
+    width: '16.66%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectionSlot: {
-    width: 46,
-    height: 38,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.round,
@@ -290,32 +285,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   selectionText: {
     color: colors.textSecondary,
     fontSize: typography.sizes.small,
+    lineHeight: 18,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   selectionTextFilled: {
     color: colors.accentPrimary,
     fontWeight: typography.weights.semibold,
   },
   analyzeButton: {
-    marginTop: spacing.md,
-  },
-  accessSummary: {
-    minHeight: 42,
     marginTop: spacing.xl,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-  },
-  accessSummaryLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-  },
-  accessSummaryValue: {
-    color: colors.accentPrimary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
   },
   analysisMessage: {
     marginTop: spacing.sm,

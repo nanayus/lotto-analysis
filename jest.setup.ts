@@ -58,6 +58,7 @@ jest.mock('firebase/auth', () => ({
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
+  deleteDoc: jest.fn(() => Promise.resolve()),
   doc: jest.fn(),
   getDoc: jest.fn(),
   getDocs: jest.fn(),

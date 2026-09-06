@@ -59,7 +59,7 @@ export function AnimatedNumberBall({
           stiffness: 180,
         }}
         style={StyleSheet.flatten([textStyle, revealed && revealedTextStyle])}
-        value={String(number).padStart(2, '0')}
+        value={String(number)}
       />
     </Animated.View>
   );

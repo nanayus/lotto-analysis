@@ -188,13 +188,14 @@ describe('describeCombinationHeadline', () => {
   it('does not amplify group-frequency differences in a very short period', () => {
     const headline = describeCombinationHeadline(analysisWith({
       activeDrawCount: 3,
+      filters: { includeBonus: false, period: { kind: 'preset', label: '최근 3회' } },
       groupFrequency: { differencePct: 80, overallAverage: 0.4, selectedAverage: 0.7 },
       shape: { consecutiveGroups: [], evenCount: 3, oddCount: 3, sum: 120 },
     }));
 
     expect(headline).toMatchObject({
       metric: 'neutral',
-      text: '선택 기간이 짧아 출현 차이를 뚜렷한 특징으로 판단하기 어려워요.',
+      text: '최근 3회는 표본이 짧아 출현 차이를 뚜렷한 특징으로 판단하기 어려워요.',
     });
   });
 
@@ -209,7 +210,7 @@ describe('describeCombinationHeadline', () => {
     expect(headline).toMatchObject({
       metric: 'four-number',
       sourceLabel: '4번호 조합 · 1회',
-      text: '1·7·12·19 네 번호가 선택 기간에 1번 함께 나왔어요.',
+      text: '1·7·12·19 네 번호가 전체 기간에 1번 함께 나왔어요.',
     });
   });
 
@@ -255,6 +256,7 @@ describe('describeCombinationHeadline', () => {
   it('describes a number with no appearance in a sufficiently long active period', () => {
     const headline = describeCombinationHeadline(analysisWith({
       activeDrawCount: 52,
+      filters: { includeBonus: false, period: { kind: 'preset', label: '최근 52회' } },
       individualNumbers: [
         { appearanceCount: 0, appearanceRank: 45, averageGap: 0, currentGap: 52, number: 32 },
       ],
@@ -263,8 +265,8 @@ describe('describeCombinationHeadline', () => {
 
     expect(headline).toMatchObject({
       metric: 'number-gap',
-      sourceLabel: '선택 기간 52회 · 미출현 1개',
-      text: '32번은 선택한 52회 동안 출현 기록이 없어요.',
+      sourceLabel: '최근 52회 · 미출현 1개',
+      text: '32번은 최근 52회 동안 출현 기록이 없어요.',
       tone: 'accent',
       variant: 'no-appearance',
     });
@@ -312,8 +314,23 @@ describe('describeCombinationHeadline', () => {
   it('shows a calm empty-period sentence when there are no comparable draws', () => {
     expect(describeCombinationHeadline(analysisWith({ activeDrawCount: 0 }))).toMatchObject({
       metric: 'empty-period',
-      sourceLabel: '분석 기간',
-      text: '선택한 기간에는 비교할 과거 회차가 없어요.',
+      sourceLabel: '전체 기간',
+      text: '전체 기간에는 비교할 과거 회차가 없어요.',
     });
+  });
+
+  it('names a custom round range instead of referring to a selected period', () => {
+    const headline = describeCombinationHeadline(analysisWith({
+      filters: {
+        includeBonus: false,
+        period: { endRound: 1237, kind: 'custom', startRound: 1200 },
+      },
+      subCombinations: {
+        ...baseAnalysis.subCombinations,
+        4: [{ appearanceCount: 2, latestRound: 1230, numbers: [1, 7, 12, 19] }],
+      },
+    }));
+
+    expect(headline.text).toBe('1·7·12·19 네 번호가 1200~1237회에 2번 함께 나왔어요.');
   });
 });

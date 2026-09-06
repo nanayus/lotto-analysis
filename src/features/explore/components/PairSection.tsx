@@ -63,7 +63,7 @@ export function PairSection({ onSelectNumber, pairs }: PairSectionProps) {
               style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
               <View style={styles.numberCapsule}>
                 <AnimatedValue align="center" height={18} style={styles.number} width="100%">
-                  {String(pair.number).padStart(2, '0')}
+                  {pair.number}
                 </AnimatedValue>
               </View>
               <AnimatedValue align="center" height={18} style={styles.count} width="100%">

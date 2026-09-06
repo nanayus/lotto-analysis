@@ -16,6 +16,7 @@ const historyDraw: CombinationAnalysis['qualifyingHistory'][number] = {
 };
 
 const analysis = {
+  filters: { includeBonus: false, period: { kind: 'preset', label: '전체' } },
   numbers: [1, 7, 12, 19, 20, 26],
   qualifyingHistory: [historyDraw],
   subCombinations: { 2: [], 3: [], 4: [], 5: [], 6: [] },
@@ -47,6 +48,10 @@ describe('CombinationDetail', () => {
   test('explains that no matching history was found without claiming the period has no draws', async () => {
     const emptyAnalysis = {
       ...analysis,
+      filters: {
+        includeBonus: false,
+        period: { endRound: 100, kind: 'custom', startRound: 1 },
+      },
       qualifyingHistory: [],
     } as CombinationAnalysis;
     const { getByText, queryByText } = await render(
@@ -57,7 +62,7 @@ describe('CombinationDetail', () => {
       />,
     );
 
-    expect(getByText('선택한 기간에 3개 이상 일치한 기록이 없습니다.')).toBeTruthy();
+    expect(getByText('1~100회에 3개 이상 일치한 기록이 없습니다.')).toBeTruthy();
     expect(queryByText('선택한 기간에 해당하는 회차가 없습니다.')).toBeNull();
   });
 });

@@ -77,7 +77,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: spacing.md, paddingHorizontal: spacing.sm, paddingVertical: 4,
     borderRadius: radius.round, backgroundColor: colors.accentPrimary,
   },
-  badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.2 },
+  badgeText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 0.9 },
   title: {
     marginTop: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.section,
     fontWeight: typography.weights.bold, letterSpacing: -0.3,

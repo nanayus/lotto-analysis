@@ -4,18 +4,19 @@ import { type ThemeColors, radius, spacing, typography, useThemedStyles } from '
 
 type CombinationNumberRowProps = {
   numbers: readonly number[];
-  size?: 'small' | 'medium';
+  size?: 'compact' | 'small' | 'medium';
   style?: StyleProp<ViewStyle>;
 };
 
 export function CombinationNumberRow({ numbers, size = 'medium', style }: CombinationNumberRowProps) {
   const styles = useThemedStyles(createStyles);
+  const compact = size === 'compact';
   const small = size === 'small';
   return (
-    <View accessibilityLabel={`번호 ${numbers.join(', ')}`} style={[styles.row, style]}>
+    <View accessibilityLabel={`번호 ${numbers.join(', ')}`} style={[styles.row, compact && styles.rowCompact, style]}>
       {numbers.map((number) => (
-        <View key={number} style={[styles.ball, small && styles.ballSmall]}>
-          <Text style={[styles.number, small && styles.numberSmall]}>{number}</Text>
+        <View key={number} style={[styles.ball, small && styles.ballSmall, compact && styles.ballCompact]}>
+          <Text style={[styles.number, (small || compact) && styles.numberSmall]}>{number}</Text>
         </View>
       ))}
     </View>
@@ -24,6 +25,7 @@ export function CombinationNumberRow({ numbers, size = 'medium', style }: Combin
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  rowCompact: { gap: spacing.xs },
   ball: {
     width: 42,
     height: 42,
@@ -35,6 +37,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surfaceAccent,
   },
   ballSmall: { width: 34, height: 34 },
+  ballCompact: { width: 30, height: 30 },
   number: {
     color: colors.textPrimary,
     fontSize: typography.sizes.small,

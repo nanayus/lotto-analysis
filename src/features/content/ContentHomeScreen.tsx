@@ -9,6 +9,10 @@ import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
+function formatFeaturedTitle(title: string) {
+  return title.includes(': ') ? title.replace(': ', ':\n') : title;
+}
+
 function ArticleCard({ article, featured = false }: { article: LottoArticle; featured?: boolean }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -39,7 +43,9 @@ function ArticleCard({ article, featured = false }: { article: LottoArticle; fea
           <Text style={styles.category}>{article.category}</Text>
           <Text style={styles.meta}>읽는 시간 {article.readingMinutes}분</Text>
         </View>
-        <Text aria-level={featured ? 2 : 3} role="heading" style={featured ? styles.featureTitle : styles.articleTitle}>{article.title}</Text>
+        <Text aria-level={featured ? 2 : 3} role="heading" style={featured ? styles.featureTitle : styles.articleTitle}>
+          {featured ? formatFeaturedTitle(article.title) : article.title}
+        </Text>
         <Text style={styles.summary}>{article.summary}</Text>
         <View style={styles.cardFooter}>
           <Text style={styles.date}>{article.publishedLabel}</Text>

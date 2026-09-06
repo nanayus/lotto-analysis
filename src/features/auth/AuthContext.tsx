@@ -15,6 +15,7 @@ import { trackEvent } from '@/features/analytics/analyticsClient';
 
 import { auth, db, functions } from './firebaseClient';
 import { firebaseConfigurationError } from './firebaseConfig';
+import { ANONYMOUS_AUTH_ENABLED } from './featureFlags';
 import {
   authenticate,
   AuthenticationCancelledError,
@@ -100,6 +101,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const firebaseAuth = auth;
     return onAuthStateChanged(firebaseAuth, (firebaseUser) => {
       if (!firebaseUser) {
+        if (!ANONYMOUS_AUTH_ENABLED) {
+          setState({ status: 'guest' });
+          return;
+        }
         setState({ status: 'loading' });
         void signInAnonymously(firebaseAuth).catch((anonymousError) => {
           setError(messageForError(anonymousError));
@@ -108,6 +113,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
       if (firebaseUser.isAnonymous) {
+        if (!ANONYMOUS_AUTH_ENABLED) {
+          setState({ status: 'guest' });
+          return;
+        }
         setState({ status: 'anonymous', uid: firebaseUser.uid });
         return;
       }

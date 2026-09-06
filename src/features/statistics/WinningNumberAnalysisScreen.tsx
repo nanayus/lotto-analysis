@@ -335,6 +335,7 @@ export function WinningNumberAnalysisScreen() {
             bonusIncluded={filters.includeBonus}
             firstRound={firstRound}
             headerActionAccessibilityLabel="다른 당첨 회차 선택"
+            headerActionLabel="회차 변경"
             headerTitle="당첨번호 분석"
             heroContext={(
               <>

@@ -42,7 +42,7 @@ export function TrioSection({ onSelectNumber, selectedNumber, trios }: TrioSecti
                         height={20}
                         style={[styles.number, selected && styles.numberSelected]}
                         width={24}>
-                        {String(number).padStart(2, '0')}
+                        {number}
                       </AnimatedValue>
                     </Pressable>
                   </View>

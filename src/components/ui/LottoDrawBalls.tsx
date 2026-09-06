@@ -12,7 +12,7 @@ type LottoDrawBallsProps = {
 };
 
 function formatNumber(number: number) {
-  return String(number).padStart(2, '0');
+  return String(number);
 }
 
 export function LottoDrawBalls({

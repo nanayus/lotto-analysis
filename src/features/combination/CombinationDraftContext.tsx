@@ -1,12 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
+import type { GeneratorConditionDescription } from '@/domain/generator/describeGeneratorConditions';
+import type { GeneratorConditions } from '@/domain/generator/types';
+
+export type CombinationDraftMetadata = {
+  generationConditions?: readonly GeneratorConditionDescription[];
+  generatorConditions?: GeneratorConditions;
+  source: 'ai' | 'manual' | 'random';
+};
+
 type CombinationDraftValue = {
   addNumber: (number: number) => void;
   clear: () => void;
+  metadata: CombinationDraftMetadata | null;
   removeNumber: (number: number) => void;
   selectedNumbers: number[];
-  setNumbers: (numbers: readonly number[]) => void;
+  setNumbers: (numbers: readonly number[], metadata?: CombinationDraftMetadata | null) => void;
   toggleNumber: (number: number) => void;
 };
 
@@ -21,6 +31,7 @@ export function normalizeDraftNumbers(numbers: readonly number[]) {
 }
 
 export function CombinationDraftProvider({ children }: { children: React.ReactNode }) {
+  const [metadata, setMetadata] = useState<CombinationDraftMetadata | null>(null);
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>(() => {
     if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return [];
     try {
@@ -34,25 +45,39 @@ export function CombinationDraftProvider({ children }: { children: React.ReactNo
     if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return;
     sessionStorage.setItem(WEB_DRAFT_KEY, JSON.stringify(selectedNumbers));
   }, [selectedNumbers]);
-  const setNumbers = useCallback((numbers: readonly number[]) => {
+  const setNumbers = useCallback((numbers: readonly number[], nextMetadata: CombinationDraftMetadata | null = null) => {
     setSelectedNumbers(normalizeDraftNumbers(numbers));
+    setMetadata(nextMetadata);
   }, []);
   const addNumber = useCallback((number: number) => {
+    setMetadata(null);
     setSelectedNumbers((current) => current.includes(number) || current.length >= 6
       ? current
       : normalizeDraftNumbers([...current, number]));
   }, []);
   const removeNumber = useCallback((number: number) => {
+    setMetadata(null);
     setSelectedNumbers((current) => current.filter((item) => item !== number));
   }, []);
   const toggleNumber = useCallback((number: number) => {
+    setMetadata(null);
     setSelectedNumbers((current) => current.includes(number)
       ? current.filter((item) => item !== number)
       : current.length >= 6 ? current : normalizeDraftNumbers([...current, number]));
   }, []);
-  const clear = useCallback(() => setSelectedNumbers([]), []);
-  const value = useMemo(() => ({ addNumber, clear, removeNumber, selectedNumbers, setNumbers, toggleNumber }),
-    [addNumber, clear, removeNumber, selectedNumbers, setNumbers, toggleNumber]);
+  const clear = useCallback(() => {
+    setSelectedNumbers([]);
+    setMetadata(null);
+  }, []);
+  const value = useMemo(() => ({
+    addNumber,
+    clear,
+    metadata,
+    removeNumber,
+    selectedNumbers,
+    setNumbers,
+    toggleNumber,
+  }), [addNumber, clear, metadata, removeNumber, selectedNumbers, setNumbers, toggleNumber]);
   return <CombinationDraftContext.Provider value={value}>{children}</CombinationDraftContext.Provider>;
 }
 

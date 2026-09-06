@@ -11,6 +11,8 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -46,19 +48,20 @@ import {
 
 import { AiCombinationExplanation } from './AiCombinationExplanation';
 import { CombinationNumberPills } from './CombinationNumberPills';
+import { InlineNumberCircle } from './InlineNumberCircle';
 
 type CombinationResultProps = {
   analysis: CombinationAnalysis;
   bonusIncluded: boolean;
   firstRound: number;
   headerActionAccessibilityLabel?: string;
+  headerActionLabel?: string;
   headerTitle?: string;
   heroContext?: React.ReactNode;
   latestRound: number;
   onBonusChange: (included: boolean) => void;
   onBack?: () => void;
   onToggleFavorite?: () => void;
-  onTogglePurchased?: () => void;
   onOpenHistory: () => void;
   onOpenPrizeRank: (rank: PrizeRank) => void;
   onPeriodChange: (period: AnalysisPeriod) => void;
@@ -79,7 +82,6 @@ type CombinationResultProps = {
   canUseAiExplanation?: boolean;
   favorite?: boolean;
   isPro?: boolean;
-  purchased?: boolean;
   requiresAiLogin?: boolean;
   showAiExplanation?: boolean;
 };
@@ -108,10 +110,121 @@ const webTabStyle = Platform.select({
 });
 
 function formatNumber(number: number) {
-  return String(number).padStart(2, '0');
+  return String(number);
 }
 
 type NumberGapHighlight = 'critical' | 'notable' | null;
+
+type HeadlineRichTextProps = {
+  compact?: boolean;
+  style: StyleProp<TextStyle>;
+  testID: string;
+  text: string;
+  tone?: 'accent' | 'critical';
+};
+
+type TextRange = { end: number; start: number };
+
+function headlineNumberRanges(text: string, includeStandaloneLabel = false) {
+  const ranges: TextRange[] = [];
+  const addRange = (start: number, end: number) => {
+    if (!ranges.some((range) => range.start === start && range.end === end)) {
+      ranges.push({ end, start });
+    }
+  };
+
+  for (const match of text.matchAll(/\d+(?:[·–-]\d+)+/g)) {
+    const compoundStart = match.index ?? 0;
+    for (const numberMatch of match[0].matchAll(/\d+/g)) {
+      const start = compoundStart + (numberMatch.index ?? 0);
+      addRange(start, start + numberMatch[0].length);
+    }
+  }
+
+  for (const match of text.matchAll(/\d+(?=번(?!호)(?:은|는|이|가|과|와|의|도|을|를|에서|부터|까지)|부터|까지)/g)) {
+    const start = match.index ?? 0;
+    addRange(start, start + match[0].length);
+  }
+  if (includeStandaloneLabel) {
+    for (const match of text.matchAll(/\d+(?=번(?!호)\s*(?:·|$))/g)) {
+      const start = match.index ?? 0;
+      addRange(start, start + match[0].length);
+    }
+  }
+
+  return ranges.sort((left, right) => left.start - right.start);
+}
+
+function HeadlineRichText({
+  compact = false,
+  style,
+  testID,
+  text,
+  tone = 'accent',
+}: HeadlineRichTextProps) {
+  if (!headlineNumberRanges(text, compact).length) return <Text style={style}>{text}</Text>;
+
+  let numberIndex = 0;
+  return (
+    <View style={headlineRichTextStyles.line}>
+      {text.trim().split(/\s+/).map((word, wordIndex) => {
+        const ranges = headlineNumberRanges(word, compact);
+        const children: React.ReactNode[] = [];
+        let cursor = 0;
+        ranges.forEach((range) => {
+          if (range.start > cursor) {
+            children.push(<Text key={`text-${cursor}`} style={style}>{word.slice(cursor, range.start)}</Text>);
+          }
+          const number = Number(word.slice(range.start, range.end));
+          const currentNumberIndex = numberIndex;
+          numberIndex += 1;
+          children.push(
+            <InlineNumberCircle
+              compact={compact}
+              key={`number-${range.start}`}
+              number={number}
+              testID={`${testID}-${number}-${currentNumberIndex}`}
+              tone={tone}
+            />,
+          );
+          cursor = word.startsWith('번', range.end) ? range.end + 1 : range.end;
+        });
+        if (cursor < word.length) {
+          children.push(<Text key={`text-${cursor}`} style={style}>{word.slice(cursor)}</Text>);
+        }
+        return (
+          <View
+            key={`${word}-${wordIndex}`}
+            style={[
+              headlineRichTextStyles.word,
+              compact && headlineRichTextStyles.wordCompact,
+            ]}>
+            {children}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const headlineRichTextStyles = StyleSheet.create({
+  line: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    rowGap: 4,
+  },
+  word: {
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  wordCompact: {
+    minHeight: 21,
+    marginRight: 4,
+  },
+});
 
 function numberGapHighlight(item: IndividualNumberAnalysis): NumberGapHighlight {
   if (item.appearanceCount < 2 || item.averageGap <= 0) return null;
@@ -716,9 +829,6 @@ function ConditionStatistics({
   const metrics = analysis.conditionMetrics;
   return (
     <SectionCard testID="result-section-condition-statistics" title="조건별 통계">
-      <Text style={styles.conditionStatsDescription}>
-        조합 선택 화면과 같은 기준으로 현재 조합을 계산했어요.
-      </Text>
       <ScrollView
         contentContainerStyle={styles.conditionTabContent}
         horizontal
@@ -884,14 +994,14 @@ export function CombinationResult({
   analysis,
   bonusIncluded,
   firstRound,
-  headerActionAccessibilityLabel = '새 조합 분석',
+  headerActionAccessibilityLabel = '새로 분석하기',
+  headerActionLabel = '새로 분석하기',
   headerTitle = '조합 분석',
   heroContext,
   latestRound,
   onBonusChange,
   onBack = NOOP,
   onToggleFavorite = NOOP,
-  onTogglePurchased = NOOP,
   onOpenHistory,
   onOpenPrizeRank,
   onPeriodChange,
@@ -902,13 +1012,12 @@ export function CombinationResult({
   onSectionViewed,
   period,
   showLibraryActions = true,
-  startOverAccessibilityLabel = '새 조합 분석하기',
-  startOverLabel = '새 조합 분석하기',
+  startOverAccessibilityLabel = '새로 분석하기',
+  startOverLabel = '새로 분석하기',
   canRegenerate = false,
   favorite = false,
   isPro = false,
   canUseAiExplanation = isPro,
-  purchased = false,
   requiresAiLogin = false,
   showAiExplanation = true,
 }: CombinationResultProps) {
@@ -916,10 +1025,13 @@ export function CombinationResult({
   const headline = describeCombinationHeadline(analysis);
   const headlineEvidence = [headline.sourceLabel, headline.supportingSourceLabel]
     .filter((label): label is string => Boolean(label));
+  const compactPeriodLabel = period.kind === 'preset'
+    ? period.label
+    : `${period.startRound}~${period.endRound}회`;
+  const stickyFilterLabel = `${compactPeriodLabel} · 보너스 ${bonusIncluded ? '포함' : '제외'}`;
   const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
   const [stickyNumbersVisible, setStickyNumbersVisible] = useState(false);
   const [favoriteSelection, setFavoriteSelection] = useState<{ key: string; value: boolean } | null>(null);
-  const [purchasedSelection, setPurchasedSelection] = useState<{ key: string; value: boolean } | null>(null);
   const libraryNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionLayoutsRef = useRef(new Map<CombinationResultSectionKey, { height: number; y: number }>());
   const sectionTimersRef = useRef(new Map<CombinationResultSectionKey, ReturnType<typeof setTimeout>>());
@@ -943,9 +1055,6 @@ export function CombinationResult({
   const favoriteSelected = favoriteSelection?.key === analysisNumberKey
     ? favoriteSelection.value
     : favorite;
-  const purchasedSelected = purchasedSelection?.key === analysisNumberKey
-    ? purchasedSelection.value
-    : purchased;
 
   useEffect(() => {
     onSectionViewedRef.current = onSectionViewed;
@@ -1011,14 +1120,6 @@ export function CombinationResult({
     libraryNoticeTimerRef.current = setTimeout(() => setLibraryNotice(null), 1800);
   };
 
-  const handleTogglePurchased = () => {
-    const selected = !purchasedSelected;
-    setPurchasedSelection({ key: analysisNumberKey, value: selected });
-    onTogglePurchased();
-    onResultInteraction('headline', 'toggle_purchased', selected ? 'on' : 'off');
-    showLibraryNotice(selected ? '구매번호로 등록되었습니다.' : '구매번호에서 해제되었습니다.');
-  };
-
   const handleToggleFavorite = () => {
     const selected = !favoriteSelected;
     setFavoriteSelection({ key: analysisNumberKey, value: selected });
@@ -1050,15 +1151,16 @@ export function CombinationResult({
               onResultInteraction('headline', 'start_over');
               onStartOver();
             }}
-            style={({ pressed }) => [styles.startOverButton, webPointerStyle, pressed && styles.pressed]}>
-            <Ionicons color={styles.startOverIcon.color} name="refresh-outline" size={20} />
+            style={({ pressed }) => [styles.startOverButton, webPointerStyle, pressed && styles.pressed]}
+            testID="combination-header-start-over">
+            <Text style={styles.startOverText}>{headerActionLabel}</Text>
           </Pressable>
         )}
         title={headerTitle}
       />
       {stickyNumbersVisible ? (
         <Animated.View
-          accessibilityLabel={`선택 번호 ${analysis.numbers.join(', ')}`}
+          accessibilityLabel={`선택 번호 ${analysis.numbers.join(', ')}, ${stickyFilterLabel}`}
           accessible
           entering={FadeIn.duration(120)}
           exiting={FadeOut.duration(100)}
@@ -1066,6 +1168,7 @@ export function CombinationResult({
           style={styles.stickyNumberBar}
           testID="result-sticky-numbers">
           <CombinationNumberPills compact numbers={analysis.numbers} />
+          <Text numberOfLines={1} style={styles.stickyFilterText}>{stickyFilterLabel}</Text>
         </Animated.View>
       ) : null}
       <ScrollView
@@ -1090,8 +1193,6 @@ export function CombinationResult({
             <LibraryStatusActions
               favorite={favoriteSelected}
               onToggleFavorite={handleToggleFavorite}
-              onTogglePurchased={handleTogglePurchased}
-              purchased={purchasedSelected}
               testID="result-card-actions"
             />
           </View>
@@ -1139,6 +1240,57 @@ export function CombinationResult({
         />
       </View>
 
+      <View onLayout={sectionLayoutHandler('prize_history')}>
+      <AppCard style={styles.prizeSection} testID="result-section-prize">
+        <View style={styles.prizeHeadingRow}>
+          <Text style={styles.prizeSectionTitle}>과거 당첨 기록</Text>
+          <Pressable
+            accessibilityLabel="전체 기록"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => {
+              onResultInteraction('prize_history', 'open_all_history');
+              onOpenHistory();
+            }}
+            style={({ pressed }) => [
+              styles.historyAction,
+              webPointerStyle,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={styles.historyActionText}>전체 기록</Text>
+            <Text style={styles.historyActionChevron}>›</Text>
+          </Pressable>
+        </View>
+        <View style={styles.prizeRow}>
+          {PRIZE_RANKS.map((rank, index) => {
+            const disabled = analysis.prizeCounts[rank] === 0;
+            return (
+              <Pressable
+                accessibilityLabel={`${rank}등 기록 ${analysis.prizeCounts[rank]}회`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled }}
+                disabled={disabled}
+                key={rank}
+                onPress={() => {
+                  onResultInteraction('prize_history', 'open_prize_rank', String(rank));
+                  onOpenPrizeRank(rank);
+                }}
+                style={({ pressed }) => [
+                  styles.prizeItem,
+                  index > 0 && styles.prizeDivider,
+                  !disabled && webPointerStyle,
+                  disabled && styles.prizeItemDisabled,
+                  pressed && styles.prizeItemPressed,
+                ]}>
+                <Text style={styles.prizeLabel}>{rank}등</Text>
+                <Text style={styles.prizeValue}>{analysis.prizeCounts[rank]}회</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </AppCard>
+      </View>
+
       <View
         onLayout={sectionLayoutHandler('headline')}
         style={styles.headlineBlock}
@@ -1157,11 +1309,12 @@ export function CombinationResult({
               testID="headline-insight-dot-primary"
             />
             <View style={styles.headlineCopy}>
-              <Text style={styles.headlineText}>{headline.text}</Text>
-              <Text style={[
-                styles.headlineSource,
-                headline.tone === 'critical' && styles.headlineSourceCritical,
-              ]}>{headline.sourceLabel}</Text>
+              <HeadlineRichText
+                style={styles.headlineText}
+                testID="headline-primary-number"
+                text={headline.text}
+                tone={headline.tone === 'critical' ? 'critical' : 'accent'}
+              />
             </View>
           </View>
           {headline.supportingText ? (
@@ -1174,18 +1327,28 @@ export function CombinationResult({
                 testID="headline-insight-dot-supporting"
               />
               <View style={styles.headlineCopy}>
-                <Text style={styles.headlineText} testID="combination-headline-supporting">
-                  {headline.supportingText}
-                </Text>
-                <Text style={[
-                  styles.headlineSource,
-                  headline.supportingTone === 'critical' && styles.headlineSourceCritical,
-                ]}>{headline.supportingSourceLabel}</Text>
+                <View testID="combination-headline-supporting">
+                  <HeadlineRichText
+                    style={styles.headlineText}
+                    testID="headline-supporting-number"
+                    text={headline.supportingText}
+                    tone={headline.supportingTone === 'critical' ? 'critical' : 'accent'}
+                  />
+                </View>
               </View>
             </View>
           ) : null}
         </View>
       </View>
+
+      {showAiExplanation ? (
+        <AiCombinationExplanation
+          analysis={analysis}
+          isPro={canUseAiExplanation}
+          onOpenPro={onOpenPro}
+          requiresLogin={requiresAiLogin}
+        />
+      ) : null}
 
       <Text style={styles.resultGroupTitle}>번호 구성 분석</Text>
 
@@ -1216,7 +1379,6 @@ export function CombinationResult({
           전체 평균 대비 {analysis.groupFrequency.differencePct >= 0 ? '+' : ''}
           {analysis.groupFrequency.differencePct.toFixed(1)}%
         </Text>
-        <Text style={styles.cardNote}>선택한 분석 범위의 과거 출현 횟수 비교입니다.</Text>
       </SectionCard>
       </View>
 
@@ -1321,68 +1483,6 @@ export function CombinationResult({
       />
       </View>
 
-      <Text style={styles.resultGroupTitle}>핵심 결과</Text>
-
-      <View onLayout={sectionLayoutHandler('prize_history')}>
-      <AppCard style={styles.prizeSection} testID="result-section-prize">
-        <View style={styles.prizeHeadingRow}>
-          <Text style={styles.prizeSectionTitle}>과거 당첨 기록</Text>
-          <Pressable
-            accessibilityLabel="전체 기록"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={() => {
-              onResultInteraction('prize_history', 'open_all_history');
-              onOpenHistory();
-            }}
-            style={({ pressed }) => [
-              styles.historyAction,
-              webPointerStyle,
-              pressed && styles.pressed,
-            ]}>
-            <Text style={styles.historyActionText}>전체 기록</Text>
-            <Text style={styles.historyActionChevron}>›</Text>
-          </Pressable>
-        </View>
-        <View style={styles.prizeRow}>
-          {PRIZE_RANKS.map((rank, index) => {
-            const disabled = analysis.prizeCounts[rank] === 0;
-            return (
-              <Pressable
-                accessibilityLabel={`${rank}등 기록 ${analysis.prizeCounts[rank]}회`}
-                accessibilityRole="button"
-                accessibilityState={{ disabled }}
-                disabled={disabled}
-                key={rank}
-                onPress={() => {
-                  onResultInteraction('prize_history', 'open_prize_rank', String(rank));
-                  onOpenPrizeRank(rank);
-                }}
-                style={({ pressed }) => [
-                  styles.prizeItem,
-                  index > 0 && styles.prizeDivider,
-                  !disabled && webPointerStyle,
-                  disabled && styles.prizeItemDisabled,
-                  pressed && styles.prizeItemPressed,
-                ]}>
-                <Text style={styles.prizeLabel}>{rank}등</Text>
-                <Text style={styles.prizeValue}>{analysis.prizeCounts[rank]}회</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </AppCard>
-      </View>
-
-      {showAiExplanation ? (
-        <AiCombinationExplanation
-          analysis={analysis}
-          isPro={canUseAiExplanation}
-          onOpenPro={onOpenPro}
-          requiresLogin={requiresAiLogin}
-        />
-      ) : null}
-
       <Text style={styles.resultGroupTitle}>과거 기록 비교</Text>
 
       <View
@@ -1451,7 +1551,8 @@ export function CombinationResult({
             styles.newAnalysisButton,
             webPointerStyle,
             pressed && styles.pressed,
-          ]}>
+          ]}
+          testID="combination-footer-start-over">
           <Text style={styles.newAnalysisText}>{startOverLabel}</Text>
         </Pressable>
         {canRegenerate ? (
@@ -1468,15 +1569,15 @@ export function CombinationResult({
               styles.footerRegenerateButton,
               webPointerStyle,
               pressed && styles.pressed,
-            ]}>
-            <Ionicons color={styles.footerRegenerateIcon.color} name="star" size={16} />
+            ]}
+            testID="combination-footer-regenerate">
+            <Ionicons color={styles.footerRegenerateIcon.color} name="shuffle" size={18} />
             <Text style={styles.footerRegenerateText}>같은 조건으로 다시 뽑기</Text>
             {!isPro ? (
               <View style={styles.footerProBadge}>
                 <Text style={styles.footerProText}>Pro</Text>
               </View>
             ) : null}
-            <Ionicons color={styles.footerChevron.color} name="chevron-forward" size={20} />
           </Pressable>
         ) : null}
       </View>
@@ -1511,11 +1612,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minHeight: ANALYSIS_STICKY_SUMMARY_MIN_HEIGHT,
     paddingHorizontal: spacing.lg,
     paddingVertical: ANALYSIS_STICKY_SUMMARY_VERTICAL_PADDING,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
     backgroundColor: colors.surface,
     boxShadow: colors.cardShadow,
+  },
+  stickyFilterText: {
+    flexShrink: 1,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.semibold,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   content: {
     paddingHorizontal: spacing.lg,
@@ -1524,12 +1636,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.md,
   },
   startOverButton: {
-    width: 44,
-    height: 44,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
   },
-  startOverIcon: { color: colors.textSecondary },
+  startOverText: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.small,
+    fontWeight: typography.weights.semibold,
+  },
   selectedProfile: {
     position: 'relative',
     alignItems: 'stretch',
@@ -1597,15 +1715,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.medium,
     lineHeight: 24,
   },
-  headlineSource: {
-    marginTop: spacing.xs,
-    color: colors.textTertiary,
-    fontSize: typography.sizes.caption,
-    lineHeight: 18,
-  },
-  headlineSourceCritical: {
-    color: colors.hot,
-  },
   resultGroupTitle: {
     marginTop: spacing.lg,
     marginLeft: spacing.xs,
@@ -1636,16 +1745,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: typography.weights.semibold,
   },
   footerRegenerateButton: {
-    minHeight: 52,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.accentBorder,
+    backgroundColor: colors.surfaceAccent,
   },
-  footerRegenerateIcon: { color: colors.textPrimary },
+  footerRegenerateIcon: { color: colors.accentPrimary },
   footerRegenerateText: {
-    color: colors.textPrimary,
+    color: colors.accentPrimary,
     fontSize: typography.sizes.body,
     fontWeight: typography.weights.semibold,
   },
@@ -1662,7 +1775,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.caption,
     fontWeight: typography.weights.bold,
   },
-  footerChevron: { color: colors.textPrimary },
   profileMeta: {
     alignSelf: 'stretch',
     color: colors.textSecondary,
@@ -1755,19 +1867,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sizes.small,
     lineHeight: 19,
     marginBottom: spacing.lg,
-  },
-  cardNote: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    lineHeight: 19,
-    marginTop: spacing.md,
-  },
-  conditionStatsDescription: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.small,
-    lineHeight: 20,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.md,
   },
   conditionTabs: {
     marginHorizontal: -spacing.lg,
@@ -2383,7 +2482,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   prizeSectionTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: typography.sizes.label,
     fontWeight: typography.weights.semibold,
   },
   historyAction: {
@@ -2548,7 +2647,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   numberInsightGapBadgeCritical: { backgroundColor: colors.surface },
   numberInsightGapBadgeText: {
     color: colors.accentPrimary,
-    fontSize: 9,
+    fontSize: typography.sizes.caption,
     fontWeight: typography.weights.semibold,
   },
   numberInsightGapBadgeTextCritical: { color: colors.hot },

@@ -54,7 +54,7 @@ const webPointerStyle = Platform.select({
 });
 
 function formatNumbers(numbers: readonly number[]) {
-  return numbers.map((number) => String(number).padStart(2, '0')).join(' · ');
+  return numbers.map(String).join(' · ');
 }
 
 function periodLabel(analysis: CombinationAnalysis) {

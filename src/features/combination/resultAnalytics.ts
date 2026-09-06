@@ -18,8 +18,7 @@ export type CombinationResultAction =
   | 'regenerate'
   | 'start_over'
   | 'toggle_bonus'
-  | 'toggle_favorite'
-  | 'toggle_purchased';
+  | 'toggle_favorite';
 
 export type ResultSectionLayout = {
   height: number;

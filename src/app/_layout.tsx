@@ -37,7 +37,7 @@ const drawMetadata = {
 
 const libraryMetadata = {
   title: '내번호보기 | Lotto Insight',
-  description: '뽑았던 로또 조합과 구매번호, 즐겨찾기 조합을 한곳에서 확인합니다.',
+  description: '뽑았던 로또 조합과 즐겨찾기 조합을 한곳에서 확인합니다.',
   path: '/my-numbers',
 };
 

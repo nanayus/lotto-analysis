@@ -93,7 +93,7 @@ function MetricRing({ number, progress, selected }: MetricRingProps) {
         />
       </Svg>
       <Text style={[styles.number, selected && styles.numberSelected]}>
-        {String(number).padStart(2, '0')}
+        {number}
       </Text>
     </View>
   );
@@ -338,7 +338,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   selectionLabel: {
     color: colors.textSecondary,
-    fontSize: 10,
+    fontSize: typography.sizes.caption,
   },
   selectionNumber: {
     color: colors.accentPrimary,

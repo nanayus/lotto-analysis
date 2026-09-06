@@ -1988,3 +1988,35 @@ such as `1.0.2 · 추가 업데이트 2`. Do not expose an OTA label in the user
 Do not publish a native app release or OTA update without a matching release-note entry.
 
 The in-app release-note list and direct route must remain visible to every user without an account or UID restriction.
+
+---
+
+# 70. OTA Deployment Safety
+
+Never infer an OTA deployment target from an ambiguous request.
+
+Requests such as `OTA 올려줘`, `업데이트 배포해줘`, or `배포해줘` without an
+explicit target require one short clarification before any deployment command is
+run:
+
+> TestFlight 테스트용인가요, 실제 사용자용 Production인가요?
+
+Apply these rules after the user answers:
+
+- TestFlight requests use only `yarn ota:testflight --message "..."`.
+- Production requests require a second, final confirmation that includes the
+  exact commit shown by the agent: `PRODUCTION OTA 승인: <full commit SHA>`.
+- Before requesting Production confirmation, show the target channel,
+  environment, app/runtime version, commit SHA, platforms, and update message.
+- A generic answer such as `응`, `진행해`, or `올려` is not Production approval.
+- Never run `eas update --channel production` directly from a local machine.
+- Production OTA must run only through the repository's `Production OTA`
+  GitHub Actions workflow and its protected `production` environment.
+- Never bypass the production script's CI checks, forge its approval environment
+  variables, or modify the guard while performing a deployment.
+- Both TestFlight and Production OTA require a clean committed worktree and the
+  matching release-note entry required by section 69.
+
+If the user explicitly asks for TestFlight, no additional target clarification is
+needed. If the user explicitly asks for Production, skip the target clarification
+but still require the commit-specific final confirmation.

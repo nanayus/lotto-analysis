@@ -325,7 +325,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   optionTrailing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   proBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
-  proBadgeText: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 0.7 },
+  proBadgeText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 0.5 },
   check: {
     color: colors.accentPrimary,
     fontSize: typography.sizes.small,

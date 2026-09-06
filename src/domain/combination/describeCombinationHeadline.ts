@@ -3,6 +3,7 @@ import type {
   CombinationSize,
   SubCombinationAnalysis,
 } from './types';
+import { formatAnalysisPeriodRange } from '@/domain/analytics/formatAnalysisPeriod';
 
 export type CombinationHeadlineMetric =
   | 'empty-period'
@@ -120,6 +121,7 @@ function prizeCandidate(
 
 function coOccurrenceCandidates(analysis: CombinationAnalysis): Candidate[] {
   const candidates: Candidate[] = [];
+  const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   const topFour = topCombination(analysis, 4);
   if (
     topFour
@@ -131,7 +133,7 @@ function coOccurrenceCandidates(analysis: CombinationAnalysis): Candidate[] {
       metric: 'four-number',
       score: 86 + Math.min(5, topFour.appearanceCount - 1),
       sourceLabel: `4번호 조합 · ${topFour.appearanceCount}회`,
-      text: `${formatNumbers(topFour.numbers)} 네 번호가 선택 기간에 ${topFour.appearanceCount}번 함께 나왔어요.`,
+      text: `${formatNumbers(topFour.numbers)} 네 번호가 ${periodRange}에 ${topFour.appearanceCount}번 함께 나왔어요.`,
       tone: 'accent',
     });
   }
@@ -208,6 +210,7 @@ function groupFrequencyCandidates(analysis: CombinationAnalysis): Candidate[] {
 }
 
 function gapCandidate(analysis: CombinationAnalysis): Candidate | null {
+  const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   const noAppearance = analysis.individualNumbers
     .filter((item) => item.appearanceCount === 0)
     .sort((left, right) => right.currentGap - left.currentGap || left.number - right.number);
@@ -217,10 +220,10 @@ function gapCandidate(analysis: CombinationAnalysis): Candidate | null {
       family: 'gap',
       metric: 'number-gap',
       score: 61,
-      sourceLabel: `선택 기간 ${analysis.activeDrawCount}회 · 미출현 ${numbers.length}개`,
+      sourceLabel: `${periodRange} · 미출현 ${numbers.length}개`,
       text: numbers.length === 1
-        ? `${numbers[0]}번은 선택한 ${analysis.activeDrawCount}회 동안 출현 기록이 없어요.`
-        : `${formatNumbers(numbers)}번은 선택한 ${analysis.activeDrawCount}회 동안 출현 기록이 없어요.`,
+        ? `${numbers[0]}번은 ${periodRange} 동안 출현 기록이 없어요.`
+        : `${formatNumbers(numbers)}번은 ${periodRange} 동안 출현 기록이 없어요.`,
       tone: 'accent',
       variant: 'no-appearance',
     };
@@ -461,6 +464,7 @@ function candidateSort(left: Candidate, right: Candidate) {
 
 function withSupport(primary: Candidate | null, candidates: Candidate[], analysis: CombinationAnalysis) {
   const shortPeriod = analysis.activeDrawCount < MIN_GROUP_FREQUENCY_DRAWS;
+  const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   const primaryFamily = primary?.family ?? 'neutral';
   const supporting = candidates
     .filter((candidate) => candidate.family !== primaryFamily)
@@ -469,12 +473,12 @@ function withSupport(primary: Candidate | null, candidates: Candidate[], analysi
   return {
     metric: primary?.metric ?? 'neutral',
     sourceLabel: primary?.sourceLabel
-      ?? (shortPeriod ? `선택 기간 ${analysis.activeDrawCount}회` : '조합 형태'),
+      ?? (shortPeriod ? periodRange : '조합 형태'),
     supportingSourceLabel: supporting?.sourceLabel,
     supportingText: supporting?.text,
     supportingTone: supporting?.tone,
     text: primary?.text ?? (shortPeriod
-      ? '선택 기간이 짧아 출현 차이를 뚜렷한 특징으로 판단하기 어려워요.'
+      ? `${periodRange}는 표본이 짧아 출현 차이를 뚜렷한 특징으로 판단하기 어려워요.`
       : '뚜렷하게 두드러진 과거 기록은 없어요.'),
     tone: primary?.tone ?? 'neutral',
     variant: primary?.variant,
@@ -482,9 +486,10 @@ function withSupport(primary: Candidate | null, candidates: Candidate[], analysi
 }
 
 export function describeCombinationHeadline(analysis: CombinationAnalysis): CombinationHeadline {
+  const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   if (analysis.activeDrawCount === 0) return {
-    metric: 'empty-period', sourceLabel: '분석 기간',
-    text: '선택한 기간에는 비교할 과거 회차가 없어요.', tone: 'neutral',
+    metric: 'empty-period', sourceLabel: periodRange,
+    text: `${periodRange}에는 비교할 과거 회차가 없어요.`, tone: 'neutral',
   };
 
   const candidates = [

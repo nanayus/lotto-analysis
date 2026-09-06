@@ -6,8 +6,6 @@ import { type ThemeColors, radius, spacing, useAppTheme, useThemedStyles } from 
 type LibraryStatusActionsProps = {
   favorite: boolean;
   onToggleFavorite: () => void;
-  onTogglePurchased: () => void;
-  purchased: boolean;
   testID?: string;
 };
 
@@ -18,8 +16,6 @@ const webPointerStyle = Platform.select({
 export function LibraryStatusActions({
   favorite,
   onToggleFavorite,
-  onTogglePurchased,
-  purchased,
   testID,
 }: LibraryStatusActionsProps) {
   const { colors } = useAppTheme();
@@ -27,24 +23,6 @@ export function LibraryStatusActions({
 
   return (
     <View style={styles.actions} testID={testID}>
-      <Pressable
-        accessibilityLabel={purchased ? '구매 표시 해제' : '구매한 번호로 표시'}
-        accessibilityRole="button"
-        accessibilityState={{ selected: purchased }}
-        hitSlop={8}
-        onPress={onTogglePurchased}
-        style={({ pressed }) => [
-          styles.iconButton,
-          purchased && styles.iconButtonActive,
-          webPointerStyle,
-          pressed && styles.pressed,
-        ]}>
-        <Ionicons
-          color={purchased ? colors.accentPrimary : colors.textSecondary}
-          name={purchased ? 'bag-check' : 'bag-check-outline'}
-          size={17}
-        />
-      </Pressable>
       <Pressable
         accessibilityLabel={favorite ? '즐겨찾기 해제' : '즐겨찾기에 추가'}
         accessibilityRole="button"

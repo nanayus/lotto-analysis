@@ -2,9 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppConfirmationDialog } from '@/components/ui/AppConfirmationDialog';
 import { CombinationNumberRow } from '@/components/ui/CombinationNumberRow';
 import { MainTabHeader } from '@/components/ui/AppTopBar';
 import { generateCombination } from '@/domain/generator/combinationGenerator';
@@ -19,13 +20,13 @@ import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
 import { type ThemeColors, radius, spacing, typography, useAppTheme, useThemedStyles } from '@/theme';
 
-import { LibraryStatusActions } from './components/LibraryStatusActions';
+import { LibraryConditionSheet } from './components/LibraryConditionSheet';
+import { SwipeableLibraryCard } from './components/SwipeableLibraryCard';
 
-type LibraryTab = 'all' | 'purchased' | 'favorite';
+type LibraryTab = 'all' | 'favorite';
 
 const TABS: readonly { label: string; value: LibraryTab }[] = [
   { label: '전체', value: 'all' },
-  { label: '구매번호', value: 'purchased' },
   { label: '즐겨찾기', value: 'favorite' },
 ];
 
@@ -40,22 +41,27 @@ export function MyNumbersScreen() {
   const styles = useThemedStyles(createStyles);
   const tabBarScrollProps = useAutoHideTabBar();
   const { width } = useWindowDimensions();
-  const useStackedAnalysisAction = width < 430;
-  const { addCombination, combinations, isReady, storageMode, toggleFavorite, togglePurchased } = useNumberLibrary();
+  const useCompactNumbers = width < 360;
+  const { combinations, deleteCombination, isReady, storageMode, toggleFavorite } = useNumberLibrary();
   const { openPaywall, productAccess, proPlanEnabled = true } = useMonetization();
   const { openLogin, state: authState } = useAuth();
   const { setNumbers } = useCombinationDraft();
   const { history: lottoHistory } = useLottoData();
   const [activeTab, setActiveTab] = useState<LibraryTab>('all');
-  const [expandedConditionId, setExpandedConditionId] = useState<string | null>(null);
+  const [conditionSheetItem, setConditionSheetItem] = useState<SavedCombination | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [regenerationErrorId, setRegenerationErrorId] = useState<string | null>(null);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<SavedCombination | null>(null);
   const visibleItems = useMemo(() => combinations.filter((item) => (
-    activeTab === 'all' || (activeTab === 'purchased' ? item.purchased : item.favorite)
+    activeTab === 'all' || item.favorite
   )), [activeTab, combinations]);
 
   const analyze = useCallback((item: SavedCombination) => {
-    setNumbers(item.numbers);
+    setNumbers(item.numbers, {
+      ...(item.generationConditions ? { generationConditions: item.generationConditions } : {}),
+      ...(item.generatorConditions ? { generatorConditions: item.generatorConditions } : {}),
+      source: item.source,
+    });
     router.push({
       pathname: COMBINATION_ANALYSIS_ROUTE,
       params: {
@@ -70,24 +76,33 @@ export function MyNumbersScreen() {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
   }, []);
 
+  const confirmDelete = useCallback(() => {
+    if (!pendingDeleteItem) return;
+    deleteCombination(pendingDeleteItem.id);
+    setPendingDeleteItem(null);
+    if (Platform.OS !== 'web') {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [deleteCombination, pendingDeleteItem]);
+
   const regenerate = useCallback(async (item: SavedCombination) => {
     if (!item.generatorConditions || regeneratingId) return;
     setRegeneratingId(item.id);
     setRegenerationErrorId(null);
     try {
       const outcome = await generateCombination(item.generatorConditions, { history: lottoHistory });
-      const generatedId = addCombination(outcome.numbers, 'ai', {
+      setNumbers(outcome.numbers, {
         generationConditions: describeGeneratorConditions(item.generatorConditions),
         generatorConditions: item.generatorConditions,
+        source: 'ai',
       });
-      setNumbers(outcome.numbers);
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       router.push({
         pathname: COMBINATION_ANALYSIS_ROUTE,
         params: {
-          analyze: generatedId ? `library-${generatedId}` : `library-regenerated-${Date.now()}`,
+          analyze: `library-regenerated-${Date.now()}`,
           returnTo: 'my-numbers',
         },
       });
@@ -99,7 +114,7 @@ export function MyNumbersScreen() {
     } finally {
       setRegeneratingId(null);
     }
-  }, [addCombination, lottoHistory, regeneratingId, setNumbers]);
+  }, [lottoHistory, regeneratingId, setNumbers]);
   const requestRegenerate = useCallback((item: SavedCombination) => {
     if (!productAccess.canRegenerateWithSameConditions) {
       openPaywall('same-condition-regeneration');
@@ -108,11 +123,9 @@ export function MyNumbersScreen() {
     void regenerate(item);
   }, [openPaywall, productAccess.canRegenerateWithSameConditions, regenerate]);
 
-  const emptyCopy = activeTab === 'purchased'
-    ? ['구매한 번호가 없어요', '뽑은 조합에서 구매 표시를 해보세요.']
-    : activeTab === 'favorite'
-      ? ['즐겨찾기한 조합이 없어요', '마음에 드는 조합을 따로 모아볼 수 있어요.']
-      : ['아직 뽑은 번호가 없어요', '번호뽑기에서 첫 조합을 만들어보세요.'];
+  const emptyCopy = activeTab === 'favorite'
+    ? ['즐겨찾기한 조합이 없어요', '마음에 드는 조합을 따로 모아볼 수 있어요.']
+    : ['아직 저장한 번호가 없어요', '조합 결과에서 즐겨찾기하면 여기에 저장돼요.'];
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -165,11 +178,15 @@ export function MyNumbersScreen() {
             <Text style={styles.loading}>저장된 번호를 불러오고 있어요.</Text>
           ) : visibleItems.length ? (
             <View style={styles.list}>
-              {visibleItems.map((item, index) => {
-                const conditionsExpanded = expandedConditionId === item.id;
+              {visibleItems.map((item) => {
                 const conditionCount = item.generationConditions?.length;
                 return (
-                  <View key={`${item.id}-${index}`} style={styles.card}>
+                  <SwipeableLibraryCard
+                    favorite={item.favorite}
+                    key={item.id}
+                    onDeleteRequest={() => setPendingDeleteItem(item)}
+                    onToggleFavorite={() => toggle(() => toggleFavorite(item.id))}>
+                  <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <View style={styles.metaRow}>
                         <View style={[styles.sourceBadge, item.source === 'ai' && styles.sourceBadgeAi]}>
@@ -183,120 +200,51 @@ export function MyNumbersScreen() {
                         </View>
                         <Text style={styles.dateText}>{formatSavedDate(item.createdAt)}</Text>
                       </View>
-                      <LibraryStatusActions
-                        favorite={item.favorite}
-                        onToggleFavorite={() => toggle(() => toggleFavorite(item.id))}
-                        onTogglePurchased={() => toggle(() => togglePurchased(item.id))}
-                        purchased={item.purchased}
-                      />
+                      {item.source === 'ai' ? (
+                        <View style={styles.cardActions}>
+                          <Pressable
+                            accessibilityLabel="생성 조건 보기"
+                            accessibilityRole="button"
+                            onPress={() => {
+                              setRegenerationErrorId(null);
+                              setConditionSheetItem(item);
+                            }}
+                            style={({ pressed }) => [styles.conditionButton, pressed && styles.pressed]}>
+                            <Ionicons color={colors.accentPrimary} name="options-outline" size={17} />
+                            {conditionCount !== undefined ? (
+                              <View style={styles.conditionCountBadge}>
+                                <Text style={styles.conditionCountText}>{conditionCount}</Text>
+                              </View>
+                            ) : null}
+                          </Pressable>
+                        </View>
+                      ) : null}
                     </View>
-                    {item.source === 'ai' ? (
-                      <>
-                        <Pressable
-                          accessibilityLabel={conditionsExpanded ? '생성 조건 접기' : '생성 조건 보기'}
-                          accessibilityRole="button"
-                          accessibilityState={{ expanded: conditionsExpanded }}
-                          onPress={() => setExpandedConditionId((current) => current === item.id ? null : item.id)}
-                          style={({ pressed }) => [styles.conditionToggle, pressed && styles.pressed]}>
-                          <View style={styles.conditionToggleCopy}>
-                            <Ionicons color={colors.accentPrimary} name="options-outline" size={15} />
-                            <Text style={styles.conditionToggleLabel}>
-                              {item.generationConditions
-                                ? conditionCount
-                                  ? `생성 조건 ${conditionCount}개`
-                                  : '생성 조건 없음'
-                                : '생성 조건 기록 없음'}
-                            </Text>
-                          </View>
-                          <View style={styles.conditionToggleAction}>
-                            <Text style={styles.conditionToggleActionText}>{conditionsExpanded ? '접기' : '보기'}</Text>
-                            <Ionicons
-                              color={colors.textSecondary}
-                              name={conditionsExpanded ? 'chevron-up' : 'chevron-down'}
-                              size={14}
-                            />
-                          </View>
-                        </Pressable>
-                        {conditionsExpanded ? (
-                          <View style={styles.conditionDetails}>
-                            {item.generationConditions ? (
-                              item.generationConditions.length ? item.generationConditions.map((condition) => (
-                                <View key={condition.key} style={styles.conditionRow}>
-                                  <Text style={styles.conditionLabel}>{condition.label}</Text>
-                                  <Text style={styles.conditionValue}>{condition.value}</Text>
-                                </View>
-                              )) : (
-                                <Text style={styles.conditionEmpty}>선택한 세부 조건 없이 1–45 전체에서 생성했어요.</Text>
-                              )
-                            ) : (
-                              <Text style={styles.conditionEmpty}>조건 기록 기능이 추가되기 전에 저장된 조합이에요.</Text>
-                            )}
-                            {item.generatorConditions ? (
-                              <Pressable
-                                accessibilityLabel={productAccess.canRegenerateWithSameConditions
-                                  ? '같은 조건으로 다시 뽑기'
-                                  : '같은 조건으로 다시 뽑기, Pro 전용'}
-                                accessibilityRole="button"
-                                accessibilityState={{ disabled: regeneratingId !== null }}
-                                disabled={regeneratingId !== null}
-                                onPress={() => requestRegenerate(item)}
-                                style={({ pressed }) => [
-                                  styles.regenerateButton,
-                                  pressed && styles.pressed,
-                                  regeneratingId !== null && styles.regenerateButtonDisabled,
-                                ]}>
-                                {regeneratingId === item.id ? (
-                                  <ActivityIndicator color={colors.accentPrimary} size="small" />
-                                ) : (
-                                  <Ionicons color={colors.accentPrimary} name="refresh-outline" size={15} />
-                                )}
-                                <Text style={styles.regenerateButtonText}>
-                                  {regeneratingId === item.id ? '다시 뽑는 중' : '같은 조건으로 다시 뽑기'}
-                                </Text>
-                                {!productAccess.canRegenerateWithSameConditions ? (
-                                  <View style={styles.regenerateProBadge}>
-                                    <Text style={styles.regenerateProText}>PRO</Text>
-                                  </View>
-                                ) : null}
-                              </Pressable>
-                            ) : null}
-                            {regenerationErrorId === item.id ? (
-                              <Text accessibilityRole="alert" style={styles.regenerationError}>
-                                다시 뽑지 못했어요. 잠시 후 다시 시도해 주세요.
-                              </Text>
-                            ) : null}
-                          </View>
-                        ) : null}
-                      </>
-                    ) : null}
                     <Pressable
-                      accessibilityLabel={`${item.numbers.join(', ')} ${productAccess.requiresAdForResults ? '광고 후 분석 결과 보기' : '분석 결과 보기'}`}
+                      accessibilityLabel={`${item.numbers.join(', ')}, 조합 분석하기`}
                       accessibilityRole="button"
                       onPress={() => analyze(item)}
                       style={({ pressed }) => [
                         styles.numberAction,
-                        useStackedAnalysisAction && styles.numberActionStacked,
                         pressed && styles.pressed,
                       ]}>
-                      <CombinationNumberRow numbers={item.numbers} size="small" />
-                      <View style={[
-                        styles.analysisLink,
-                        useStackedAnalysisAction && styles.analysisLinkStacked,
-                      ]}>
-                        <Text style={styles.analysisLinkText}>
-                          {productAccess.requiresAdForResults ? '광고 후 결과 보기' : '결과 보기'}
-                        </Text>
-                        <Ionicons color={colors.accentPrimary} name="chevron-forward" size={15} />
+                      <CombinationNumberRow
+                        numbers={item.numbers}
+                        size={useCompactNumbers ? 'compact' : 'small'}
+                      />
+                      <View style={styles.analysisLink}>
+                        <Ionicons color={colors.accentPrimary} name="chevron-forward" size={18} />
                       </View>
                     </Pressable>
                   </View>
+                  </SwipeableLibraryCard>
                 );
               })}
             </View>
           ) : (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <Ionicons color={colors.textSecondary} name={activeTab === 'favorite' ? 'heart-outline' : activeTab === 'purchased' ? 'bag-check-outline' : 'ticket-outline'} size={26} />
+                <Ionicons color={colors.textSecondary} name={activeTab === 'favorite' ? 'heart-outline' : 'ticket-outline'} size={26} />
               </View>
               <Text style={styles.emptyTitle}>{emptyCopy[0]}</Text>
               <Text style={styles.emptyDescription}>{emptyCopy[1]}</Text>
@@ -309,6 +257,27 @@ export function MyNumbersScreen() {
             )}
           </View>
         </ScrollView>
+        {conditionSheetItem ? (
+          <LibraryConditionSheet
+            canRegenerate={productAccess.canRegenerateWithSameConditions}
+            error={regenerationErrorId === conditionSheetItem.id}
+            isRegenerating={regeneratingId === conditionSheetItem.id}
+            item={conditionSheetItem}
+            onClose={() => setConditionSheetItem(null)}
+            onRegenerate={() => requestRegenerate(conditionSheetItem)}
+          />
+        ) : null}
+        <AppConfirmationDialog
+          confirmLabel="삭제"
+          description={pendingDeleteItem
+            ? `${pendingDeleteItem.numbers.join(', ')} 조합이 내번호에서 삭제되며 되돌릴 수 없어요.`
+            : undefined}
+          destructive
+          onCancel={() => setPendingDeleteItem(null)}
+          onConfirm={confirmDelete}
+          title="삭제하시겠습니까?"
+          visible={pendingDeleteItem !== null}
+        />
       </View>
     </SafeAreaView>
   );
@@ -334,38 +303,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
   tabTextSelected: { color: colors.textPrimary, fontWeight: typography.weights.bold },
   scrollContent: { flexGrow: 1 },
-  content: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
+  content: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.huge },
   loading: { color: colors.textSecondary, fontSize: typography.sizes.small, textAlign: 'center', marginTop: spacing.huge },
   list: { gap: spacing.md },
-  card: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, boxShadow: colors.cardShadow, elevation: 2 },
+  card: { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface, boxShadow: colors.cardShadow, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   metaRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sourceBadge: { paddingHorizontal: spacing.sm, paddingVertical: 5, borderRadius: radius.round, backgroundColor: colors.surfaceElevated },
   sourceBadgeAi: { backgroundColor: colors.surfaceAccent },
-  sourceText: { color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.bold },
+  sourceText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   sourceTextAi: { color: colors.accentPrimary },
-  dateText: { color: colors.textTertiary, fontSize: 10 },
-  conditionToggle: { minHeight: 38, marginTop: spacing.md, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.sm, backgroundColor: colors.surfaceElevated },
-  conditionToggleCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  conditionToggleLabel: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  conditionToggleAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  conditionToggleActionText: { color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.medium },
-  conditionDetails: { marginTop: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.sm },
-  conditionRow: { minHeight: 28, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, paddingVertical: spacing.xs },
-  conditionLabel: { flexShrink: 0, color: colors.textSecondary, fontSize: 10 },
-  conditionValue: { flex: 1, color: colors.textPrimary, fontSize: 10, fontWeight: typography.weights.semibold, textAlign: 'right' },
-  conditionEmpty: { color: colors.textSecondary, fontSize: 10, lineHeight: 16 },
-  regenerateButton: { minHeight: 40, marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, borderRadius: radius.sm, backgroundColor: colors.surfaceAccent },
-  regenerateButtonDisabled: { opacity: 0.5 },
-  regenerateButtonText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  regenerateProBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.round, backgroundColor: colors.surface },
-  regenerateProText: { color: colors.accentPrimary, fontSize: 8, fontWeight: typography.weights.bold, letterSpacing: 0.6 },
-  regenerationError: { marginTop: spacing.xs, color: colors.hot, fontSize: 10, lineHeight: 16, textAlign: 'center' },
-  numberAction: { marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
-  numberActionStacked: { alignItems: 'stretch', flexDirection: 'column' },
-  analysisLink: { flexShrink: 1, marginLeft: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 },
-  analysisLinkStacked: { alignSelf: 'flex-end', marginTop: spacing.sm, marginLeft: 0 },
-  analysisLinkText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
+  dateText: { flexShrink: 1, color: colors.textTertiary, fontSize: typography.sizes.caption },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  conditionButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
+  conditionCountBadge: { position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, borderWidth: 2, borderColor: colors.surface, backgroundColor: colors.accentPrimary },
+  conditionCountText: { color: '#FFFFFF', fontSize: 9, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
+  numberAction: { marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
+  analysisLink: { width: 22, height: 32, marginLeft: spacing.xs, alignItems: 'flex-end', justifyContent: 'center' },
   emptyState: { flex: 1, minHeight: 360, alignItems: 'center', justifyContent: 'center' },
   emptyIcon: { width: 58, height: 58, alignItems: 'center', justifyContent: 'center', borderRadius: radius.lg, backgroundColor: colors.surface },
   emptyTitle: { color: colors.textPrimary, fontSize: typography.sizes.label, fontWeight: typography.weights.bold, marginTop: spacing.lg },

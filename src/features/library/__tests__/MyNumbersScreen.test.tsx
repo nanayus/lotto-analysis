@@ -19,6 +19,41 @@ jest.mock('expo-router', () => ({ router: { navigate: jest.fn(), push: jest.fn()
 jest.mock('@/features/combination/CombinationDraftContext', () => ({ useCombinationDraft: jest.fn() }));
 jest.mock('@/features/library/NumberLibraryContext', () => ({ useNumberLibrary: jest.fn() }));
 jest.mock('@/features/monetization/MonetizationContext', () => ({ useMonetization: jest.fn() }));
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Pressable, View } = jest.requireActual<typeof import('react-native')>('react-native');
+  function MockSwipeable({
+    children,
+    onSwipeableOpen,
+    renderLeftActions,
+    renderRightActions,
+  }: {
+    children: React.ReactNode;
+    onSwipeableOpen?: (direction: 'left' | 'right') => void;
+    renderLeftActions?: (...args: unknown[]) => React.ReactNode;
+    renderRightActions?: (...args: unknown[]) => React.ReactNode;
+  }) {
+    const methods = { close: jest.fn(), openLeft: jest.fn(), openRight: jest.fn(), reset: jest.fn() };
+    return React.createElement(
+      View,
+      null,
+      renderLeftActions?.({ value: 0 }, { value: 0 }, methods),
+      React.createElement(Pressable, {
+        accessibilityLabel: '오른쪽 스와이프 완료',
+        onPress: () => onSwipeableOpen?.('right'),
+      }),
+      children,
+      React.createElement(Pressable, {
+        accessibilityLabel: '왼쪽 스와이프 완료',
+        onPress: () => onSwipeableOpen?.('left'),
+      }),
+      renderRightActions?.({ value: 0 }, { value: 0 }, methods),
+    );
+  }
+  return Object.assign(MockSwipeable, {
+    SwipeDirection: { LEFT: 'left', RIGHT: 'right' },
+  });
+});
 jest.mock('@/domain/generator/combinationGenerator', () => {
   const actual = jest.requireActual<typeof import('@/domain/generator/combinationGenerator')>(
     '@/domain/generator/combinationGenerator',
@@ -56,6 +91,7 @@ describe('MyNumbersScreen', () => {
     mockUseCombinationDraft.mockReturnValue({
       addNumber: jest.fn(),
       clear: jest.fn(),
+      metadata: null,
       removeNumber: jest.fn(),
       selectedNumbers: [],
       setNumbers,
@@ -74,10 +110,10 @@ describe('MyNumbersScreen', () => {
         purchased: false,
         source: 'ai',
       }],
+      deleteCombination: jest.fn(),
       isReady: true,
       storageMode: 'device',
       toggleFavorite: jest.fn(),
-      togglePurchased: jest.fn(),
     });
     mockGenerateCombination.mockResolvedValue({ numbers: [1, 2, 3, 40, 41, 45] } as Awaited<ReturnType<typeof generateCombination>>);
 
@@ -85,24 +121,25 @@ describe('MyNumbersScreen', () => {
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: '생성 조건 보기' }));
     });
+    expect(screen.getByTestId('library-condition-sheet')).toBeTruthy();
 
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: '같은 조건으로 다시 뽑기' }));
     });
 
-    await waitFor(() => expect(addCombination).toHaveBeenCalledWith(
+    await waitFor(() => expect(setNumbers).toHaveBeenCalledWith(
       [1, 2, 3, 40, 41, 45],
-      'ai',
       {
         generationConditions: describeGeneratorConditions(conditions),
         generatorConditions: conditions,
+        source: 'ai',
       },
     ));
-    expect(setNumbers).toHaveBeenCalledWith([1, 2, 3, 40, 41, 45]);
+    expect(addCombination).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/combination-analysis',
       params: {
-        analyze: 'library-generated-combination',
+        analyze: expect.stringMatching(/^library-regenerated-/),
         returnTo: 'my-numbers',
       },
     });
@@ -113,6 +150,7 @@ describe('MyNumbersScreen', () => {
     mockUseCombinationDraft.mockReturnValue({
       addNumber: jest.fn(),
       clear: jest.fn(),
+      metadata: null,
       removeNumber: jest.fn(),
       selectedNumbers: [],
       setNumbers: jest.fn(),
@@ -131,10 +169,10 @@ describe('MyNumbersScreen', () => {
         purchased: false,
         source: 'ai',
       }],
+      deleteCombination: jest.fn(),
       isReady: true,
       storageMode: 'device',
       toggleFavorite: jest.fn(),
-      togglePurchased: jest.fn(),
     });
 
     const screen = await render(<MyNumbersScreen />);
@@ -154,6 +192,7 @@ describe('MyNumbersScreen', () => {
     mockUseCombinationDraft.mockReturnValue({
       addNumber: jest.fn(),
       clear: jest.fn(),
+      metadata: null,
       removeNumber: jest.fn(),
       selectedNumbers: [],
       setNumbers,
@@ -181,24 +220,26 @@ describe('MyNumbersScreen', () => {
         purchased: false,
         source: 'random',
       }],
+      deleteCombination: jest.fn(),
       isReady: true,
       storageMode: 'device',
       toggleFavorite: jest.fn(),
-      togglePurchased: jest.fn(),
     });
 
     const screen = await render(<MyNumbersScreen />);
 
     expect(screen.queryByText('분석 완료')).toBeNull();
-    expect(screen.getByRole('button', { name: '3, 16, 20, 23, 29, 45 광고 후 분석 결과 보기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '5, 18, 25, 27, 30, 32 광고 후 분석 결과 보기' })).toBeTruthy();
-    expect(screen.getAllByText('광고 후 결과 보기')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: '3, 16, 20, 23, 29, 45, 조합 분석하기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '5, 18, 25, 27, 30, 32, 조합 분석하기' })).toBeTruthy();
+    expect(screen.queryByText('분석')).toBeNull();
+    expect(screen.queryByText('광고 후 결과 확인')).toBeNull();
   });
 
   test('labels directly selected combinations separately from random combinations', async () => {
     mockUseCombinationDraft.mockReturnValue({
       addNumber: jest.fn(),
       clear: jest.fn(),
+      metadata: null,
       removeNumber: jest.fn(),
       selectedNumbers: [],
       setNumbers: jest.fn(),
@@ -215,15 +256,60 @@ describe('MyNumbersScreen', () => {
         purchased: false,
         source: 'manual',
       }],
+      deleteCombination: jest.fn(),
       isReady: true,
       storageMode: 'device',
       toggleFavorite: jest.fn(),
-      togglePurchased: jest.fn(),
     });
 
     const screen = await render(<MyNumbersScreen />);
 
     expect(screen.getByText('직접 선택')).toBeTruthy();
     expect(screen.queryByText('랜덤조합')).toBeNull();
+  });
+
+  test('confirms a swipe delete and supports swipe favorite', async () => {
+    const deleteCombination = jest.fn();
+    const toggleFavorite = jest.fn();
+    mockUseCombinationDraft.mockReturnValue({
+      addNumber: jest.fn(),
+      clear: jest.fn(),
+      metadata: null,
+      removeNumber: jest.fn(),
+      selectedNumbers: [],
+      setNumbers: jest.fn(),
+      toggleNumber: jest.fn(),
+    });
+    mockUseNumberLibrary.mockReturnValue({
+      addCombination: jest.fn(() => undefined),
+      canSave: true,
+      combinations: [{
+        createdAt: '2026-09-06T10:33:00.000Z',
+        favorite: false,
+        id: 'swipe-combination',
+        numbers: [4, 11, 18, 27, 34, 42],
+        purchased: false,
+        source: 'random',
+      }],
+      deleteCombination,
+      isReady: true,
+      storageMode: 'device',
+      toggleFavorite,
+    });
+
+    const screen = await render(<MyNumbersScreen />);
+    await fireEvent.press(screen.getByLabelText('오른쪽 스와이프 완료'));
+    expect(toggleFavorite).toHaveBeenCalledWith('swipe-combination');
+
+    await fireEvent.press(screen.getByLabelText('왼쪽 스와이프 완료'));
+    expect(screen.getByText('삭제하시겠습니까?')).toBeTruthy();
+    expect(deleteCombination).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: '취소' }));
+    expect(deleteCombination).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByLabelText('왼쪽 스와이프 완료'));
+    await fireEvent.press(screen.getByRole('button', { name: '삭제' }));
+    expect(deleteCombination).toHaveBeenCalledWith('swipe-combination');
   });
 });

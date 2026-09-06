@@ -2,16 +2,17 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { SubScreenHeader } from '@/components/ui/AppTopBar';
 import { LottoDrawBalls } from '@/components/ui/LottoDrawBalls';
+import { formatAnalysisPeriodRange } from '@/domain/analytics/formatAnalysisPeriod';
 import type { CombinationAnalysis, PrizeRank } from '@/domain/combination/types';
 import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
-type DetailMode =
+export type CombinationDetailMode =
   | { kind: 'history' }
   | { kind: 'prizeRank'; rank: PrizeRank };
 
 type CombinationDetailProps = {
   analysis: CombinationAnalysis;
-  mode: DetailMode;
+  mode: CombinationDetailMode;
   onBack: () => void;
 };
 
@@ -20,6 +21,7 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
   const history = mode.kind === 'prizeRank'
     ? analysis.qualifyingHistory.filter((draw) => draw.prizeRank === mode.rank)
     : analysis.qualifyingHistory;
+  const periodRange = formatAnalysisPeriodRange(analysis.filters.period);
   const title = mode.kind === 'history' ? '전체 기록' : `${mode.rank}등 기록`;
 
   return (
@@ -52,8 +54,8 @@ export function CombinationDetail({ analysis, mode, onBack }: CombinationDetailP
             <Text style={styles.emptyTitle}>해당 기록이 없습니다.</Text>
             <Text style={styles.emptyDescription}>
               {mode.kind === 'history'
-                ? '선택한 기간에 3개 이상 일치한 기록이 없습니다.'
-                : `선택한 기간에 ${mode.rank}등 기록이 없습니다.`}
+                ? `${periodRange}에 3개 이상 일치한 기록이 없습니다.`
+                : `${periodRange}에 ${mode.rank}등 기록이 없습니다.`}
             </Text>
           </View>
         )}

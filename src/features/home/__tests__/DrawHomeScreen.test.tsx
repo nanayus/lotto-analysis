@@ -93,7 +93,7 @@ describe('DrawHomeScreen', () => {
     const screen = await render(<DrawHomeScreen />);
 
     expect(screen.getByText('PRO')).toBeTruthy();
-    expect(screen.getByText('Pro · 최대 5게임')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: '5게임' })).toBeTruthy();
     expect(screen.getByLabelText('PRO 플랜, 이용 정보 보기')).toBeTruthy();
   });
 
@@ -121,11 +121,24 @@ describe('DrawHomeScreen', () => {
     });
   });
 
+  test('updates the random game count from the compact vertical scrubber', async () => {
+    mockTier = 'pro';
+    const screen = await render(<DrawHomeScreen />);
+
+    await act(async () => {
+      fireEvent.scroll(screen.getByLabelText('랜덤조합 게임 수'), {
+        nativeEvent: { contentOffset: { y: 56 } },
+      });
+    });
+
+    expect(screen.getByRole('button', { name: '랜덤으로 5게임 뽑기' })).toBeTruthy();
+  });
+
   test('keeps game and condition features unlocked while the Pro plan is paused', async () => {
     mockTier = 'guest';
     mockProPlanEnabled = false;
     const screen = await render(<DrawHomeScreen />);
-    expect(screen.getByText('최대 5게임')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: '5게임' })).toBeTruthy();
     expect(screen.getByText('조건 무제한 · 추천 조건')).toBeTruthy();
   });
 

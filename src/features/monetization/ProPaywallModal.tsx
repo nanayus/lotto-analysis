@@ -168,6 +168,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   restoreText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   restoreTextDisabled: { color: colors.textTertiary },
   error: { marginTop: spacing.xs, color: colors.hot, fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center' },
-  notice: { marginTop: spacing.md, color: colors.textTertiary, fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  notice: { marginTop: spacing.md, color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center' },
   pressed: { opacity: 0.72 },
 });

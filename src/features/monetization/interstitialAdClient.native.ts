@@ -6,6 +6,7 @@ import mobileAds, {
 } from 'react-native-google-mobile-ads';
 
 const LOAD_TIMEOUT_MS = 20_000;
+export const AD_DISMISS_SETTLE_MS = 220;
 const adMobTestMode = process.env.EXPO_PUBLIC_ADMOB_TEST_MODE === 'true';
 const interstitialAdUnitId = adMobTestMode
   ? TestIds.INTERSTITIAL
@@ -120,7 +121,14 @@ async function presentInterstitialAd() {
       unsubscribeClosed();
       unsubscribeError();
       void prepareInterstitialAd();
-      resolve(shown);
+      if (!shown) {
+        resolve(false);
+        return;
+      }
+      // AdMob's CLOSED event can arrive before the native dismissal transition
+      // has fully released the presenting view controller. Let that transition
+      // settle before callers start the next navigation animation.
+      setTimeout(() => resolve(true), AD_DISMISS_SETTLE_MS);
     };
     const unsubscribeClosed = ad.addAdEventListener(
       AdEventType.CLOSED,

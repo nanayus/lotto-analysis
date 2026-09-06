@@ -1,0 +1,86 @@
+name: Production OTA
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type PRODUCTION to unlock the approval job
+        required: true
+        type: string
+      message:
+        description: Short Korean update message
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-ota
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify main and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main branch and explicit confirmation
+        env:
+          PRODUCTION_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Production OTA must be started from main."
+            exit 1
+          fi
+          if [ "$PRODUCTION_CONFIRMATION" != "PRODUCTION" ]; then
+            echo "Type PRODUCTION exactly to continue."
+            exit 1
+          fi
+
+      - name: Check out the approved commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Test
+        run: yarn test
+
+  deploy:
+    name: Await approval and publish
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out the verified commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Publish Production OTA
+        env:
+          LOTTO_PRODUCTION_OTA_APPROVAL: PRODUCTION
+          OTA_MESSAGE: ${{ inputs.message }}
+        run: yarn ota:production --message "$OTA_MESSAGE"

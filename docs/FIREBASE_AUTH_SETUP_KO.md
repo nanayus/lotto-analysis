@@ -1,6 +1,6 @@
 # Firebase 익명 인증·계정 연결 운영 설정
 
-앱 코드는 Firebase 설정이 없어도 guest 모드로 실행됩니다. 설정된 빌드에서는 첫 실행 시 익명 UID를 만들고, Apple·Google 로그인은 이 UID에 선택적으로 연결합니다.
+앱 코드는 Firebase 설정이 없어도 guest 모드로 실행됩니다. 현재 배포에서는 `EXPO_PUBLIC_ANONYMOUS_AUTH_ENABLED=false`이므로 Firebase가 설정되어 있어도 첫 실행 시 익명 UID를 만들지 않습니다. 아래 내용은 인증 기능을 다시 운영할 때의 설정 절차입니다.
 
 ## 1. Firebase 프로젝트
 
@@ -38,6 +38,12 @@ URL scheme:    com.googleusercontent.apps.12345-abc
 ```
 
 EAS의 development/preview/production 환경에도 같은 이름으로 플랫폼별 값을 등록합니다. 값이 들어오면 `app.config.ts`가 Google 네이티브 config plugin을 자동 활성화합니다.
+
+익명 인증을 다시 운영할 때만 다음 값을 사용합니다.
+
+```text
+EXPO_PUBLIC_ANONYMOUS_AUTH_ENABLED=true
+```
 
 네이티브 로그인은 Expo Go가 아니라 development build에서 확인합니다.
 
@@ -78,7 +84,7 @@ https://lotto.wondly.net/account-deletion
 ## 6. 검증
 
 - Expo Go가 아니라 EAS development build에서 iOS·Android를 확인합니다.
-- 첫 실행에서 로그인 화면 없이 익명 UID가 생성되고 재실행 후에도 같은 UID인지 확인합니다.
+- 익명 인증 플래그가 켜진 빌드에서만 첫 실행 시 익명 UID가 생성되고 재실행 후에도 같은 UID인지 확인합니다.
 - 익명 상태에서 Apple·Google 연결 후 UID가 유지되는지 확인합니다.
 - 이미 존재하는 Apple·Google 계정으로 연결할 때 해당 기존 계정으로 안전하게 전환되는지 확인합니다.
 - Apple 이메일 공개/비공개, Google 동일 이메일 자동 연결, private relay 계정의 명시적 연결을 각각 확인합니다.

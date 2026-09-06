@@ -199,7 +199,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pressed: { opacity: 0.68 },
   loading: { marginVertical: spacing.xl },
   error: { marginTop: spacing.sm, marginHorizontal: spacing.sm, color: colors.hot, fontSize: typography.sizes.caption },
-  privateRelayNotice: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, color: colors.textSecondary, fontSize: 10, lineHeight: 15 },
+  privateRelayNotice: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
   modalRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.backdropStrong },
   dialog: { width: '100%', maxWidth: 420, padding: spacing.xl, borderRadius: radius.xl, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, backgroundColor: colors.surface },

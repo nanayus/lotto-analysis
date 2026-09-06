@@ -92,7 +92,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sheet: { width: '100%', maxWidth: 420, padding: spacing.xl, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.divider, borderRadius: radius.xl, backgroundColor: colors.surface },
   icon: { width: 48, height: 48, marginBottom: spacing.lg, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAccent },
   iconColor: { color: colors.accentPrimary },
-  eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.8 },
+  eyebrow: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 1.4 },
   title: { marginTop: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold, lineHeight: 28 },
   description: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.body, lineHeight: 22 },
   input: { height: 48, marginTop: spacing.xl, paddingHorizontal: spacing.lg, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, color: colors.textPrimary, backgroundColor: colors.background, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, letterSpacing: 2, textAlign: 'center' },
@@ -103,6 +103,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   primaryButtonText: { color: '#FFFFFF', fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
   skipButton: { minHeight: 42, marginTop: spacing.xs, alignItems: 'center', justifyContent: 'center' },
   skipButtonText: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.medium },
-  notice: { color: colors.textTertiary, fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  notice: { color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center' },
   pressed: { opacity: 0.72 },
 });

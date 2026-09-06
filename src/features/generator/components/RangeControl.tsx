@@ -298,12 +298,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm },
   presetBadge: {
-    color: colors.accentSecondary, fontSize: 10, fontWeight: typography.weights.semibold,
+    color: colors.accentSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold,
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentSecondary,
     backgroundColor: colors.surfaceSuccess, paddingHorizontal: spacing.sm, paddingVertical: 3,
   },
   presetValue: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  presetSource: { color: colors.textSecondary, fontSize: 10 },
+  presetSource: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   track: { height: 36, marginHorizontal: 10, marginTop: spacing.md, justifyContent: 'center' },
   trackRail: {
     position: 'absolute', left: 0, right: 0, height: 4,

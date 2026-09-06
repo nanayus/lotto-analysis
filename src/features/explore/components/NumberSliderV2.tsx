@@ -20,7 +20,7 @@ import {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { type ThemeColors, spacing, useThemedStyles } from '@/theme';
+import { type ThemeColors, spacing, typography, useThemedStyles } from '@/theme';
 
 import {
   DECELERATION,
@@ -244,7 +244,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 1,
     zIndex: 2,
     color: colors.textSecondary,
-    fontSize: 8,
+    fontSize: typography.sizes.caption,
     letterSpacing: 1.2,
     opacity: 0.56,
   },

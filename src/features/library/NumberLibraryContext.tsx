@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -48,16 +49,17 @@ type NumberLibraryValue = {
     numbers: readonly number[],
     source: CombinationSource,
     options?: {
+      favorite?: boolean;
       generationConditions?: readonly GeneratorConditionDescription[];
       generatorConditions?: GeneratorConditions;
     },
   ) => string | undefined;
   combinations: SavedCombination[];
   canSave: boolean;
+  deleteCombination: (id: string) => void;
   isReady: boolean;
   storageMode: 'cloud' | 'device' | 'unavailable';
   toggleFavorite: (id: string) => void;
-  togglePurchased: (id: string) => void;
 };
 
 export const NUMBER_LIBRARY_STORAGE_KEY = 'lotto.numberLibrary.v2';
@@ -71,10 +73,10 @@ const fallbackValue: NumberLibraryValue = {
   addCombination: () => undefined,
   canSave: false,
   combinations: [],
+  deleteCombination: () => undefined,
   isReady: true,
   storageMode: 'unavailable',
   toggleFavorite: () => undefined,
-  togglePurchased: () => undefined,
 };
 
 const NumberLibraryContext = createContext<NumberLibraryValue>(fallbackValue);
@@ -311,6 +313,7 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     numbers: readonly number[],
     source: CombinationSource,
     options?: {
+      favorite?: boolean;
       generationConditions?: readonly GeneratorConditionDescription[];
       generatorConditions?: GeneratorConditions;
     },
@@ -322,7 +325,7 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     const createdAt = new Date().toISOString();
     const nextItem: SavedCombination = {
       createdAt,
-      favorite: false,
+      favorite: options?.favorite ?? false,
       ...(options?.generationConditions ? {
         generationConditions: options.generationConditions.map((item) => ({ ...item })),
       } : {}),
@@ -348,31 +351,30 @@ export function NumberLibraryProvider({ children }: PropsWithChildren) {
     }));
   }, [syncCombination]);
 
-  const togglePurchased = useCallback((id: string) => {
-    setCombinations((current) => current.map((item) => {
-      if (item.id !== id) return item;
-      const updated = { ...item, purchased: !item.purchased };
-      syncCombination(updated);
-      return updated;
-    }));
-  }, [syncCombination]);
+  const deleteCombination = useCallback((id: string) => {
+    setCombinations((current) => current.filter((item) => item.id !== id));
+    if (!activeUid || !db || productAccess.storageMode !== 'cloud') return;
+    void deleteDoc(
+      doc(db, 'users', activeUid, 'savedCombinations', cloudDocumentId(id)),
+    ).catch(() => undefined);
+  }, [activeUid, productAccess.storageMode]);
 
   const value = useMemo(() => ({
     addCombination,
     canSave: productAccess.canSaveNumbers,
     combinations,
+    deleteCombination,
     isReady,
     storageMode: productAccess.storageMode,
     toggleFavorite,
-    togglePurchased,
   }), [
     addCombination,
     combinations,
+    deleteCombination,
     isReady,
     productAccess.canSaveNumbers,
     productAccess.storageMode,
     toggleFavorite,
-    togglePurchased,
   ]);
 
   return <NumberLibraryContext.Provider value={value}>{children}</NumberLibraryContext.Provider>;

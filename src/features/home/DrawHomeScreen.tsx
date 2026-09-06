@@ -42,6 +42,8 @@ type RefreshNotice = {
 };
 const GUEST_GAME_COUNTS: readonly GameCount[] = [1, 2];
 const PRO_GAME_COUNTS: readonly GameCount[] = [1, 3, 5];
+const RANDOM_COUNT_ITEM_HEIGHT = 28;
+const RANDOM_COUNT_WHEEL_HEIGHT = 56;
 
 function LatestDrawInfo({
   draw,
@@ -220,8 +222,10 @@ export function DrawHomeScreen() {
   const [refreshNotice, setRefreshNotice] = useState<RefreshNotice | null>(null);
   const [refreshingDraw, setRefreshingDraw] = useState(false);
   const checkedAnnouncementRoundRef = useRef<number | null>(null);
+  const randomCountScrollRef = useRef<ScrollView>(null);
   const refreshNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedGameCount = gameCounts.includes(gameCount) ? gameCount : 1;
+  const selectedGameIndex = Math.max(0, gameCounts.indexOf(selectedGameCount));
 
   useEffect(() => () => {
     if (refreshNoticeTimerRef.current) clearTimeout(refreshNoticeTimerRef.current);
@@ -240,6 +244,23 @@ export function DrawHomeScreen() {
       params: { count: String(selectedGameCount), draw: String(Date.now()) },
     });
   }, [selectedGameCount]);
+
+  const selectGameCount = useCallback((count: GameCount, index: number) => {
+    setGameCount(count);
+    randomCountScrollRef.current?.scrollTo({
+      animated: true,
+      y: index * RANDOM_COUNT_ITEM_HEIGHT,
+    });
+  }, []);
+
+  const updateGameCountFromOffset = useCallback((offsetY: number) => {
+    const index = Math.max(
+      0,
+      Math.min(gameCounts.length - 1, Math.round(offsetY / RANDOM_COUNT_ITEM_HEIGHT)),
+    );
+    const nextCount = gameCounts[index];
+    if (nextCount !== undefined) setGameCount(nextCount);
+  }, [gameCounts]);
 
   useEffect(() => {
     if (!lottoDataReady || checkedAnnouncementRoundRef.current === latestDraw.round) return;
@@ -301,7 +322,7 @@ export function DrawHomeScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
           <Pressable
-            accessibilityLabel="조건 뽑기, 조합 선택하기"
+            accessibilityLabel="조건 뽑기, 조건 선택하기"
             accessibilityHint="조건을 선택해 번호를 생성합니다"
             accessibilityRole="button"
             onPress={openConditionDraw}
@@ -326,7 +347,7 @@ export function DrawHomeScreen() {
               </Text>
             </View>
             <View style={styles.aiAction}>
-              <Text style={styles.aiActionText}>조합 선택하기</Text>
+              <Text style={styles.aiActionText}>조건 선택하기</Text>
               <Text style={styles.aiActionArrow}>→</Text>
             </View>
           </Pressable>
@@ -339,53 +360,66 @@ export function DrawHomeScreen() {
 
           <View style={styles.randomCard}>
             <View style={styles.randomHeader}>
-              <View style={styles.randomIcon}>
-                <Text style={styles.randomIconText}>⇄</Text>
-              </View>
-              <View style={styles.randomCopy}>
-                <Text style={styles.randomTitle}>랜덤조합</Text>
-                <Text style={styles.randomDescription}>조건 없이 번호를 바로 만들어요.</Text>
-              </View>
-              {proPlanEnabled ? (
-                <View accessibilityLabel="무료 기능" style={styles.freeBadge}>
-                  <Text style={styles.freeBadgeText}>FREE</Text>
+              <View style={styles.randomHeaderMain}>
+                <View style={styles.randomIcon}>
+                  <Text style={styles.randomIconText}>⇄</Text>
                 </View>
-              ) : null}
-            </View>
-
-            <View style={styles.randomCountSection}>
-              <Text style={styles.randomCountLabel}>게임 수</Text>
-              <View accessibilityLabel="랜덤조합 게임 수" accessibilityRole="radiogroup" style={styles.countOptions}>
-                {gameCounts.map((count) => {
-                  const selected = count === selectedGameCount;
-                  return (
-                    <Pressable
-                      accessibilityLabel={`${count}게임`}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: selected }}
-                      key={count}
-                      onPress={() => setGameCount(count)}
-                      style={({ pressed }) => [
-                        styles.countChip,
-                        selected && styles.countChipSelected,
-                        pressed && styles.pressed,
-                      ]}>
-                      <Text style={[styles.countChipText, selected && styles.countChipTextSelected]}>
-                        {count}게임
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                <View style={styles.randomCopy}>
+                  <Text style={styles.randomTitle}>랜덤조합</Text>
+                  <Text style={styles.randomDescription}>조건 없이 번호를 바로 만들어요.</Text>
+                </View>
+              </View>
+              <View style={styles.randomCompactCount}>
+                <Text style={styles.randomCompactCountLabel}>게임 수</Text>
+                <ScrollView
+                  accessibilityLabel="랜덤조합 게임 수"
+                  accessibilityRole="radiogroup"
+                  bounces={false}
+                  contentContainerStyle={styles.randomCountWheelContent}
+                  decelerationRate="fast"
+                  nestedScrollEnabled
+                  onContentSizeChange={() => {
+                    randomCountScrollRef.current?.scrollTo({
+                      animated: false,
+                      y: selectedGameIndex * RANDOM_COUNT_ITEM_HEIGHT,
+                    });
+                  }}
+                  onScroll={({ nativeEvent }) => {
+                    updateGameCountFromOffset(nativeEvent.contentOffset.y);
+                  }}
+                  overScrollMode="never"
+                  ref={randomCountScrollRef}
+                  scrollEventThrottle={16}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={RANDOM_COUNT_ITEM_HEIGHT}
+                  style={styles.randomCountWheel}>
+                  {gameCounts.map((count) => {
+                    const selected = count === selectedGameCount;
+                    const index = gameCounts.indexOf(count);
+                    return (
+                      <Pressable
+                        accessibilityLabel={`${count}게임`}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected }}
+                        key={count}
+                        onPress={() => selectGameCount(count, index)}
+                        style={({ pressed }) => [
+                          styles.randomCountItem,
+                          selected && styles.randomCountItemSelected,
+                          pressed && styles.pressed,
+                        ]}>
+                        <Text style={[
+                          styles.randomCountItemText,
+                          selected && styles.randomCountItemTextSelected,
+                        ]}>
+                          {count}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
               </View>
             </View>
-
-            <Text style={styles.countPolicy}>
-              {proPlanEnabled
-                ? productAccess.tier === 'guest'
-                  ? '게스트 · 최대 2게임'
-                  : 'Pro · 최대 5게임'
-                : '최대 5게임'}
-            </Text>
 
             <Pressable
               accessibilityHint="조건 없이 번호를 바로 생성합니다"
@@ -436,11 +470,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1, width: '100%', maxWidth: 500, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl, paddingBottom: spacing.huge },
-  countOptions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  countChip: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface },
-  countChipSelected: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
-  countChipText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.regular },
-  countChipTextSelected: { color: colors.accentPrimary, fontWeight: typography.weights.semibold },
   aiCard: { minHeight: 268, padding: spacing.xl, overflow: 'hidden', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.accentActive, boxShadow: '0 14px 32px rgba(0, 102, 204, 0.18)', elevation: 6 },
   aiGlowLarge: { position: 'absolute', width: 230, height: 230, right: -82, top: -92, borderRadius: 115, backgroundColor: '#FFFFFF12' },
   aiGlowSmall: { position: 'absolute', width: 190, height: 190, left: -118, bottom: -124, borderRadius: 95, backgroundColor: '#00000012' },
@@ -455,23 +484,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   aiEyebrow: { color: '#FFFFFFB8', fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 1.2 },
   aiTitle: { color: '#FFFFFF', fontSize: 34, lineHeight: 38, fontWeight: typography.weights.semibold, letterSpacing: -0.28, marginTop: 6 },
   aiDescription: { color: '#FFFFFFD9', fontSize: typography.sizes.small, lineHeight: 21, letterSpacing: -0.25, marginTop: spacing.sm },
-  aiPolicy: { color: '#FFFFFFA8', fontSize: 10, lineHeight: 14, marginTop: spacing.xs },
+  aiPolicy: { color: '#FFFFFFA8', fontSize: typography.sizes.caption, lineHeight: 17, marginTop: spacing.xs },
   aiAction: { minHeight: 46, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: '#FFFFFF38', backgroundColor: '#FFFFFF18' },
   aiActionText: { color: '#FFFFFF', fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   aiActionArrow: { color: '#FFFFFF', fontSize: 22, lineHeight: 24 },
-  randomCard: { marginTop: spacing.xl, padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, boxShadow: 'none', elevation: 0 },
-  randomHeader: { flexDirection: 'row', alignItems: 'center' },
-  randomIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceAccent },
-  randomIconText: { color: colors.accentPrimary, fontSize: 24, lineHeight: 26 },
-  randomCopy: { flex: 1, marginLeft: spacing.lg },
+  randomCard: { marginTop: spacing.xl, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, boxShadow: 'none', elevation: 0 },
+  randomHeader: { minHeight: RANDOM_COUNT_WHEEL_HEIGHT + 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  randomHeaderMain: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center' },
+  randomIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceAccent },
+  randomIconText: { color: colors.accentPrimary, fontSize: 20, lineHeight: 22 },
+  randomCopy: { minWidth: 0, flex: 1, marginLeft: spacing.md },
   randomTitle: { color: colors.textPrimary, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, letterSpacing: -0.37 },
   randomDescription: { color: colors.textSecondary, fontSize: typography.sizes.small, lineHeight: 20, marginTop: spacing.xs },
-  freeBadge: { alignSelf: 'flex-start', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.round, backgroundColor: colors.surfaceAccent },
-  freeBadgeText: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, letterSpacing: 0.8 },
-  randomCountSection: { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
-  randomCountLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  countPolicy: { marginTop: spacing.sm, color: colors.textTertiary, fontSize: 10, lineHeight: 16 },
-  randomAction: { minHeight: 48, marginTop: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, backgroundColor: colors.surfaceAccent },
+  randomCompactCount: { width: 56, alignSelf: 'stretch', alignItems: 'center' },
+  randomCompactCountLabel: { color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 18 },
+  randomCountWheel: { width: 52, height: RANDOM_COUNT_WHEEL_HEIGHT },
+  randomCountWheelContent: { alignItems: 'center', paddingVertical: (RANDOM_COUNT_WHEEL_HEIGHT - RANDOM_COUNT_ITEM_HEIGHT) / 2 },
+  randomCountItem: { width: 46, height: RANDOM_COUNT_ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
+  randomCountItemSelected: { backgroundColor: colors.surfaceAccent },
+  randomCountItemText: { color: colors.textTertiary, fontSize: typography.sizes.caption, fontWeight: typography.weights.regular, fontVariant: ['tabular-nums'] },
+  randomCountItemTextSelected: { color: colors.accentPrimary, fontSize: 19, fontWeight: typography.weights.semibold },
+  randomAction: { minHeight: 44, marginTop: spacing.sm, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, backgroundColor: colors.surfaceAccent },
   randomActionPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
   randomActionText: { color: colors.accentPrimary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   randomActionArrow: { color: colors.accentPrimary, fontSize: 21, lineHeight: 23 },

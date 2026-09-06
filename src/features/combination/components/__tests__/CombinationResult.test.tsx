@@ -3,7 +3,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { StyleSheet } from 'react-native';
 
 import type { CombinationAnalysis } from '@/domain/combination/types';
-import { darkColors } from '@/theme';
+import { darkColors, typography } from '@/theme';
 
 import { CombinationResult } from '../CombinationResult';
 
@@ -162,8 +162,7 @@ describe('CombinationResult', () => {
     const onRegenerate = jest.fn();
     const onResultInteraction = jest.fn();
     const onToggleFavorite = jest.fn();
-    const onTogglePurchased = jest.fn();
-    const { getByRole, getByTestId, getByText, queryByText } = await render(
+    const { getByRole, getByTestId, getByText, queryByRole, queryByTestId, queryByText } = await render(
       <CombinationResult
         analysis={analysis}
         bonusIncluded={false}
@@ -178,7 +177,6 @@ describe('CombinationResult', () => {
         onPeriodChange={() => undefined}
         onStartOver={() => undefined}
         onToggleFavorite={onToggleFavorite}
-        onTogglePurchased={onTogglePurchased}
         period={{ kind: 'preset', label: '전체' }}
       />,
     );
@@ -186,20 +184,38 @@ describe('CombinationResult', () => {
     expect(getByText('조합 분석')).toBeTruthy();
     expect(getByTestId('combination-headline-card')).toBeTruthy();
     expect(queryByText('한줄평')).toBeNull();
-    expect(getByText('1·7·12·19 네 번호가 선택 기간에 1번 함께 나왔어요.')).toBeTruthy();
-    expect(getByText('1번은 평균 출현 간격의 2.2배인 15회째 미출현이에요.')).toBeTruthy();
-    expect(getByText('4번호 조합 · 1회')).toBeTruthy();
-    expect(getByText('1번 · 평균 6.8회 · 현재 15회')).toBeTruthy();
+    expect(queryByText('4번호 조합 · 1회')).toBeNull();
     expect(getByTestId('combination-headline').props.accessibilityLabel)
-      .toBe('조합 요약, 1·7·12·19 네 번호가 선택 기간에 1번 함께 나왔어요., 1번은 평균 출현 간격의 2.2배인 15회째 미출현이에요., 근거 지표 4번호 조합 · 1회, 1번 · 평균 6.8회 · 현재 15회');
+      .toBe('조합 요약, 1·7·12·19 네 번호가 전체 기간에 1번 함께 나왔어요., 1번은 평균 출현 간격의 2.2배인 15회째 미출현이에요., 근거 지표 4번호 조합 · 1회, 1번 · 평균 6.8회 · 현재 15회');
     expect(queryByText(/최근 5등/)).toBeNull();
     expect(getByText(/홀짝 3:3 · 합계 85/)).toBeTruthy();
     expect(getByText('주요 분석')).toBeTruthy();
     expect(queryByText('분석 조건')).toBeNull();
+    expect(queryByText('선택한 분석 범위의 과거 출현 횟수 비교입니다.')).toBeNull();
+    expect(queryByText('조합 선택 화면과 같은 기준으로 현재 조합을 계산했어요.')).toBeNull();
     expect(StyleSheet.flatten(getByTestId('headline-insight-dot-primary').props.style))
       .toMatchObject({ backgroundColor: darkColors.accentPrimary });
     expect(StyleSheet.flatten(getByTestId('headline-insight-dot-supporting').props.style))
       .toMatchObject({ backgroundColor: darkColors.hot });
+    expect(StyleSheet.flatten(getByTestId('headline-primary-number-1-0').props.style))
+      .toMatchObject({
+        borderColor: darkColors.accentPrimary,
+        borderWidth: 1,
+        height: 26,
+        width: 26,
+      });
+    expect(StyleSheet.flatten(getByTestId('headline-supporting-number-1-0').props.style))
+      .toMatchObject({
+        borderColor: darkColors.hot,
+        borderWidth: 1,
+        height: 26,
+        width: 26,
+      });
+    expect(queryByTestId('headline-primary-number-1-4')).toBeNull();
+    expect(queryByTestId('headline-primary-source-number-4-0')).toBeNull();
+    expect(queryByTestId('headline-primary-source-number')).toBeNull();
+    expect(queryByTestId('headline-supporting-source-number')).toBeNull();
+    expect(queryByText('번은')).toBeNull();
     expect(getByRole('button', { name: '분석 기간 전체' })).toBeTruthy();
     expect(getByRole('switch', { name: '보너스 번호 제외' })).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('analysis-period-chip').props.style)).toMatchObject({
@@ -207,6 +223,12 @@ describe('CombinationResult', () => {
       borderWidth: 0,
     });
     expect(getByText('과거 당첨 기록')).toBeTruthy();
+    expect([
+      getByText('과거 당첨 기록'),
+      getByText('선택 번호 출현 빈도'),
+      getByText('번호별 분석'),
+    ].map((title) => StyleSheet.flatten(title.props.style).fontSize))
+      .toEqual(Array(3).fill(typography.sizes.label));
     expect(queryByText('과거 일치 등급 기록')).toBeNull();
     expect(queryByText('HISTORICAL COMPARISON')).toBeNull();
     expect(queryByText('분석 결과')).toBeNull();
@@ -215,25 +237,27 @@ describe('CombinationResult', () => {
     expect(getByText('선택 번호 출현 빈도')).toBeTruthy();
     expect(getByText('전체 회차 일치 분포')).toBeTruthy();
     expect(getByTestId('combination-result-footer')).toBeTruthy();
-    expect(getByRole('button', { name: '새 조합 분석하기' })).toBeTruthy();
+    expect(getByTestId('combination-header-start-over').props.accessibilityLabel).toBe('새로 분석하기');
+    expect(getByTestId('combination-footer-start-over').props.accessibilityLabel).toBe('새로 분석하기');
+    expect(StyleSheet.flatten(getByTestId('combination-footer-regenerate').props.style))
+      .toMatchObject({
+        backgroundColor: darkColors.surfaceAccent,
+        borderColor: darkColors.accentBorder,
+        borderWidth: 1,
+      });
     expect(getByTestId('result-card-actions')).toBeTruthy();
-    expect(getByRole('button', { name: '구매한 번호로 표시' }).props.accessibilityState)
-      .toEqual({ selected: false });
+    expect(queryByRole('button', { name: /구매/ })).toBeNull();
     expect(getByRole('button', { name: '즐겨찾기에 추가' }).props.accessibilityState)
       .toEqual({ selected: false });
 
     await act(async () => {
       await fireEvent.press(getByRole('button', { name: '같은 조건으로 다시 뽑기, Pro 전용' }));
-      await fireEvent.press(getByRole('button', { name: '구매한 번호로 표시' }));
     });
-    expect(getByTestId('library-action-toast')).toBeTruthy();
-    expect(getByText('구매번호로 등록되었습니다.')).toBeTruthy();
-    expect(getByRole('button', { name: '구매 표시 해제' }).props.accessibilityState)
-      .toEqual({ selected: true });
 
     await act(async () => {
       await fireEvent.press(getByRole('button', { name: '즐겨찾기에 추가' }));
     });
+    expect(getByTestId('library-action-toast')).toBeTruthy();
     expect(getByText('즐겨찾기에 등록되었습니다.')).toBeTruthy();
     expect(getByRole('button', { name: '즐겨찾기 해제' }).props.accessibilityState)
       .toEqual({ selected: true });
@@ -242,11 +266,9 @@ describe('CombinationResult', () => {
     });
 
     expect(onRegenerate).toHaveBeenCalledTimes(1);
-    expect(onTogglePurchased).toHaveBeenCalledTimes(1);
     expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
     expect(onResultInteraction).toHaveBeenCalledWith('headline', 'regenerate');
-    expect(onResultInteraction).toHaveBeenCalledWith('headline', 'toggle_purchased', 'on');
     expect(onResultInteraction).toHaveBeenCalledWith('headline', 'toggle_favorite', 'on');
     expect(onResultInteraction).toHaveBeenCalledWith('prize_history', 'open_all_history');
   });
@@ -283,7 +305,7 @@ describe('CombinationResult', () => {
       });
     });
     expect(getByTestId('result-sticky-numbers').props.accessibilityLabel)
-      .toBe('선택 번호 1, 7, 12, 19, 20, 26');
+      .toBe('선택 번호 1, 7, 12, 19, 20, 26, 전체 · 보너스 제외');
 
     await act(async () => {
       getByTestId('combination-result-scroll').props.onScroll({
@@ -385,8 +407,8 @@ describe('CombinationResult', () => {
     expect(queryByText('AI로 쉽게 보기')).toBeNull();
   });
 
-  test('orders result sections from core findings to detailed comparisons', async () => {
-    const { getAllByTestId, getByTestId, getByText } = await render(
+  test('orders result sections from high-interest history to detailed comparisons', async () => {
+    const { getAllByTestId, getByTestId, getByText, queryByText } = await render(
       <CombinationResult
         analysis={analysis}
         bonusIncluded={false}
@@ -405,15 +427,15 @@ describe('CombinationResult', () => {
     expect(getAllByTestId(/^(result-section-|ai-combination-explanation-card$)/)
       .map((section) => section.props.testID))
       .toEqual([
+        'result-section-prize',
+        'ai-combination-explanation-card',
         'result-section-group-frequency',
         'result-section-individual-numbers',
         'result-section-condition-statistics',
-        'result-section-prize',
-        'ai-combination-explanation-card',
         'result-section-frequent-combinations',
         'result-section-match-distribution',
       ]);
-    expect(getByText('핵심 결과')).toBeTruthy();
+    expect(queryByText('핵심 결과')).toBeNull();
     expect(getByText('번호 구성 분석')).toBeTruthy();
     expect(getByText('과거 기록 비교')).toBeTruthy();
     expect(getByTestId('match-distribution-row-2').props.accessibilityLabel)
@@ -483,7 +505,7 @@ describe('CombinationResult', () => {
       />,
     );
 
-    expect(getByText('01 · 07')).toBeTruthy();
+    expect(getByText('1 · 7')).toBeTruthy();
     expect(getByTestId('combination-size-tab-2').props.accessibilityState.selected).toBe(true);
     expect(getByTestId('frequent-combination-row-2-1-7').props.children).toHaveLength(2);
     expect(getByTestId('frequent-combination-row-2-1-7').props.accessibilityLabel)
@@ -497,24 +519,24 @@ describe('CombinationResult', () => {
     });
 
     expect(getByText('20 · 26')).toBeTruthy();
-    expect(getByText('01 · 26')).toBeTruthy();
+    expect(getByText('1 · 26')).toBeTruthy();
     expect(getByRole('button', { name: '조합 목록 접기' })).toBeTruthy();
 
     await act(async () => {
       await fireEvent.press(getByTestId('combination-size-tab-3'));
     });
 
-    expect(queryByText('01 · 07')).toBeNull();
-    expect(getByText('01 · 07 · 12')).toBeTruthy();
+    expect(queryByText('1 · 7')).toBeNull();
+    expect(getByText('1 · 7 · 12')).toBeTruthy();
     expect(getByTestId('combination-size-tab-3').props.accessibilityState.selected).toBe(true);
     expect(getByText('+ 1개 더보기')).toBeTruthy();
-    expect(queryByText('01 · 20 · 26')).toBeNull();
+    expect(queryByText('1 · 20 · 26')).toBeNull();
 
     await act(async () => {
       await fireEvent.press(getByRole('button', { name: '1개 조합 더보기' }));
     });
 
-    expect(getByText('01 · 20 · 26')).toBeTruthy();
+    expect(getByText('1 · 20 · 26')).toBeTruthy();
 
     await act(async () => {
       await fireEvent.press(getByTestId('combination-size-tab-2'));

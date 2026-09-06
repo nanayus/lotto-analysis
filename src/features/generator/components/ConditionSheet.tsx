@@ -95,7 +95,7 @@ const MULTIPLE_SECTION_KEYS = {
   5: 'multiple5',
 } as const satisfies Record<3 | 4 | 5, GeneratorSectionKey>;
 const NUMBER_GRID_COLUMN_COUNT = 7;
-const NUMBER_GRID_MAXIMUM_SIZE = 48;
+const NUMBER_GRID_MAXIMUM_SIZE = 42;
 
 type ConditionSheetProps = {
   applyAccess: 'guest' | 'pro';
@@ -109,6 +109,7 @@ type ConditionSheetProps = {
   onRecommendationPromptDismiss?: () => void;
   presentation?: 'modal' | 'screen';
   recommendationPromptVisible?: boolean;
+  showProPromotion?: boolean;
   visible: boolean;
 };
 
@@ -567,6 +568,7 @@ export function ConditionSheet({
   onRecommendationPromptDismiss,
   presentation = 'modal',
   recommendationPromptVisible = false,
+  showProPromotion = true,
   visible,
 }: ConditionSheetProps) {
   const styles = useThemedStyles(createStyles);
@@ -731,9 +733,6 @@ export function ConditionSheet({
       size={size}
     />
   );
-  const applyAccessLabel = applyAccess === 'pro'
-    ? '결과 바로 보기'
-    : '광고 후 결과 보기';
   const handleApply = () => {
     if (
       conditionSelectionLimit !== null
@@ -768,7 +767,7 @@ export function ConditionSheet({
             )}
             title="조건 선택"
           />
-          {applyAccess === 'guest' && accessBannerVisible ? (
+          {showProPromotion && applyAccess === 'guest' && accessBannerVisible ? (
             <View style={styles.accessBanner} testID="condition-access-banner">
               <View style={styles.accessBannerIcon}>
                 <Ionicons color={styles.accessBannerIconColor.color} name={accessBanner.icon} size={18} />
@@ -1120,17 +1119,11 @@ export function ConditionSheet({
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable
-              accessibilityLabel={`이 조건으로 뽑기, ${activeConditionCount(draft)}개 조건, ${applyAccessLabel}`}
+              accessibilityLabel={`이 조건으로 뽑기, ${activeConditionCount(draft)}개 조건`}
               accessibilityRole="button"
               onPress={handleApply}
               style={styles.applyButton}>
               <Text style={styles.applyText}>이 조건으로 뽑기</Text>
-              <View style={styles.applyAccessBadge}>
-                {applyAccess !== 'pro' ? (
-                  <Ionicons color={styles.applyAccessText.color} name="play-circle-outline" size={14} />
-                ) : null}
-                <Text style={styles.applyAccessText}>{applyAccessLabel}</Text>
-              </View>
             </Pressable>
           </View>
 
@@ -1343,7 +1336,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minHeight: 34, flexShrink: 0, paddingHorizontal: spacing.md, borderRadius: radius.round,
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentPrimary,
   },
-  accessBannerActionText: { color: '#FFFFFF', fontSize: 10, fontWeight: typography.weights.bold },
+  accessBannerActionText: { color: '#FFFFFF', fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   accessBannerClose: { width: 34, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   accessBannerCloseColor: { color: colors.textSecondary },
   numberGrid: {
@@ -1375,7 +1368,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pageTabText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.medium },
   pageTabTextActive: { color: colors.textPrimary, fontWeight: typography.weights.bold },
   conditionScroll: { flex: 1, minHeight: 0 },
-  conditionContent: { paddingBottom: spacing.huge },
+  conditionContent: { paddingTop: spacing.md, paddingBottom: spacing.huge },
   conditionGroup: { gap: spacing.md, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },
   conditionGroupLast: { paddingBottom: 0 },
   conditionGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
@@ -1407,9 +1400,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   patternOptionActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
   patternOptionHeader: { minHeight: 30, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.xs },
-  patternOptionText: { flex: 1, color: colors.textSecondary, fontSize: 11, lineHeight: 15 },
+  patternOptionText: { flex: 1, color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 18 },
   patternTopBadge: {
-    flexShrink: 0, color: colors.accentSecondary, fontSize: 8, fontWeight: typography.weights.semibold,
+    flexShrink: 0, color: colors.accentSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold,
     borderRadius: radius.round, backgroundColor: colors.surfaceSuccess,
     paddingHorizontal: 5, paddingVertical: 2,
   },
@@ -1421,7 +1414,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   patternCell: {
     width: 17, height: 17, borderRadius: 5, borderWidth: 1, borderColor: colors.divider,
     backgroundColor: colors.background, color: colors.textSecondary,
-    fontSize: 8, lineHeight: 15, textAlign: 'center', fontVariant: ['tabular-nums'],
+    fontSize: typography.sizes.caption, lineHeight: 17, textAlign: 'center', fontVariant: ['tabular-nums'],
   },
   patternCellLinked: { borderColor: colors.accentBorder, color: colors.highlight },
   ratioDiagram: { width: 54, height: 5, flexDirection: 'row', gap: 2 },
@@ -1440,7 +1433,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   ratioLegendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   ratioLegendDot: { width: 7, height: 7, borderRadius: 4 },
-  ratioLegendText: { fontSize: 10, fontWeight: typography.weights.semibold },
+  ratioLegendText: { fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   ratioLegendOddDot: { backgroundColor: colors.accentPrimary },
   ratioLegendEvenDot: { backgroundColor: colors.neutral },
   ratioLegendLowDot: { backgroundColor: colors.accentPrimary },
@@ -1449,20 +1442,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   ratioLegendEvenText: { color: colors.neutral },
   ratioLegendLowText: { color: colors.accentPrimary },
   ratioLegendHighText: { color: colors.neutral },
-  ratioLegendOrder: { color: colors.textSecondary, fontSize: 9 },
+  ratioLegendOrder: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   numberSetGuide: { gap: spacing.xs, marginBottom: spacing.sm },
-  numberSetLabel: { color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.semibold },
+  numberSetLabel: { color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   numberSetValues: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   numberSetChip: {
     minWidth: 25, height: 25, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center',
     borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent,
   },
-  numberSetChipText: { color: colors.highlight, fontSize: 9, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
-  numberSetMore: { color: colors.textSecondary, fontSize: 10, marginLeft: 2 },
+  numberSetChipText: { color: colors.highlight, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, fontVariant: ['tabular-nums'] },
+  numberSetMore: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginLeft: 2 },
   recentGuide: { gap: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md },
   recentGuideHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   recentGuideTitle: { color: colors.textPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
-  recentGuideMeta: { color: colors.textSecondary, fontSize: 9 },
+  recentGuideMeta: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   selectorPrompt: { color: colors.textSecondary, fontSize: typography.sizes.caption, lineHeight: 16 },
   bandGuide: { height: 32, flexDirection: 'row', gap: 2 },
   bandGuideSegment: {
@@ -1470,9 +1463,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface,
   },
   bandGuideSegmentActive: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
-  bandGuideText: { color: colors.textSecondary, fontSize: 8 },
+  bandGuideText: { color: colors.textSecondary, fontSize: typography.sizes.caption },
   bandGuideTextActive: { color: colors.highlight, fontWeight: typography.weights.semibold },
-  fixedExcludedContent: { gap: spacing.lg },
+  fixedExcludedContent: { gap: spacing.md },
   modeRow: { flexDirection: 'row', gap: spacing.sm },
   modeButton: { flex: 1, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
   modeButtonFixed: { borderColor: colors.accentPrimary, backgroundColor: colors.surfaceAccent },
@@ -1493,16 +1486,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
   },
   applyText: { color: colors.background, fontSize: typography.sizes.body, fontWeight: typography.weights.bold },
-  applyAccessBadge: {
-    minHeight: 28, flexShrink: 0, paddingHorizontal: spacing.sm, flexDirection: 'row',
-    alignItems: 'center', gap: spacing.xs, borderRadius: radius.round,
-    backgroundColor: '#FFFFFF26',
-  },
-  applyAccessText: { color: colors.background, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold },
   numberLegend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md },
-  numberLegendFixed: { color: colors.accentPrimary, fontSize: 10 },
-  numberLegendExcluded: { color: colors.hot, fontSize: 10 },
-  numberLegendDerived: { color: colors.neutral, fontSize: 10 },
+  numberLegendFixed: { color: colors.accentPrimary, fontSize: typography.sizes.caption },
+  numberLegendExcluded: { color: colors.hot, fontSize: typography.sizes.caption },
+  numberLegendDerived: { color: colors.neutral, fontSize: typography.sizes.caption },
   helpOverlay: {
     position: 'absolute', inset: 0, zIndex: 30,
     alignItems: 'center', justifyContent: 'center', padding: spacing.xl,
@@ -1517,7 +1504,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.xl, paddingTop: spacing.xl,
   },
   helpHeadingCopy: { flex: 1, paddingRight: spacing.md },
-  helpEyebrow: { color: colors.accentPrimary, fontSize: 9, letterSpacing: 1.4, marginBottom: spacing.xs },
+  helpEyebrow: { color: colors.accentPrimary, fontSize: typography.sizes.caption, letterSpacing: 1.1, marginBottom: spacing.xs },
   helpTitle: { color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold },
   helpCloseButton: {
     width: 40, height: 40, borderRadius: radius.round, backgroundColor: colors.background,
@@ -1537,7 +1524,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   helpHistoryEyebrow: { color: colors.highlight, fontSize: typography.sizes.caption },
   helpHistoryValue: { color: colors.textPrimary, fontSize: 22, fontWeight: typography.weights.bold, marginTop: spacing.xs },
   helpHistoryCount: { color: colors.accentSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
-  helpSource: { color: colors.textSecondary, fontSize: 10, marginTop: spacing.xs },
+  helpSource: { color: colors.textSecondary, fontSize: typography.sizes.caption, marginTop: spacing.xs },
   helpHistoryActionRow: {
     minHeight: 30, marginTop: spacing.sm, paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.accentBorder,

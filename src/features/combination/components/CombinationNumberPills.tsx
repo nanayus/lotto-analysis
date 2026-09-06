@@ -27,7 +27,7 @@ export function CombinationNumberPills({
         revealedCount === undefined ? (
           <View key={number} style={[styles.numberPill, compact && styles.numberPillCompact]}>
             <Text style={[styles.numberPillText, compact && styles.numberPillTextCompact]}>
-              {String(number).padStart(2, '0')}
+              {number}
             </Text>
           </View>
         ) : (
@@ -55,6 +55,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
   },
   numberPillsCompact: {
+    width: 'auto',
     gap: spacing.xs,
   },
   numberPill: {

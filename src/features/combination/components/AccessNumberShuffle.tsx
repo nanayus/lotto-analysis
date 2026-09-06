@@ -85,7 +85,7 @@ export function AnalysisNumberShuffle({ testID }: AnalysisNumberShuffleProps) {
               exiting={NUMBER_EXITING}
               key={number}
               style={styles.numberPillText}>
-              {String(number).padStart(2, '0')}
+              {number}
             </Animated.Text>
           )}
         </View>

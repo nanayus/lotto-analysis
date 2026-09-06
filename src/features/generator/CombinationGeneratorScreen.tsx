@@ -27,7 +27,6 @@ import type { GenerationOutcome, GeneratorConditions } from '@/domain/generator/
 import { describeGeneratorConditions } from '@/domain/generator/describeGeneratorConditions';
 import { COMBINATION_ANALYSIS_ROUTE } from '@/features/combination/combinationNavigation';
 import { useCombinationDraft } from '@/features/combination/CombinationDraftContext';
-import { useNumberLibrary } from '@/features/library/NumberLibraryContext';
 import { useMonetization } from '@/features/monetization/MonetizationContext';
 import { useLottoData } from '@/features/lotto-data/LottoDataContext';
 import { useAutoHideTabBar } from '@/navigation/tabBarVisibility';
@@ -53,7 +52,7 @@ function waitFor(milliseconds: number) {
 }
 
 function formatNumber(number: number) {
-  return String(number).padStart(2, '0');
+  return String(number);
 }
 
 function conditionSummary(conditions: GeneratorConditions) {
@@ -89,8 +88,7 @@ export function CombinationGeneratorScreen({
   const { history: lottoHistory } = useLottoData();
   const tabBarScrollProps = useAutoHideTabBar();
   const { setNumbers } = useCombinationDraft();
-  const { addCombination } = useNumberLibrary();
-  const { openPaywall, productAccess, showResultAd } = useMonetization();
+  const { openPaywall, productAccess, proPlanEnabled = true, showResultAd } = useMonetization();
   const { restoreConditions, saveConditions } = useGeneratorDraft();
   const [conditions, setConditions] = useState(
     () => restoreConditions(sessionToken) ?? buildGeneratorConditionDefaults(lottoHistory),
@@ -100,16 +98,24 @@ export function CombinationGeneratorScreen({
   const [sheetVisible, setSheetVisible] = useState(autoOpenConditions);
   const [recommendationPromptVisible, setRecommendationPromptVisible] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [isOpeningAnalysis, setIsOpeningAnalysis] = useState(false);
   const [searchedCandidates, setSearchedCandidates] = useState(0);
   const [nearestNoticeVisible, setNearestNoticeVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const generationToken = useRef(0);
+  const mountedRef = useRef(true);
   const recommendationPromptShown = useRef(false);
   const summary = useMemo(() => conditionSummary(conditions), [conditions]);
   const conditionCount = activeConditionCount(conditions);
   const conditionApplyAccess = productAccess.requiresAdForResults ? 'guest' : 'pro';
 
-  useEffect(() => () => { generationToken.current += 1; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      generationToken.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     if (
@@ -173,7 +179,6 @@ export function CombinationGeneratorScreen({
       const nextOutcomes = await generateOutcomes(conditions, token);
       if (generationToken.current !== token) return;
       setOutcomes(nextOutcomes);
-      const generationConditions = describeGeneratorConditions(conditions);
       const conditionKeys = activeGeneratorConditionKeys(conditions);
       conditionKeys.forEach((conditionKey) => {
         trackEvent('generator_condition_used', {
@@ -183,10 +188,6 @@ export function CombinationGeneratorScreen({
         });
       });
       nextOutcomes.forEach((item) => {
-        addCombination(item.numbers, 'ai', {
-          generationConditions,
-          generatorConditions: conditions,
-        });
         trackEvent('combination_generated', combinationAnalyticsParams(item.numbers, {
           condition_count: activeConditionCount(conditions),
           generation_mode: item.mode,
@@ -205,7 +206,7 @@ export function CombinationGeneratorScreen({
         setSearchedCandidates(0);
       }
     }
-  }, [addCombination, conditions, generateOutcomes]);
+  }, [conditions, generateOutcomes]);
 
   const applyConditions = useCallback(async (next: GeneratorConditions) => {
     generationToken.current += 1;
@@ -265,10 +266,6 @@ export function CombinationGeneratorScreen({
         });
       });
       nextOutcomes.forEach((item) => {
-        addCombination(item.numbers, 'ai', {
-          generationConditions,
-          generatorConditions: next,
-        });
         trackEvent('combination_generated', combinationAnalyticsParams(item.numbers, {
           condition_count: activeConditionCount(next),
           generation_mode: item.mode,
@@ -281,7 +278,11 @@ export function CombinationGeneratorScreen({
 
       const firstOutcome = nextOutcomes[0];
       if (!firstOutcome) return;
-      setNumbers(firstOutcome.numbers);
+      setNumbers(firstOutcome.numbers, {
+        generationConditions,
+        generatorConditions: next,
+        source: 'ai',
+      });
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -312,7 +313,6 @@ export function CombinationGeneratorScreen({
       }
     }
   }, [
-    addCombination,
     conditionOnly,
     gameCount,
     generateOutcomes,
@@ -324,17 +324,53 @@ export function CombinationGeneratorScreen({
     showResultAd,
   ]);
 
-  const analyzeOutcome = useCallback((selectedOutcome: GenerationOutcome | null) => {
-    if (!selectedOutcome) return;
-    setNumbers(selectedOutcome.numbers);
-    router.push({
-      pathname: COMBINATION_ANALYSIS_ROUTE,
-      params: {
-        analyze: `generator-${Date.now()}`,
-        returnTo: 'draw',
-      },
+  const analyzeOutcome = useCallback(async (selectedOutcome: GenerationOutcome | null) => {
+    if (!selectedOutcome || isOpeningAnalysis) return;
+    setIsOpeningAnalysis(true);
+    const requiresResultAd = productAccess.requiresAdForResults;
+    const eventParams = combinationAnalyticsParams(selectedOutcome.numbers, {
+      account_tier: productAccess.tier,
+      condition_count: activeConditionCount(conditions),
+      source: 'condition_generator_analysis',
     });
-  }, [setNumbers]);
+    try {
+      if (requiresResultAd) {
+        trackEvent('interstitial_ad_started', eventParams);
+        try {
+          const shown = await showResultAd();
+          trackEvent(shown ? 'interstitial_ad_completed' : 'interstitial_ad_failed', {
+            ...eventParams,
+            ...(!shown ? { reason: 'not_completed' } : {}),
+          });
+        } catch {
+          trackEvent('interstitial_ad_failed', { ...eventParams, reason: 'playback_error' });
+        }
+      }
+      if (!mountedRef.current) return;
+      setNumbers(selectedOutcome.numbers, {
+        generationConditions: describeGeneratorConditions(conditions),
+        generatorConditions: conditions,
+        source: 'ai',
+      });
+      router.push({
+        pathname: COMBINATION_ANALYSIS_ROUTE,
+        params: {
+          analyze: `generator-${Date.now()}`,
+          ...(requiresResultAd ? { accessMethod: 'interstitial' } : {}),
+          returnTo: 'draw',
+        },
+      });
+    } finally {
+      if (mountedRef.current) setIsOpeningAnalysis(false);
+    }
+  }, [
+    conditions,
+    isOpeningAnalysis,
+    productAccess.requiresAdForResults,
+    productAccess.tier,
+    setNumbers,
+    showResultAd,
+  ]);
 
   if (conditionOnly) {
     return (
@@ -352,6 +388,7 @@ export function CombinationGeneratorScreen({
             onRecommendationPromptDismiss={() => setRecommendationPromptVisible(false)}
             presentation="screen"
             recommendationPromptVisible={recommendationPromptVisible}
+            showProPromotion={proPlanEnabled}
             visible
           />
         ) : (
@@ -458,10 +495,10 @@ export function CombinationGeneratorScreen({
                   <View style={[styles.metric, styles.metricLast]}><Text style={styles.metricLabel}>A/C</Text><Text style={styles.metricValue}>{outcome.metrics.acValue}</Text></View>
                 </View>
                 <AppButton
-                  disabled={generating}
+                  disabled={generating || isOpeningAnalysis}
                   iconAfter={<Ionicons color="#FFFFFF" name="arrow-forward" size={18} />}
-                  label="조합 분석하기"
-                  onPress={() => analyzeOutcome(outcome)}
+                  label={isOpeningAnalysis ? '분석 여는 중' : '조합 분석하기'}
+                  onPress={() => void analyzeOutcome(outcome)}
                   style={styles.analysisButton}
                 />
               </>
@@ -471,7 +508,7 @@ export function CombinationGeneratorScreen({
                 <AppButton
                   disabled={generating}
                   iconAfter={generating ? <ActivityIndicator color="#FFFFFF" size="small" /> : undefined}
-                  label={generating ? '조합을 만들고 있어요' : '조합 만들기'}
+                  label={generating ? `${gameCount}게임 뽑는 중` : `${gameCount}게임 뽑기`}
                   onPress={handleGenerate}
                   style={styles.heroCreateButton}
                 />
@@ -485,8 +522,9 @@ export function CombinationGeneratorScreen({
                 <Pressable
                   accessibilityLabel={`${index + 2}게임 ${item.numbers.join(', ')}, 분석하기`}
                   accessibilityRole="button"
+                  disabled={isOpeningAnalysis}
                   key={`${item.numbers.join('-')}-${index}`}
-                  onPress={() => analyzeOutcome(item)}
+                  onPress={() => void analyzeOutcome(item)}
                   style={({ pressed }) => [styles.additionalResult, pressed && styles.pressed]}>
                   <Text style={styles.additionalIndex}>{String(index + 2).padStart(2, '0')}</Text>
                   <View style={styles.additionalNumberRow}>
@@ -538,7 +576,7 @@ export function CombinationGeneratorScreen({
               <AppButton
                 disabled={generating}
                 iconAfter={generating ? <ActivityIndicator color={colors.textPrimary} size="small" /> : undefined}
-                label={generating ? '다시 만들고 있어요' : '다시 만들기'}
+                label={generating ? '다시 뽑고 있어요' : '다시 뽑기'}
                 onPress={handleGenerate}
                 variant="secondary"
               />
@@ -567,6 +605,7 @@ export function CombinationGeneratorScreen({
           onApply={applyConditions}
           onClose={() => setSheetVisible(false)}
           onOpenPro={() => openPaywall('condition-ai-explanation')}
+          showProPromotion={proPlanEnabled}
           visible
         />
       ) : null}
@@ -597,7 +636,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   directConditionCancel: { minHeight: 44, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'center' },
   directConditionCancelText: { color: colors.textSecondary, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.huge },
-  eyebrow: { color: colors.textSecondary, fontSize: 9, letterSpacing: 1.6, marginBottom: spacing.sm },
+  eyebrow: { color: colors.textSecondary, fontSize: typography.sizes.caption, letterSpacing: 1.3, marginBottom: spacing.sm },
   headerConditionButton: { minWidth: 44, height: 44, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
   headerConditionCount: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },
   conditionBadge: { minHeight: 32, paddingHorizontal: spacing.md, borderRadius: radius.round, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, alignItems: 'center', justifyContent: 'center' },
@@ -621,7 +660,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   heroCreateButton: { marginTop: spacing.lg },
   additionalResults: { marginTop: spacing.md, overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.surface },
   additionalResult: { minHeight: 60, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
-  additionalIndex: { width: 28, color: colors.textSecondary, fontSize: 10, fontWeight: typography.weights.bold },
+  additionalIndex: { width: 28, color: colors.textSecondary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold },
   additionalNumberRow: { flex: 1, flexDirection: 'row', gap: 4 },
   additionalNumber: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: radius.round, borderWidth: 1, borderColor: colors.accentBorder, backgroundColor: colors.surfaceAccent },
   additionalNumberText: { color: colors.highlight, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, fontVariant: ['tabular-nums'] },

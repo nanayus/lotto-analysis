@@ -168,7 +168,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   summaryUnit: {
     color: colors.textSecondary,
-    fontSize: 10,
+    fontSize: typography.sizes.caption,
     marginTop: 2,
   },
   listHeading: {

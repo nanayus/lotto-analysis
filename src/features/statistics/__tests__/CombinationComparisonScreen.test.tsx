@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import lottoHistoryJson from '@/data/generated/lotto_history.json';
@@ -38,10 +38,10 @@ describe('CombinationComparisonScreen', () => {
       addCombination: jest.fn(() => undefined),
       canSave: true,
       combinations: savedCombinations,
+      deleteCombination: jest.fn(),
       isReady: true,
       storageMode: 'device',
       toggleFavorite: jest.fn(),
-      togglePurchased: jest.fn(),
     });
   });
 
@@ -54,6 +54,9 @@ describe('CombinationComparisonScreen', () => {
     expect(screen.queryByRole('button', { name: 'A와 B 순서 바꾸기' })).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: 'A 조합 선택' }));
+    await waitFor(() => expect(
+      screen.getByRole('tab', { name: '내 조합' }).props.accessibilityState.selected,
+    ).toBe(true));
     await waitFor(() => expect(screen.getByRole('button', {
       name: '직접 선택 1, 7, 12, 19, 34, 45를 A로 선택',
     })).toBeTruthy());
@@ -63,8 +66,9 @@ describe('CombinationComparisonScreen', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'A 조합 변경' })).toBeTruthy());
 
     fireEvent.press(screen.getByRole('button', { name: 'B 조합 선택' }));
-    await waitFor(() => expect(screen.getByRole('tab', { name: '당첨 회차' })).toBeTruthy());
-    fireEvent.press(screen.getByRole('tab', { name: '당첨 회차' }));
+    await waitFor(() => expect(
+      screen.getByRole('tab', { name: '당첨 회차' }).props.accessibilityState.selected,
+    ).toBe(true));
     await waitFor(() => expect(screen.getByRole('button', {
       name: `${latestRound}회 당첨번호를 B로 선택`,
     })).toBeTruthy());
@@ -79,18 +83,53 @@ describe('CombinationComparisonScreen', () => {
     await waitFor(() => expect(screen.getByText('핵심 비교')).toBeTruthy());
     expect(screen.getByText(`${latestRound}회 당첨번호`)).toBeTruthy();
     expect(screen.getByText('공통 번호 · 0개')).toBeTruthy();
-    expect(screen.getByText('같은 분석 조건에서 두 조합의 핵심 기록을 비교합니다.')).toBeTruthy();
+    expect(screen.getByText('비교 대상')).toBeTruthy();
+    expect(screen.getByText('분석 기준')).toBeTruthy();
+    expect(screen.getByText('같은 기준의 과거 기록을 A와 B로 나란히 보여줍니다.')).toBeTruthy();
+    expect(screen.getByText('과거 당첨 기록')).toBeTruthy();
     expect(screen.getByText('기간')).toBeTruthy();
     expect(screen.getByText('보너스')).toBeTruthy();
 
     const distributionDisclosure = screen.getByRole('button', {
-      name: '전체 회차 일치 분포, 본번호가 0–6개 일치한 회차 수, 보기',
-    });
-    expect(distributionDisclosure.props.accessibilityState.expanded).toBe(false);
-    fireEvent.press(distributionDisclosure);
-    await waitFor(() => expect(screen.getByRole('button', {
       name: '전체 회차 일치 분포, 본번호가 0–6개 일치한 회차 수, 접기',
-    }).props.accessibilityState.expanded).toBe(true));
+    });
+    expect(distributionDisclosure.props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByRole('button', {
+      name: '조합 형태, 홀짝, 합계와 7가지 세부 형태, 접기',
+    }).props.accessibilityState.expanded).toBe(true);
+
+    await act(async () => {
+      screen.getByTestId('comparison-subject-anchor').props.onLayout({
+        nativeEvent: { layout: { height: 220, width: 358, x: 0, y: 12 } },
+      });
+      screen.getByTestId('combination-comparison-scroll').props.onScroll({
+        nativeEvent: { contentOffset: { x: 0, y: 240 } },
+      });
+    });
+    expect(screen.getByTestId('comparison-sticky-subjects').props.accessibilityLabel)
+      .toContain('A 조합 1, 7, 12, 19, 34, 45');
+
+    await act(async () => {
+      screen.getByTestId('combination-comparison-scroll').props.onScroll({
+        nativeEvent: { contentOffset: { x: 0, y: 40 } },
+      });
+    });
+    expect(screen.queryByTestId('comparison-sticky-subjects')).toBeNull();
+
+    expect(screen.getByRole('button', {
+      name: '번호별 분석, 각 번호의 출현 횟수와 1–45 내 순위, 접기',
+    }).props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByTestId('number-comparison-columns')).toBeTruthy();
+    expect(screen.getByText('A 조합')).toBeTruthy();
+    expect(screen.getByText('B 조합')).toBeTruthy();
+    expect(screen.getAllByText('번호')).toHaveLength(2);
+
+    expect(screen.getByRole('button', {
+      name: '자주 나온 조합, 2–6개 부분 조합의 동시 출현 기록, 접기',
+    }).props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByTestId('sub-combination-comparison-columns')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '2개' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getAllByText('2개 조합 · TOP 3')).toHaveLength(2);
   });
 
   test('prevents choosing the same six numbers for both slots', async () => {
@@ -102,6 +141,8 @@ describe('CombinationComparisonScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: candidateLabel }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'A 조합 변경' })).toBeTruthy());
     fireEvent.press(screen.getByRole('button', { name: 'B 조합 선택' }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: '내 조합' })).toBeTruthy());
+    fireEvent.press(screen.getByRole('tab', { name: '내 조합' }));
 
     await waitFor(() => expect(screen.getByRole('button', {
       name: '직접 선택 1, 7, 12, 19, 34, 45를 B로 선택',

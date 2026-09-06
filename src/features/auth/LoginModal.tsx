@@ -70,7 +70,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.backdropStrong },
   sheet: { width: '100%', maxWidth: 500, alignSelf: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.huge, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: StyleSheet.hairlineWidth, borderBottomWidth: 0, borderColor: colors.divider, backgroundColor: colors.surface },
   handle: { width: 36, height: 4, alignSelf: 'center', marginBottom: spacing.xl, borderRadius: 2, backgroundColor: colors.divider },
-  eyebrow: { color: colors.accentPrimary, fontSize: 9, fontWeight: typography.weights.bold, letterSpacing: 1.8 },
+  eyebrow: { color: colors.accentPrimary, fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, letterSpacing: 1.4 },
   title: { marginTop: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.section, fontWeight: typography.weights.bold },
   description: { marginTop: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.body, lineHeight: 22 },
   buttons: { marginTop: spacing.xl, gap: spacing.sm },
@@ -83,5 +83,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   pressed: { opacity: 0.76 },
   progress: { marginTop: spacing.lg },
   error: { marginTop: spacing.md, color: colors.hot, fontSize: typography.sizes.small, textAlign: 'center' },
-  notice: { marginTop: spacing.lg, color: colors.textTertiary, fontSize: 10, lineHeight: 15, textAlign: 'center' },
+  notice: { marginTop: spacing.lg, color: colors.textTertiary, fontSize: typography.sizes.caption, lineHeight: 18, textAlign: 'center' },
 });

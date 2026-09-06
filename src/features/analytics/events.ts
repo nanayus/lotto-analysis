@@ -3,7 +3,6 @@ export type AnalyticsValue = string | number | boolean;
 export type AnalyticsParams = Record<string, AnalyticsValue | null | undefined>;
 
 export type AnalyticsEventName =
-  | 'analysis_gate_viewed'
   | 'analysis_requested'
   | 'analysis_result_interaction'
   | 'analysis_result_viewed'

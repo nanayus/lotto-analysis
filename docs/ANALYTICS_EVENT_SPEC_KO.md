@@ -7,7 +7,7 @@ GA4 측정 ID는 `G-0C2D8KS9Q8`을 사용한다. 분석은 사용자를 감시�
 1. 사용자는 어느 화면에서 가장 많이 이탈하는가?
 2. 랜덤조합과 조건조합 중 무엇을 더 많이 사용하는가?
 3. 조합을 만든 사용자가 실제 분석 결과까지 보는가?
-4. 광고 안내를 본 사용자가 광고를 끝까지 보고 결과를 확인하는가?
+4. 분석을 요청한 사용자가 전면광고를 거쳐 결과를 확인하는가?
 5. 로그인 및 Pro 안내가 어느 위치에서 가장 효과적인가?
 6. 어떤 번호·형태의 조합이 자주 생성되고 분석되는가?
 7. 사용자가 조건 조합에서 어떤 조건을 가장 많이 사용하는가?
@@ -23,7 +23,6 @@ GA4 측정 ID는 `G-0C2D8KS9Q8`을 사용한다. 분석은 사용자를 감시�
 screen_view (조합 생성/선택 화면)
 → combination_generated (자동 생성인 경우)
 → analysis_requested
-→ analysis_gate_viewed (무료 사용자)
 → interstitial_ad_started
 → interstitial_ad_completed
 → analysis_result_viewed
@@ -64,7 +63,6 @@ paywall_viewed
 | `combination_generated` | 랜덤·조건 조합 생성 완료 | `source`, `game_count`, `condition_count`, `generation_mode`, 조합 지표 |
 | `generator_condition_used` | 조건이 적용된 조합 생성 완료. 한 생성 요청에서 활성 조건별 1회 | `condition_key`, `condition_count`, `source` |
 | `analysis_requested` | 6개 번호 분석을 확정 | `source`, `account_tier`, 조합 지표 |
-| `analysis_gate_viewed` | 광고 또는 Pro 선택 화면 노출 | `source`, `account_tier`, 조합 지표 |
 | `interstitial_ad_started` | 결과 진입 전 전면광고 요청 | `source`, `account_tier`, 조합 지표 |
 | `interstitial_ad_completed` | 전면광고 닫힘 확인 | `source`, `account_tier`, 조합 지표 |
 | `interstitial_ad_failed` | 광고 로드·표시 오류 | 위 항목 + `reason` |

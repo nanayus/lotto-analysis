@@ -14,11 +14,13 @@ describe('ReleaseNotesScreen', () => {
   it('shows all screen-by-screen changes to every viewer', async () => {
     const view = await render(<ReleaseNotesScreen />);
 
+    expect(view.getByText('버전 1.0.2 · 추가 업데이트 2')).toBeTruthy();
     expect(view.getByText('버전 1.0.2 · 추가 업데이트')).toBeTruthy();
     expect(view.getByText('버전 1.0.2')).toBeTruthy();
     expect(view.getByText(/추가로 수정된 내역을 별도 버전 번호/)).toBeTruthy();
     expect(view.getByText('버전 1.0.0')).toBeTruthy();
     expect(view.getAllByText('번호뽑기 홈')).toHaveLength(3);
+    expect(view.getByText(/축소 요약에 분석 기간과 보너스 포함 여부/)).toBeTruthy();
     expect(view.getAllByText('환경설정')).toHaveLength(2);
     expect(view.getByText(/당첨번호 공의 가독성을 높였습니다/)).toBeTruthy();
 
